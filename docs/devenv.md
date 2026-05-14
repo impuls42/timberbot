@@ -190,7 +190,7 @@ curl -fsSL https://opencode.ai/install | bash
 
 ### Configure
 
-Point your agent runner at the relevant file in `agents/`. The Beaver Developer prompt (`agents/beaver-developer.md`) is tuned for working on this codebase itself; the others target gameplay roles.
+Point your agent runner at the relevant file in `python/src/tbot/agent_prompts/` (or at the editable copies created by `tbot init` in your user config dir). The Beaver Developer prompt (`beaver-developer.md`) is tuned for working on this codebase itself; the others target gameplay roles.
 
 ---
 

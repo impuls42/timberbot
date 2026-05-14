@@ -36,6 +36,10 @@ from tbot.cli.dispatcher import (
     public_method_names,
 )
 
+# Built-in subcommands route their own argv (they own the rest after the name).
+# Anything not in this set falls through to TimberbotClient method dispatch.
+_BUILTIN_COMMANDS = {"top", "manager", "launch", "agent", "init"}
+
 
 def _ensure_utf8_stdout() -> None:
     """Reconfigure stdout to UTF-8 so emoji/box-drawing chars render on Windows."""
@@ -47,6 +51,7 @@ def _ensure_utf8_stdout() -> None:
 def _build_registry() -> CommandRegistry:
     """Construct the registry with all built-in subcommands."""
     from tbot.cli.commands import agent as agent_cmd
+    from tbot.cli.commands import init_cmd
     from tbot.cli.commands import launch as launch_cmd
     from tbot.cli.commands import manager as manager_cmd
     from tbot.cli.commands import top as top_cmd
@@ -74,10 +79,16 @@ def _build_registry() -> CommandRegistry:
         usage="  launch settlement:<name> [save:<filename>] [timeout:120]",
     ))
     registry.register(Command(
-        name="start",
-        summary="start the built-in interactive agent",
+        name="agent",
+        summary="launch an AI agent (run / list-backends / prompts)",
         handler=agent_cmd.run,
-        usage="  start binary:claude [turns:5] [model:MODEL] [interval:10] [timeout:120] [goal:STR]",
+        usage='  agent run --goal STR [--backend NAME] [--model M] [--effort E] ...',
+    ))
+    registry.register(Command(
+        name="init",
+        summary="materialize agent prompts into the user config dir",
+        handler=init_cmd.run,
+        usage="  init [--force] [--list]",
     ))
     return registry
 
@@ -96,7 +107,7 @@ def _print_help_index(registry: CommandRegistry) -> None:
             print(f"    {usage.strip()}")
     print()
     for name, cmd in registry.items():
-        if name in {"top", "manager", "launch", "start"}:
+        if name in _BUILTIN_COMMANDS:
             print(f"  {name:30s} {cmd.summary}")
 
 
@@ -202,7 +213,7 @@ def main(argv: list[str] | None = None) -> int:
         return _print_method_help(method_name)
 
     cmd = registry.get(method_name)
-    if cmd is not None and method_name in {"top", "manager", "launch", "start"}:
+    if cmd is not None and method_name in _BUILTIN_COMMANDS:
         # Built-in subcommand owns its own argv handling.
         return cmd.handler(rest)
 

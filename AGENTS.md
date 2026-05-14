@@ -92,7 +92,7 @@ timberbot/
 ### Documentation
 - `docs/timberbot.md` is the primary AI agent guide — always read first.
 - `docs/api-reference.md` is the definitive API contract — never improvise endpoint details.
-- `agents/timberbot.md` is injected as system prompt into AI agents at runtime.
+- `python/src/tbot/agent_prompts/timberbot.md` is the system prompt shipped as `tbot` package data and injected at runtime by `tbot agent run`.
 
 ## Game DLL Paths
 

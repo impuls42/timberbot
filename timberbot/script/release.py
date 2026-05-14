@@ -1,7 +1,11 @@
-"""Build, package, and optionally release Timberbot.
+"""Build, package, and optionally release the Timberbot Steam Workshop mod.
+
+The PR 2 rework removed `timberbot.py` and the agent prompts from the mod ZIP.
+The Python client is now an independent package (`pip install tbot`); the mod
+ZIP carries only the DLL, manifest, thumbnail, settings.json, and docs.
 
 Usage:
-    python release.py            build + package ZIP
+    python release.py            build + package the mod ZIP
     python release.py --release  build + package + tag + GitHub release
 """
 
@@ -20,8 +24,6 @@ DIST_DIR = os.path.join(ROOT, "dist")
 MOD_DIR = os.path.join(str(Path.home()), "Documents", "Timberborn", "Mods", "Timberbot")
 MANIFEST = os.path.join(SRC_DIR, "manifest.json")
 DLL_PATH = os.path.join(SRC_DIR, "bin", "Release", "netstandard2.1", "Timberbot.dll")
-SCRIPT = os.path.join(SCRIPT_DIR, "timberbot.py")
-AGENT = os.path.join(ROOT, ".opencode", "agents", "timberbot.md")
 
 
 def run(cmd, **kwargs):
@@ -42,11 +44,6 @@ def remove_path(path):
         print(f"  ! warning: could not remove {path}: {ex}")
 
 
-def clean_dir_contents(path):
-    for name in os.listdir(path):
-        remove_path(os.path.join(path, name))
-
-
 def clean_mod_dir():
     if not os.path.isdir(MOD_DIR):
         return
@@ -54,12 +51,7 @@ def clean_mod_dir():
     for name in os.listdir(MOD_DIR):
         if name in PRESERVE_MOD_FILES:
             continue
-
-        path = os.path.join(MOD_DIR, name)
-        if name == "skill" and os.path.isdir(path):
-            clean_dir_contents(path)
-            continue
-        remove_path(path)
+        remove_path(os.path.join(MOD_DIR, name))
 
 
 def main():
@@ -97,7 +89,7 @@ def main():
         shutil.rmtree(DIST_DIR)
     os.makedirs(DIST_DIR)
 
-    # mod zip (DLL + manifest + thumbnail + python client + runtime prompt + docs)
+    # mod zip: DLL + manifest + thumbnail + settings + docs
     zip_name = f"TimberbotAPI-v{version}.zip"
     zip_path = os.path.join(DIST_DIR, zip_name)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -106,13 +98,12 @@ def main():
         thumb = os.path.join(SRC_DIR, "thumbnail.png")
         if os.path.exists(thumb):
             zf.write(thumb, "thumbnail.png")
-        zf.write(SCRIPT, "timberbot.py")
-        zf.write(AGENT, "agents/timberbot.md")
-        # include docs
+        zf.write(settings_path, "settings.json")
         docs_dir = os.path.join(ROOT, "docs")
-        for doc in os.listdir(docs_dir):
-            if doc.endswith((".md", ".txt")):
-                zf.write(os.path.join(docs_dir, doc), f"docs/{doc}")
+        if os.path.isdir(docs_dir):
+            for doc in os.listdir(docs_dir):
+                if doc.endswith((".md", ".txt")):
+                    zf.write(os.path.join(docs_dir, doc), f"docs/{doc}")
 
     print(f"packaged: dist/{zip_name}")
 

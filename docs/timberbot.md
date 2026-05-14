@@ -7,7 +7,7 @@ version: "0.8.5"
 
 This is the full Timberbot Guide for playing Timberborn through `timberbot.py`.
 
-`agents/timberbot.md` is the Timberbot agent: the slim runtime prompt injected at launch. This page is the full guide behind that prompt. The split keeps launch tokens low while preserving the deeper operating rules and reference material the agent may need.
+The `timberbot` agent prompt (shipped as `tbot.agent_prompts.timberbot` and materialized via `tbot init`) is the slim runtime prompt injected at launch. This page is the full guide behind that prompt. The split keeps launch tokens low while preserving the deeper operating rules and reference material the agent may need.
 
 Read this first. Use the other docs only when needed:
 
