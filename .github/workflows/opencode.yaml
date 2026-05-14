@@ -26,6 +26,6 @@ jobs:
       - name: Run opencode
         uses: anomalyco/opencode/github@latest
         env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          OPENCODE_AUTH_CONTENT: '{"opencode-go":{"type":"api","key":"${{ secrets.OPENCODE_API_KEY }}"}}'
         with:
           model: opencode-go/glm-5.1
