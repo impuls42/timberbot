@@ -60,6 +60,7 @@ extra:
       link: https://github.com/abix-/TimberbornMods
       name: Upstream (abix-/TimberbornMods)
 nav:
+  - Home: index.md
   - Getting Started: getting-started.md
   - API Reference: api-reference.md
   - Timberbot Guide: timberbot.md
