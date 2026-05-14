@@ -550,15 +550,27 @@ namespace Timberbot
 
             for (int i = 0; i < buildings.Count; i++)
                 if (buildings.Definitions[i].Id == id)
-                    return ValidateBuilding(id, buildings, i, Service.ReadV2.TrackedBuildings[i]);
+                {
+                    TimberbotReadV2.TrackedBuildingRef match = null;
+                    foreach (var t in Service.ReadV2.TrackedBuildings) if (t.Id == id) { match = t; break; }
+                    return match != null ? ValidateBuilding(id, buildings, i, match) : _jw.Error("tracked_not_found", ("id", id));
+                }
 
             for (int i = 0; i < beavers.Count; i++)
                 if (beavers.Definitions[i].Id == id)
-                    return ValidateBeaver(id, beavers, i, Service.ReadV2.TrackedBeavers[i]);
+                {
+                    TimberbotReadV2.TrackedBeaverRef match = null;
+                    foreach (var t in Service.ReadV2.TrackedBeavers) if (t.Definition.Id == id) { match = t; break; }
+                    return match != null ? ValidateBeaver(id, beavers, i, match) : _jw.Error("tracked_not_found", ("id", id));
+                }
 
             for (int i = 0; i < natural.Count; i++)
                 if (natural.Definitions[i].Id == id)
-                    return ValidateNaturalResource(id, natural, i, Service.ReadV2.TrackedNaturalResources[i]);
+                {
+                    TimberbotReadV2.TrackedNaturalResourceRef match = null;
+                    foreach (var t in Service.ReadV2.TrackedNaturalResources) if (t.Definition.Id == id) { match = t; break; }
+                    return match != null ? ValidateNaturalResource(id, natural, i, match) : _jw.Error("tracked_not_found", ("id", id));
+                }
 
             return _jw.Error("not_found", ("id", id));
         }
@@ -573,12 +585,32 @@ namespace Timberbot
             var failures = new List<object>();
             int totalEntities = 0, totalFields = 0, totalMismatches = 0;
 
+            var trackB = new Dictionary<int, TimberbotReadV2.TrackedBuildingRef>();
+            foreach (var t in Service.ReadV2.TrackedBuildings) trackB[t.Id] = t;
             for (int i = 0; i < buildings.Count; i++)
-                Accumulate(ValidateBuilding(buildings.Definitions[i].Id, buildings, i, Service.ReadV2.TrackedBuildings[i]), failures, ref totalEntities, ref totalFields, ref totalMismatches);
+            {
+                var id = buildings.Definitions[i].Id;
+                if (trackB.TryGetValue(id, out var t))
+                    Accumulate(ValidateBuilding(id, buildings, i, t), failures, ref totalEntities, ref totalFields, ref totalMismatches);
+            }
+
+            var trackBeav = new Dictionary<int, TimberbotReadV2.TrackedBeaverRef>();
+            foreach (var t in Service.ReadV2.TrackedBeavers) trackBeav[t.Definition.Id] = t;
             for (int i = 0; i < beavers.Count; i++)
-                Accumulate(ValidateBeaver(beavers.Definitions[i].Id, beavers, i, Service.ReadV2.TrackedBeavers[i]), failures, ref totalEntities, ref totalFields, ref totalMismatches);
+            {
+                var id = beavers.Definitions[i].Id;
+                if (trackBeav.TryGetValue(id, out var t))
+                    Accumulate(ValidateBeaver(id, beavers, i, t), failures, ref totalEntities, ref totalFields, ref totalMismatches);
+            }
+
+            var trackNat = new Dictionary<int, TimberbotReadV2.TrackedNaturalResourceRef>();
+            foreach (var t in Service.ReadV2.TrackedNaturalResources) trackNat[t.Definition.Id] = t;
             for (int i = 0; i < natural.Count; i++)
-                Accumulate(ValidateNaturalResource(natural.Definitions[i].Id, natural, i, Service.ReadV2.TrackedNaturalResources[i]), failures, ref totalEntities, ref totalFields, ref totalMismatches);
+            {
+                var id = natural.Definitions[i].Id;
+                if (trackNat.TryGetValue(id, out var t))
+                    Accumulate(ValidateNaturalResource(id, natural, i, t), failures, ref totalEntities, ref totalFields, ref totalMismatches);
+            }
 
             var liveDistricts = new Dictionary<string, (int adults, int children, int bots)>();
             foreach (var dc in Service.ReadV2.DebugDistrictRegistry.AllDistrictCenters)

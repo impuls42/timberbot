@@ -5,6 +5,8 @@ obj/
 .vs/
 __pycache__/
 timberbot/test-results/
+timberbot/src/.local/
+timberbot/src/Library/
 *.pyc
 *.egg-info/
 dist/
@@ -16,3 +18,4 @@ site/
 .test-baselines/
 docs/reachability-investigation.md
 .claude/
+venv/

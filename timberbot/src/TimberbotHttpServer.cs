@@ -454,7 +454,8 @@ namespace Timberbot
                 "/api/planting/mark", "/api/planting/find", "/api/planting/clear",
                 "/api/cutting/area", "/api/building/storage",
                 "/api/science/unlock", "/api/distribution", "/api/workhours",
-                "/api/district/migrate", "/api/webhooks", "/api/webhooks/delete"
+                "/api/district/migrate", "/api/webhooks", "/api/webhooks/delete",
+                "/api/automation/link", "/api/automation/unlink", "/api/automation/configure", "/api/automation/rename"
             }));
         }
 
@@ -504,8 +505,24 @@ namespace Timberbot
                     return _service.DebugTool.CreateBenchmarkJob(req.Body?.Value<int>("iterations") ?? 100);
                 }),
                 Queued("/api/path/place", req => _service.Placement.CreateRoutePathJob(req.Body?.Value<int>("x1") ?? 0, req.Body?.Value<int>("y1") ?? 0, req.Body?.Value<int>("x2") ?? 0, req.Body?.Value<int>("y2") ?? 0, req.Body?.Value<string>("style") ?? "direct", req.Body?.Value<int>("sections") ?? 0, req.Body?.Value<bool?>("timings") ?? false, req.QueuedAtTicks, req.QueuedAtFrame)),
-                Queued("/api/placement/find", req => _service.Placement.CreateFindPlacementJob(req.Body?.Value<string>("prefab") ?? "", req.Body?.Value<int>("x1") ?? 0, req.Body?.Value<int>("y1") ?? 0, req.Body?.Value<int>("x2") ?? 0, req.Body?.Value<int>("y2") ?? 0, req.Format)),
+                Queued("/api/placement/find", req => {
+                    int x1 = req.Body?.Value<int>("x1") ?? 0;
+                    int y1 = req.Body?.Value<int>("y1") ?? 0;
+                    int x2 = req.Body?.Value<int>("x2") ?? 0;
+                    int y2 = req.Body?.Value<int>("y2") ?? 0;
+                    var cx = req.Body?.Value<int?>("x");
+                    var cy = req.Body?.Value<int?>("y");
+                    if (x1 == 0 && x2 == 0 && y1 == 0 && y2 == 0 && cx.HasValue && cy.HasValue) {
+                        int r = req.Body?.Value<int?>("radius") ?? TimberbotService.DefaultSearchRadius;
+                        x1 = cx.Value - r; x2 = cx.Value + r; y1 = cy.Value - r; y2 = cy.Value + r;
+                    }
+                    return _service.Placement.CreateFindPlacementJob(req.Body?.Value<string>("prefab") ?? "", x1, y1, x2, y2, req.Format);
+                }),
                 Queued("/api/building/place", req => new LambdaWriteJob(req.Route, () => _service.Placement.PlaceBuilding(req.Body?.Value<string>("prefab") ?? "", req.Body?.Value<int>("x") ?? 0, req.Body?.Value<int>("y") ?? 0, req.Body?.Value<int>("z") ?? 0, req.Body?.Value<string>("orientation") ?? "south").ToJson(_service.Placement.Jw))),
+                Queued("/api/automation/link", req => new LambdaWriteJob(req.Route, () => _service.Write.LinkAutomation(req.Body?.Value<int>("sourceId") ?? 0, req.Body?.Value<int>("targetId") ?? 0, req.Body?.Value<string>("input") ?? "a"))),
+                Queued("/api/automation/unlink", req => new LambdaWriteJob(req.Route, () => _service.Write.UnlinkAutomation(req.Body?.Value<int>("id") ?? 0, req.Body?.Value<string>("input") ?? "a"))),
+                Queued("/api/automation/configure", req => new LambdaWriteJob(req.Route, () => _service.Write.ConfigureAutomation(req.Body?.Value<int>("id") ?? 0, req.Body?.Value<string>("property") ?? "", req.Body?.Value<string>("value") ?? ""))),
+                Queued("/api/automation/rename", req => new LambdaWriteJob(req.Route, () => _service.Write.RenameEntity(req.Body?.Value<int>("id") ?? 0, req.Body?.Value<string>("name") ?? ""))),
             };
 
             var result = new Dictionary<string, PostRouteDescriptor>(System.StringComparer.Ordinal);

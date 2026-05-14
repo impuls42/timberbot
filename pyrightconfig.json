@@ -1,0 +1,18 @@
+{
+  "include": ["timberbot/script"],
+  "extraPaths": ["timberbot/script"],
+  "reportAny": false,
+  "reportExplicitAny": false,
+  "reportUnknownMemberType": false,
+  "reportUnknownVariableType": false,
+  "reportUnknownArgumentType": false,
+  "reportUnknownLambdaType": false,
+  "reportUnknownParameterType": false,
+  "reportMissingParameterType": false,
+  "reportUnannotatedClassAttribute": false,
+  "reportUnnecessaryIsInstance": false,
+  "reportUnusedCallResult": false,
+  "reportPrivateUsage": false,
+  "reportUnusedFunction": false,
+  "reportImplicitStringConcatenation": false
+}

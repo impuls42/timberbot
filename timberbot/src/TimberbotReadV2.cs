@@ -106,6 +106,8 @@ using Timberborn.Wellbeing;
 using Timberborn.Wonders;
 using Timberborn.WorkSystem;
 using Timberborn.Workshops;
+using Timberborn.Automation;
+using Timberborn.AutomationBuildings;
 using UnityEngine;
 
 namespace Timberbot
@@ -147,12 +149,10 @@ namespace Timberbot
         // Each ProjectionSnapshot holds the capture buffers and published snapshot
         // for one entity type. ValueStores do the same for singleton endpoints.
         private readonly TimberbotJw _jw = new TimberbotJw(300000);
-        private readonly ProjectionSnapshot<BuildingDefinition, BuildingState, BuildingDetailState> _snapshot
-            = new ProjectionSnapshot<BuildingDefinition, BuildingState, BuildingDetailState>();
-        private readonly ProjectionSnapshot<BeaverDefinition, BeaverState, BeaverDetailState> _beaverSnapshot
-            = new ProjectionSnapshot<BeaverDefinition, BeaverState, BeaverDetailState>();
-        private readonly ProjectionSnapshot<NaturalResourceDefinition, NaturalResourceState, NoDetail> _naturalResourceSnapshot
-            = new ProjectionSnapshot<NaturalResourceDefinition, NaturalResourceState, NoDetail>();
+        private readonly TimberbotJw _configJw = new TimberbotJw(1024);
+        private readonly ProjectionSnapshot<BuildingDefinition, BuildingState, BuildingDetailState> _snapshot;
+        private readonly ProjectionSnapshot<BeaverDefinition, BeaverState, BeaverDetailState> _beaverSnapshot;
+        private readonly ProjectionSnapshot<NaturalResourceDefinition, NaturalResourceState, NoDetail> _naturalResourceSnapshot;
         private readonly CollectionRoute<BuildingDefinition, BuildingState, BuildingDetailState> _buildingsEndpoint;
         private readonly CollectionRoute<BeaverDefinition, BeaverState, BeaverDetailState> _beaversEndpoint;
         private readonly CollectionRoute<NaturalResourceDefinition, NaturalResourceState, NoDetail> _treesEndpoint;
@@ -267,6 +267,11 @@ namespace Timberbot
             _districtCenterRegistry = districtCenterRegistry;
             _factionNeedService = factionNeedService;
             _notificationSaver = notificationSaver;
+
+            _snapshot = new ProjectionSnapshot<BuildingDefinition, BuildingState, BuildingDetailState>(new BuildingCollectionSchema());
+            _beaverSnapshot = new ProjectionSnapshot<BeaverDefinition, BeaverState, BeaverDetailState>(new BeaverCollectionSchema());
+            _naturalResourceSnapshot = new ProjectionSnapshot<NaturalResourceDefinition, NaturalResourceState, NoDetail>(new TreeCollectionSchema());
+
             _buildingsEndpoint = new CollectionRoute<BuildingDefinition, BuildingState, BuildingDetailState>(
                 _jw,
                 (fullDetail, timeoutMs) => _snapshot.RequestFresh(fullDetail, timeoutMs),
@@ -473,6 +478,10 @@ namespace Timberbot
             _cachedBeaverNeeds = _factionNeedService.GetBeaverNeeds().ToArray();
         }
 
+        public void InvalidateBuildings() => _snapshot.Invalidate();
+        public void InvalidateBeavers() => _beaverSnapshot.Invalidate();
+        public void InvalidateNaturalResources() => _naturalResourceSnapshot.Invalidate();
+
         // Called every frame from UpdateSingleton(). Checks if any snapshot has
         // waiting readers, and if so, captures live state into DTO buffers.
         // Respects a time budget (~1ms) so the game stays smooth. if budget is
@@ -573,6 +582,7 @@ namespace Timberbot
             int totalVacancies = 0, assignedWorkers = 0;
             float totalWellbeing = 0f;
             int beaverCount = 0;
+            int organicBeaverCount = 0;
             _alertCounts.Clear();
             var alertCounts = _alertCounts;
             int miserable = 0, critical = 0;
@@ -676,14 +686,22 @@ namespace Timberbot
                 var d = beaverSnapshot.Definitions[i];
                 var c = beaverSnapshot.States[i];
                 var detailState = beaverSnapshot.Details?[i];
-                totalWellbeing += c.Wellbeing;
                 beaverCount++;
-                if (c.Wellbeing < 4) miserable++;
-                if (c.AnyCritical != 0) critical++;
+                if (d.IsBot == 0) {
+                    totalWellbeing += c.Wellbeing;
+                    organicBeaverCount++;
+                    if (c.Wellbeing < 4) miserable++;
+                    if (c.AnyCritical != 0) critical++;
+                }
                 var bDist = c.District ?? "_unknown";
                 if (!districtWb.TryGetValue(bDist, out var dw)) { dw = new float[4]; districtWb[bDist] = dw; }
-                dw[0] += c.Wellbeing; dw[1]++; if (c.Wellbeing < 4) dw[2]++; if (c.AnyCritical != 0) dw[3]++;
-                if (detailState?.Needs != null)
+                if (d.IsBot == 0) {
+                    dw[0] += c.Wellbeing;
+                    dw[1]++;
+                    if (c.Wellbeing < 4) dw[2]++;
+                    if (c.AnyCritical != 0) dw[3]++;
+                }
+                if (d.IsBot == 0 && detailState?.Needs != null)
                     foreach (var n in detailState.Needs)
                         if (needToGroup.ContainsKey(n.Id))
                             wbGroupTotals[needToGroup[n.Id]] = wbGroupTotals.GetValueOrDefault(needToGroup[n.Id]) + n.Wellbeing;
@@ -692,9 +710,10 @@ namespace Timberbot
             int totalAdults = 0, totalChildren = 0, totalBots = 0;
             foreach (var dc in districts)
             { totalAdults += dc.Adults; totalChildren += dc.Children; totalBots += dc.Bots; }
-            int homeless = Math.Max(0, beaverCount - occupiedBeds);
+            int organicTotal = organicBeaverCount;
+            int homeless = Math.Max(0, organicTotal - occupiedBeds);
             int unemployed = Math.Max(0, totalAdults - assignedWorkers);
-            float avgWellbeing = beaverCount > 0 ? totalWellbeing / beaverCount : 0;
+            float avgWellbeing = organicBeaverCount > 0 ? totalWellbeing / organicBeaverCount : 0;
             int currentSpeed = Array.IndexOf(SpeedScale, (int)_speedManager.CurrentSpeed);
             if (currentSpeed < 0) currentSpeed = 0;
 
@@ -744,7 +763,7 @@ namespace Timberbot
                 jj.Arr("categories");
                 foreach (var kv in groupMaxPerBeaver)
                 {
-                    float avg = beaverCount > 0 ? wbGroupTotals.GetValueOrDefault(kv.Key) / beaverCount : 0;
+                    float avg = organicBeaverCount > 0 ? wbGroupTotals.GetValueOrDefault(kv.Key) / organicBeaverCount : 0;
                     float max = kv.Value;
                     jj.OpenObj().Prop("group", kv.Key).Prop("current", (float)Math.Round(avg, 1), "F1").Prop("max", (float)Math.Round(max, 1), "F1").CloseObj();
                 }
@@ -802,14 +821,13 @@ namespace Timberbot
             jw.Prop("bots", totalBots);
             foreach (var kvp in resourceTotals)
                 jw.Key(kvp.Key).Int(kvp.Value);
-            int totalPop = beaverCount;
-            if (totalPop > 0)
+            if (organicTotal > 0)
             {
-                jw.Prop("foodDays", (float)((double)totalFood / totalPop), "F1");
-                jw.Prop("waterDays", (float)((double)totalWater / (totalPop * 2.0)), "F1");
-                jw.Prop("logDays", (float)((double)logStock / totalPop), "F1");
-                jw.Prop("plankDays", (float)((double)plankStock / totalPop), "F1");
-                jw.Prop("gearDays", (float)((double)gearStock / totalPop), "F1");
+                jw.Prop("foodDays", (float)((double)totalFood / organicTotal), "F1");
+                jw.Prop("waterDays", (float)((double)totalWater / (organicTotal * 2.0)), "F1");
+                jw.Prop("logDays", (float)((double)logStock / organicTotal), "F1");
+                jw.Prop("plankDays", (float)((double)plankStock / organicTotal), "F1");
+                jw.Prop("gearDays", (float)((double)gearStock / organicTotal), "F1");
             }
             jw.Prop("beds", $"{occupiedBeds}/{totalBeds}");
             jw.Prop("homeless", homeless);
@@ -1036,6 +1054,8 @@ namespace Timberbot
                         needToGroup[ns.Id] = kvp.Key;
                 for (int i = 0; i < beavers.Count; i++)
                 {
+                    var d = beavers.Definitions[i];
+                    if (d.IsBot != 0) continue;
                     var detailState = beavers.Details?[i];
                     if (detailState?.Needs == null) continue;
                     beaverCount++;
@@ -1416,7 +1436,7 @@ namespace Timberbot
             for (int i = 0; i < count; i++)
             {
                 var detail = buffer.Details[i];
-                detail.InventoryToon = ToToonDict(detail.Inventory);
+                detail.InventoryToon = TimberbotPure.ToToonDict(detail.Inventory);
                 var sb = new StringBuilder(128);
                 for (int ri = 0; ri < detail.Recipes.Count; ri++)
                 {
@@ -1526,7 +1546,7 @@ namespace Timberbot
             }
         }
 
-        private static void RefreshState(BuildingState s, TrackedBuildingRef t)
+        private void RefreshState(BuildingState s, TrackedBuildingRef t)
         {
             var bo = t.BlockObject;
             s.Finished = bo != null && bo.IsFinished ? 1 : 0;
@@ -1636,6 +1656,159 @@ namespace Timberbot
                 }
                 catch (Exception ex) { TimberbotLog.Error("readv2.status", ex); }
             }
+            RefreshAutomationState(s, t);
+        }
+
+        private void RefreshAutomationState(BuildingState s, TrackedBuildingRef t)
+        {
+            s.HasAutomator = t.Automator != null ? 1 : 0;
+            s.IsTransmitter = t.Automator != null && t.Automator.IsTransmitter ? 1 : 0;
+            try { s.AutomatorState = t.Automator != null ? t.Automator.State.ToString() : ""; } catch { s.AutomatorState = "Off"; }
+            
+            try { s.IsAutomated = t.Automatable != null && t.Automatable.IsAutomated ? 1 : 0; } catch { s.IsAutomated = 0; }
+
+            try { s.InputName = t.Automatable?.Input?.AutomatorName ?? ""; } catch { s.InputName = ""; }
+
+            s.AutomatorName = t.Automator?.AutomatorName ?? "";
+            s.AutomationType = TimberbotPure.DetermineAutomationType(
+                t.Relay != null, t.Memory != null, t.Lever != null, t.Chronometer != null,
+                t.DepthSensor != null, t.ContaminationSensor != null, t.FlowSensor != null,
+                t.ResourceCounter != null, t.PopulationCounter != null, t.PowerMeter != null,
+                t.Automatable != null);
+            
+            try { s.AutomationConfig = DetermineAutomationConfig(t); }
+            catch { s.AutomationConfig = "{}"; }
+
+            try { s.AutomationInputsJson = DetermineAutomationInputs(t); }
+            catch { s.AutomationInputsJson = "[]"; }
+
+            try { s.AutomationOutputsJson = DetermineAutomationOutputs(t); }
+            catch { s.AutomationOutputsJson = "[]"; }
+        }
+
+        private string DetermineAutomationInputs(TrackedBuildingRef t)
+        {
+            _configJw.Reset().BeginArr();
+            bool has = false;
+
+            void AddInput(string key, Automator aut)
+            {
+                if (aut == null) return;
+                var ec = aut.GetComponent<EntityComponent>();
+                if (ec == null) return;
+                _configJw.BeginObj()
+                    .Prop("key", key)
+                    .Prop("id", _cache.GetLegacyId(ec))
+                    .Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name))
+                    .CloseObj();
+                has = true;
+            }
+
+            if (t.Relay != null)
+            {
+                AddInput("a", t.Relay.InputA);
+                AddInput("b", t.Relay.InputB);
+            }
+            else if (t.Memory != null)
+            {
+                AddInput("a", t.Memory.InputA);
+                AddInput("b", t.Memory.InputB);
+                AddInput("reset", t.Memory.ResetInput);
+            }
+            else if (t.Automatable != null)
+            {
+                AddInput("input", t.Automatable.Input);
+            }
+
+            return has ? _configJw.CloseArr().ToString() : "[]";
+        }
+
+        private string DetermineAutomationOutputs(TrackedBuildingRef t)
+        {
+            if (t.Automator == null) return "[]";
+
+            _configJw.Reset().BeginArr();
+            bool has = false;
+            foreach (var conn in t.Automator.OutputConnections)
+            {
+                if (conn?.Receiver != null)
+                {
+                    var ec = conn.Receiver.GetComponent<EntityComponent>();
+                    if (ec != null)
+                    {
+                        _configJw.BeginObj()
+                            .Prop("id", _cache.GetLegacyId(ec))
+                            .Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name))
+                            .CloseObj();
+                        has = true;
+                    }
+                }
+            }
+            return has ? _configJw.CloseArr().ToString() : "[]";
+        }
+
+        private string DetermineAutomationConfig(TrackedBuildingRef t)
+        {
+            try
+            {
+                if (t.DepthSensor != null)
+                    return _configJw.Reset().BeginObj()
+                        .Prop("threshold", t.DepthSensor.Threshold)
+                        .Prop("mode", t.DepthSensor.Mode.ToString())
+                        .CloseObj().ToString();
+                if (t.ContaminationSensor != null)
+                    return _configJw.Reset().BeginObj()
+                        .Prop("threshold", t.ContaminationSensor.Threshold)
+                        .Prop("mode", t.ContaminationSensor.Mode.ToString())
+                        .CloseObj().ToString();
+                if (t.FlowSensor != null)
+                    return _configJw.Reset().BeginObj()
+                        .Prop("threshold", t.FlowSensor.Threshold)
+                        .Prop("mode", t.FlowSensor.Mode.ToString())
+                        .CloseObj().ToString();
+                if (t.ResourceCounter != null)
+                    return _configJw.Reset().BeginObj()
+                        .Prop("goodId", t.ResourceCounter.GoodId)
+                        .Prop("threshold", t.ResourceCounter.Threshold)
+                        .Prop("fillRateThreshold", t.ResourceCounter.FillRateThreshold)
+                        .Prop("mode", t.ResourceCounter.Mode.ToString())
+                        .Prop("comparisonMode", t.ResourceCounter.ComparisonMode.ToString())
+                        .CloseObj().ToString();
+                if (t.PopulationCounter != null)
+                    return _configJw.Reset().BeginObj()
+                        .Prop("threshold", t.PopulationCounter.Threshold)
+                        .Prop("mode", t.PopulationCounter.Mode.ToString())
+                        .Prop("comparisonMode", t.PopulationCounter.ComparisonMode.ToString())
+                        .CloseObj().ToString();
+                if (t.PowerMeter != null)
+                    return _configJw.Reset().BeginObj()
+                        .Prop("mode", t.PowerMeter.Mode.ToString())
+                        .Prop("intThreshold", t.PowerMeter.IntThreshold)
+                        .Prop("percentThreshold", t.PowerMeter.PercentThreshold)
+                        .Prop("comparisonMode", t.PowerMeter.ComparisonMode.ToString())
+                        .CloseObj().ToString();
+                if (t.Relay != null)
+                    return _configJw.Reset().BeginObj()
+                        .Prop("mode", t.Relay.Mode.ToString())
+                        .CloseObj().ToString();
+                if (t.Memory != null)
+                    return _configJw.Reset().BeginObj()
+                        .Prop("mode", t.Memory.Mode.ToString())
+                        .CloseObj().ToString();
+                if (t.Chronometer != null)
+                    return _configJw.Reset().BeginObj()
+                        .Prop("startTime", t.Chronometer.StartTime)
+                        .Prop("endTime", t.Chronometer.EndTime)
+                        .Prop("mode", t.Chronometer.Mode.ToString())
+                        .CloseObj().ToString();
+                if (t.Lever != null)
+                    return _configJw.Reset().BeginObj()
+                        .Prop("springReturn", t.Lever.IsSpringReturn)
+                        .Prop("pinned", t.Lever.IsPinned)
+                        .CloseObj().ToString();
+            }
+            catch { }
+            return "{}";
         }
 
         private void RefreshDetail(BuildingDetailState d, TrackedBuildingRef t)
@@ -1678,21 +1851,10 @@ namespace Timberbot
                 }
                 catch (Exception ex) { TimberbotLog.Error("readv2.nutrients", ex); }
             }
-        }
-
-        private string ToToonDict(Dictionary<string, int> dict)
-        {
-            if (dict.Count == 0) return "";
-            var sb = new StringBuilder(256);
-            foreach (var kvp in dict)
-            {
-                if (sb.Length > 0) sb.Append('/');
-                sb.Append(kvp.Key).Append(':').Append(kvp.Value);
             }
-            return sb.ToString();
-        }
 
-        private static void RefreshState(BeaverState s, TrackedBeaverRef t)
+            private static void RefreshState(BeaverState s, TrackedBeaverRef t)
+
         {
             if (t.WbTracker != null)
                 s.Wellbeing = t.WbTracker.Wellbeing;
@@ -1744,11 +1906,14 @@ namespace Timberbot
                 {
                     var need = t.NeedMgr.GetNeed(ns.Id);
                     if (need.IsCritical)
+                    {
                         s.Critical = s.Critical.Length > 0 ? s.Critical + "+" + ns.Id : ns.Id;
-                    else if (!need.IsFavorable && need.IsActive)
-                        s.Unmet = s.Unmet.Length > 0 ? s.Unmet + "+" + ns.Id : ns.Id;
-                    if (need.IsBelowWarningThreshold)
                         s.AnyCritical = 1;
+                    }
+                    else if (!need.IsFavorable && need.IsActive)
+                    {
+                        s.Unmet = s.Unmet.Length > 0 ? s.Unmet + "+" + ns.Id : ns.Id;
+                    }
                 }
             }
         }
@@ -1862,16 +2027,6 @@ namespace Timberbot
             return districts;
         }
 
-        private static bool PassesFilter(string entityName, int entityX, int entityY,
-            string filterName, int filterX, int filterY, int filterRadius)
-        {
-            if (filterName != null && entityName.IndexOf(filterName, StringComparison.OrdinalIgnoreCase) < 0)
-                return false;
-            if (filterRadius > 0 && (Math.Abs(entityX - filterX) + Math.Abs(entityY - filterY)) > filterRadius)
-                return false;
-            return true;
-        }
-
         private void WriteClustersFiltered(TimberbotJw jw, string key,
             ProjectionSnapshot<NaturalResourceDefinition, NaturalResourceState, NoDetail>.Snapshot snapshot,
             bool treesOnly,
@@ -1950,6 +2105,18 @@ namespace Timberbot
                 DistrictBuilding = ec.GetComponent<DistrictBuilding>(),
                 StoragePriority = ec.GetComponent<StockpilePriority>(),
                 GoodAllower = ec.GetComponent<SingleGoodAllower>(),
+                Automator = ec.GetComponent<Automator>(),
+                Automatable = ec.GetComponent<Automatable>(),
+                DepthSensor = ec.GetComponent<DepthSensor>(),
+                ContaminationSensor = ec.GetComponent<ContaminationSensor>(),
+                FlowSensor = ec.GetComponent<FlowSensor>(),
+                ResourceCounter = ec.GetComponent<ResourceCounter>(),
+                PopulationCounter = ec.GetComponent<PopulationCounter>(),
+                PowerMeter = ec.GetComponent<PowerMeter>(),
+                Relay = ec.GetComponent<Relay>(),
+                Memory = ec.GetComponent<Memory>(),
+                Lever = ec.GetComponent<Lever>(),
+                Chronometer = ec.GetComponent<Chronometer>(),
             };
 
             var def = new BuildingDefinition
@@ -2200,6 +2367,18 @@ namespace Timberbot
             public StockpilePriority StoragePriority;
             public SingleGoodAllower GoodAllower;
             public BuildingDefinition Definition;
+            public Automator Automator;
+            public Automatable Automatable;
+            public DepthSensor DepthSensor;
+            public ContaminationSensor ContaminationSensor;
+            public FlowSensor FlowSensor;
+            public ResourceCounter ResourceCounter;
+            public PopulationCounter PopulationCounter;
+            public PowerMeter PowerMeter;
+            public Relay Relay;
+            public Memory Memory;
+            public Lever Lever;
+            public Chronometer Chronometer;
         }
 
         internal sealed class TrackedBeaverRef
@@ -2280,6 +2459,15 @@ namespace Timberbot
             public int Stock, Capacity;
             public string StorageMode, AllowedGood;
             public string[] StatusAlerts;
+            public int HasAutomator, IsTransmitter;
+            public string AutomatorState;
+            public int IsAutomated;
+            public string InputName;
+            public string AutomatorName;
+            public string AutomationType;
+            public string AutomationConfig;
+            public string AutomationInputsJson;
+            public string AutomationOutputsJson;
         }
 
         internal sealed class BuildingDetailState
@@ -2352,7 +2540,7 @@ namespace Timberbot
             public string ResourcesJson;
         }
 
-        private interface ICollectionSchema<TDef, TState, TDetail>
+        internal interface ICollectionSchema<TDef, TState, TDetail>
         {
             int GetId(TDef def);
             string GetName(TDef def);
@@ -2360,45 +2548,6 @@ namespace Timberbot
             int GetY(TDef def, TState state);
             bool IncludeRow(TDef def, TState state);
             void WriteRow(TimberbotJw jw, string format, bool fullDetail, TDef def, TState state, TDetail detail);
-        }
-
-        private sealed class CollectionQuery
-        {
-            public string Format;
-            public int? SingleId;
-            public int Limit;
-            public int Offset;
-            public string FilterName;
-            public int FilterX;
-            public int FilterY;
-            public int FilterRadius;
-            public bool HasFilter;
-            public bool Paginated;
-            public bool NeedsFullDetail;
-
-            public static CollectionQuery Parse(string format, string detail, int id, int limit, int offset, string filterName, int filterX, int filterY, int filterRadius)
-            {
-                int? singleId = id != 0 ? id : (int?)null;
-                if (!singleId.HasValue && !string.IsNullOrEmpty(detail) && detail.StartsWith("id:", StringComparison.Ordinal))
-                {
-                    if (int.TryParse(detail.Substring(3), out int parsed))
-                        singleId = parsed;
-                }
-                return new CollectionQuery
-                {
-                    Format = format ?? "toon",
-                    SingleId = singleId,
-                    Limit = limit,
-                    Offset = offset,
-                    FilterName = filterName,
-                    FilterX = filterX,
-                    FilterY = filterY,
-                    FilterRadius = filterRadius,
-                    HasFilter = filterName != null || filterRadius > 0,
-                    Paginated = limit > 0 && !singleId.HasValue,
-                    NeedsFullDetail = detail == "full" || singleId.HasValue
-                };
-            }
         }
 
         // =====================================================================
@@ -2436,8 +2585,9 @@ namespace Timberbot
             private readonly Buffer _bufB = new Buffer();
             private Buffer _writeBuf;
             private Snapshot _published = Snapshot.Empty;
-            private bool _structureDirty = true;
+
             private int _sequence;
+            private int _writeBarrier;
             private bool _captureInProgress;
             private bool _finalizeInProgress;
             private Buffer _captureBuf;
@@ -2448,10 +2598,12 @@ namespace Timberbot
             private readonly List<Waiter> _activeWaiters = new List<Waiter>();
             private double _lastCaptureMs;
             private double _lastFinalizeMs;
+            private readonly ICollectionSchema<TDef, TState, TDetail> _schema;
 
-            public ProjectionSnapshot()
+            internal ProjectionSnapshot(ICollectionSchema<TDef, TState, TDetail> schema)
             {
                 _writeBuf = _bufA;
+                _schema = schema;
             }
 
             public int Sequence => _sequence;
@@ -2462,7 +2614,16 @@ namespace Timberbot
             public double LastFinalizeMs => _lastFinalizeMs;
             public int PendingWaiterCount { get { lock (_lock) return _waiters.Count + _activeWaiters.Count; } }
             public bool InFlight { get { lock (_lock) return _captureInProgress || _finalizeInProgress; } }
-            public void MarkDirty() => _structureDirty = true;
+            public void MarkDirty() { _bufA.StructureDirty = true; _bufB.StructureDirty = true; }
+
+            public void Invalidate()
+            {
+                lock (_lock)
+                {
+                    _refreshRequested = true;
+                    _writeBarrier = _sequence + (_captureInProgress || _finalizeInProgress ? 1 : 0);
+                }
+            }
 
             public void ProcessPendingCapture(
                 float now,
@@ -2508,9 +2669,8 @@ namespace Timberbot
                 try
                 {
                     var sw = Stopwatch.StartNew();
-                    if (startingCapture && _structureDirty)
+                    if (startingCapture)
                     {
-                        _structureDirty = false;
                         captureBuf.EnsureCapacity(captureCount);
                         for (int di = 0; di < captureCount; di++)
                             captureBuf.Definitions[di] = getDef(di);
@@ -2539,8 +2699,6 @@ namespace Timberbot
                         _captureInProgress = false;
                         _finalizeInProgress = true;
                         _writeBuf = ReferenceEquals(captureBuf, _bufA) ? _bufB : _bufA;
-                        if (_writeBuf.Length < captureCount)
-                            _structureDirty = true;
                     }
                 }
                 catch (Exception ex)
@@ -2566,6 +2724,7 @@ namespace Timberbot
                 enqueueFinalize(() =>
                 {
                     var finalizeSw = Stopwatch.StartNew();
+                    SortBuffer(captureBuf, captureCount);
                     finalizeBuffer?.Invoke(captureBuf, captureCount, fullDetail);
                     List<Waiter> wakeBatch;
                     lock (_lock)
@@ -2589,24 +2748,61 @@ namespace Timberbot
                 });
             }
 
+            private void SortBuffer(Buffer buf, int count)
+            {
+                if (count <= 1) return;
+                var indices = new int[count];
+                for (int i = 0; i < count; i++) indices[i] = i;
+                Array.Sort(indices, (a, b) => _schema.GetId(buf.Definitions[a]).CompareTo(_schema.GetId(buf.Definitions[b])));
+
+                var newDefs = new TDef[buf.Definitions.Length];
+                var newStates = new TState[buf.States.Length];
+                var newDetails = new TDetail[buf.Details.Length];
+                for (int i = 0; i < count; i++)
+                {
+                    int oldIdx = indices[i];
+                    newDefs[i] = buf.Definitions[oldIdx];
+                    newStates[i] = buf.States[oldIdx];
+                    newDetails[i] = buf.Details[oldIdx];
+                }
+                for (int i = count; i < buf.Definitions.Length; i++)
+                {
+                    newStates[i] = buf.States[i];
+                    newDetails[i] = buf.Details[i];
+                }
+                buf.Definitions = newDefs;
+                buf.States = newStates;
+                buf.Details = newDetails;
+            }
+
             public Snapshot RequestFresh(bool fullDetail, int timeoutMs)
             {
-                var waiter = new Waiter();
+                int targetSeq;
                 lock (_lock)
                 {
                     _refreshRequested = true;
                     if (fullDetail) _fullRequested = true;
-                    _waiters.Add(waiter);
+                    targetSeq = Math.Max(_sequence + 1, _writeBarrier + 1);
                 }
 
-                if (!waiter.Signal.Wait(timeoutMs))
+                var sw = Stopwatch.StartNew();
+                while (true)
                 {
-                    lock (_lock) _waiters.Remove(waiter);
-                    throw new TimeoutException();
+                    var waiter = new Waiter();
+                    lock (_lock)
+                    {
+                        if (_sequence >= targetSeq) return _published;
+                        _waiters.Add(waiter);
+                    }
+                    if (!waiter.Signal.Wait(Math.Max(0, timeoutMs - (int)sw.ElapsedMilliseconds)))
+                    {
+                        lock (_lock) _waiters.Remove(waiter);
+                        throw new TimeoutException();
+                    }
+                    if (_sequence >= targetSeq) return _published;
+                    if (sw.ElapsedMilliseconds >= timeoutMs) throw new TimeoutException();
                 }
-                return _published;
             }
-
             public Snapshot PublishNow(float now, int count, GetDefinition getDef, RefreshState refreshState, RefreshDetail refreshDetail = null, FinalizeBuffer finalizeBuffer = null)
             {
                 Publish(count, getDef, refreshState, refreshDetail, now, finalizeBuffer);
@@ -2617,13 +2813,9 @@ namespace Timberbot
             {
                 var buf = _writeBuf;
                 var captureSw = Stopwatch.StartNew();
-                if (_structureDirty)
-                {
-                    _structureDirty = false;
-                    buf.EnsureCapacity(count);
-                    for (int i = 0; i < count; i++)
-                        buf.Definitions[i] = getDef(i);
-                }
+                buf.EnsureCapacity(count);
+                for (int i = 0; i < count; i++)
+                    buf.Definitions[i] = getDef(i);
 
                 for (int i = 0; i < count; i++)
                 {
@@ -2645,8 +2837,6 @@ namespace Timberbot
                 };
                 _sequence++;
                 _writeBuf = ReferenceEquals(buf, _bufA) ? _bufB : _bufA;
-                if (_writeBuf.Length < count)
-                    _structureDirty = true;
             }
 
             public sealed class Snapshot
@@ -2678,19 +2868,23 @@ namespace Timberbot
                 public TState[] States = Array.Empty<TState>();
                 public TDetail[] Details = Array.Empty<TDetail>();
                 public int Length;
+                public bool StructureDirty = true;
 
                 public void EnsureCapacity(int count)
                 {
-                    if (count <= Length) { Length = count; return; }
-                    int capacity = Math.Max(count, Length * 2);
+                    if (count <= Definitions.Length) { Length = count; return; }
+                    int capacity = Math.Max(count, Math.Max(32, Definitions.Length * 2));
                     var newDefs = new TDef[capacity];
                     var newStates = new TState[capacity];
                     var newDetails = new TDetail[capacity];
-                    int copyCount = Math.Min(Length, count);
-                    Array.Copy(Definitions, newDefs, copyCount);
-                    Array.Copy(States, newStates, copyCount);
-                    Array.Copy(Details, newDetails, copyCount);
-                    for (int i = copyCount; i < capacity; i++)
+                    int oldLen = Definitions.Length;
+                    if (oldLen > 0)
+                    {
+                        Array.Copy(Definitions, newDefs, oldLen);
+                        Array.Copy(States, newStates, oldLen);
+                        Array.Copy(Details, newDetails, oldLen);
+                    }
+                    for (int i = oldLen; i < capacity; i++)
                     {
                         newStates[i] = new TState();
                         newDetails[i] = new TDetail();
@@ -2728,7 +2922,7 @@ namespace Timberbot
 
             public object Collect(string format, string detail, int id, int limit, int offset, string filterName, int filterX, int filterY, int filterRadius)
             {
-                var query = CollectionQuery.Parse(format, detail, id, limit, offset, filterName, filterX, filterY, filterRadius);
+                var query = PureCollectionQuery.Parse(format, detail, id, limit, offset, filterName, filterX, filterY, filterRadius);
                 ProjectionSnapshot<TDef, TState, TDetail>.Snapshot snapshot;
                 try { snapshot = _snapshotProvider(query.NeedsFullDetail, 2000); }
                 catch (TimeoutException) { return _jw.Error("refresh_timeout: server is building a fresh snapshot, retry in 1s"); }
@@ -2762,18 +2956,11 @@ namespace Timberbot
                 return jw.ToString();
             }
 
-            private bool ShouldInclude(CollectionQuery query, TDef def, TState state)
+            private bool ShouldInclude(PureCollectionQuery query, TDef def, TState state)
             {
                 if (!_schema.IncludeRow(def, state)) return false;
                 if (query.SingleId.HasValue && _schema.GetId(def) != query.SingleId.Value) return false;
-                var name = _schema.GetName(def) ?? "";
-                var x = _schema.GetX(def, state);
-                var y = _schema.GetY(def, state);
-                if (query.FilterName != null && name.IndexOf(query.FilterName, StringComparison.OrdinalIgnoreCase) < 0)
-                    return false;
-                if (query.FilterRadius > 0 && (Math.Abs(x - query.FilterX) + Math.Abs(y - query.FilterY)) > query.FilterRadius)
-                    return false;
-                return true;
+                return TimberbotPure.PassesFilter(_schema.GetName(def), _schema.GetX(def, state), _schema.GetY(def, state), query.FilterName, query.FilterX, query.FilterY, query.FilterRadius);
             }
         }
 
@@ -2840,7 +3027,19 @@ namespace Timberbot
                     .Prop("effectRadius", d.EffectRadius)
                     .Prop("isWonder", d.HasWonder)
                     .Prop("wonderActive", s.WonderActive)
-                    .Prop("alerts", s.StatusAlerts != null && s.StatusAlerts.Length > 0 ? string.Join(",", s.StatusAlerts) : "");
+                    .Prop("alerts", s.StatusAlerts != null && s.StatusAlerts.Length > 0 ? string.Join(",", s.StatusAlerts) : "")
+                    .Obj("automation")
+                        .Prop("hasAutomator", s.HasAutomator)
+                        .Prop("isTransmitter", s.IsTransmitter)
+                        .Prop("state", s.AutomatorState ?? "")
+                        .Prop("isAutomated", s.IsAutomated)
+                        .Prop("inputName", s.InputName ?? "")
+                        .Prop("automatorName", s.AutomatorName ?? "")
+                        .Prop("type", s.AutomationType ?? "")
+                        .RawProp("config", string.IsNullOrEmpty(s.AutomationConfig) ? "{}" : s.AutomationConfig)
+                        .RawProp("inputs", string.IsNullOrEmpty(s.AutomationInputsJson) ? "[]" : s.AutomationInputsJson)
+                        .RawProp("outputs", string.IsNullOrEmpty(s.AutomationOutputsJson) ? "[]" : s.AutomationOutputsJson)
+                    .CloseObj();
 
                 if (format == "toon")
                 {
@@ -2883,9 +3082,7 @@ namespace Timberbot
 
                 if (!fullDetail)
                 {
-                    float wb = s.Wellbeing;
-                    string tier = wb >= 16 ? "ecstatic" : wb >= 12 ? "happy" : wb >= 8 ? "okay" : wb >= 4 ? "unhappy" : "miserable";
-                    jw.Prop("tier", tier)
+                    jw.Prop("tier", TimberbotPure.GetBeaverTier(s.Wellbeing, d.IsBot != 0))
                         .Prop("workplace", s.Workplace ?? "")
                         .Prop("critical", s.Critical ?? "")
                         .Prop("unmet", s.Unmet ?? "")

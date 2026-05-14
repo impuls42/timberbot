@@ -17,6 +17,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Timberborn.EntitySystem;
 using Timberborn.BuilderPrioritySystem;
 using Timberborn.Buildings;
@@ -37,6 +38,7 @@ using Timberborn.ScienceSystem;
 using Timberborn.NotificationSystem;
 using Timberborn.PowerManagement;
 using Timberborn.SoilContaminationSystem;
+using Timberborn.EntityNaming;
 using Timberborn.Hauling;
 using Timberborn.Workshops;
 using Timberborn.Fields;
@@ -48,6 +50,8 @@ using Timberborn.GameFactionSystem;
 using Timberborn.StockpilePrioritySystem;
 using Timberborn.Emptying;
 using UnityEngine;
+using Timberborn.Automation;
+using Timberborn.AutomationBuildings;
 
 namespace Timberbot
 {
@@ -87,6 +91,9 @@ namespace Timberbot
         private readonly WorkingHoursManager _workingHoursManager;
         private readonly PopulationDistributorRetriever _populationDistributorRetriever;
         private readonly TimberbotEntityRegistry _cache;
+        private readonly TimberbotReadV2 _readv2;
+        public bool InGameLoggingEnabled = true;
+        public event System.Action<string> OnActionLog;
 
         public TimberbotWrite(
             ITerrainService terrainService,
@@ -110,7 +117,8 @@ namespace Timberbot
             DistrictCenterRegistry districtCenterRegistry,
             WorkingHoursManager workingHoursManager,
             PopulationDistributorRetriever populationDistributorRetriever,
-            TimberbotEntityRegistry cache)
+            TimberbotEntityRegistry cache,
+            TimberbotReadV2 readv2)
         {
             _terrainService = terrainService;
             _waterMap = waterMap;
@@ -134,6 +142,13 @@ namespace Timberbot
             _workingHoursManager = workingHoursManager;
             _populationDistributorRetriever = populationDistributorRetriever;
             _cache = cache;
+            _readv2 = readv2;
+        }
+        
+        private void PostLog(string msg)
+        {
+            if (!InGameLoggingEnabled) return;
+            OnActionLog?.Invoke(msg);
         }
 
         private static readonly int[] SpeedScale = TimberbotReadV2.SpeedScale;
@@ -161,6 +176,7 @@ namespace Timberbot
                 return _jw.Error("invalid_param: speed must be 0-3 (0=pause, 1=normal, 2=fast, 3=fastest). run: timberbot.py set_speed speed:1", ("got", speed));
 
             _speedManager.ChangeSpeed(SpeedScale[speed]);
+            PostLog($"Set game speed to {speed}");
             return _jw.Result(("speed", speed));
         }
 
@@ -170,6 +186,7 @@ namespace Timberbot
             if (endHours < 1 || endHours > 24)
                 return _jw.Error("invalid_param: endHours must be 1-24 (hour when work stops, default 18). run: timberbot.py set_workhours end_hours:18", ("got", endHours));
             _workingHoursManager.WorkedPartOfDay = (endHours - _workingHoursManager._startHours) / 24f;
+            PostLog($"Set working hours to end at {endHours}:00");
             return _jw.Result(("endHours", (_workingHoursManager.EndHours)));
         }
 
@@ -194,6 +211,7 @@ namespace Timberbot
                 if (toMove <= 0)
                     return _jw.Error("no_population: no beavers available to migrate in this district. run: timberbot.py beavers to check population", ("from", fromDistrict), ("available", available), ("requested", count));
                 distributor.MigrateTo(toDc, toMove);
+                PostLog($"Migrated {toMove} beavers from {fromDistrict} to {toDistrict}");
                 return _jw.Result(("from", fromDistrict), ("to", toDistrict), ("migrated", toMove));
             }
             catch (System.Exception ex)
@@ -208,7 +226,7 @@ namespace Timberbot
         {
             var ec = _cache.FindEntity(buildingId);
             if (ec == null)
-                return _jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", buildingId));
+                return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
 
             var pausable = ec.GetComponent<PausableBuilding>();
             if (pausable == null)
@@ -218,6 +236,8 @@ namespace Timberbot
                 pausable.Pause();
             else
                 pausable.Resume();
+            _readv2.InvalidateBuildings();
+            PostLog($"{(paused ? "Paused" : "Resumed")} building {buildingId} ({TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)})");
             return _jw.BeginObj().Prop("id", buildingId).Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)).Prop("paused", pausable.Paused).CloseObj().ToString();
         }
 
@@ -226,13 +246,14 @@ namespace Timberbot
         {
             var ec = _cache.FindEntity(buildingId);
             if (ec == null)
-                return _jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", buildingId));
+                return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
 
             var clutch = ec.GetComponent<Clutch>();
             if (clutch == null)
                 return _jw.Error("invalid_type: no clutch. only power-consuming buildings have clutches. run: timberbot.py buildings to find buildings with clutches", ("id", buildingId), ("name", N(ec)));
 
             clutch.SetMode(engaged ? ClutchMode.Engaged : ClutchMode.Disengaged);
+            PostLog($"{(engaged ? "Engaged" : "Disengaged")} clutch on {buildingId}");
             return _jw.BeginObj().Prop("id", buildingId).Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)).Prop("engaged", clutch.IsEngaged).CloseObj().ToString();
         }
 
@@ -241,7 +262,7 @@ namespace Timberbot
         {
             var ec = _cache.FindEntity(buildingId);
             if (ec == null)
-                return _jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", buildingId));
+                return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
 
             var floodgate = ec.GetComponent<Floodgate>();
             if (floodgate == null)
@@ -249,6 +270,7 @@ namespace Timberbot
 
             var clamped = Mathf.Clamp(height, 0f, floodgate.MaxHeight);
             floodgate.SetHeightAndSynchronize(clamped);
+            PostLog($"Set floodgate {buildingId} to {floodgate.Height:F1}");
             return _jw.Result(("id", buildingId), ("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)), ("height", floodgate.Height), ("maxHeight", floodgate.MaxHeight));
         }
 
@@ -262,30 +284,32 @@ namespace Timberbot
         {
             var ec = _cache.FindEntity(buildingId);
             if (ec == null)
-                return _jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", buildingId));
+                return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
 
             if (!Enum.TryParse<Priority>(priorityStr, true, out var parsed))
                 return _jw.Error("invalid_param: priority must be one of: VeryLow, Low, Normal, High, VeryHigh. run: timberbot.py set_priority id:N priority:Normal", ("got", priorityStr));
 
-            // construction priority: affects how fast builders deliver materials
-            if (type == "construction" || string.IsNullOrEmpty(type))
+            var bo = ec.GetComponent<Timberborn.BlockSystem.BlockObject>();
+            bool finished = bo == null || bo.IsFinished;
+            var wpPrio = ec.GetComponent<WorkplacePriority>();
+            var builderPrio = ec.GetComponent<BuilderPrioritizable>();
+
+            if (string.IsNullOrEmpty(type))
             {
-                var prio = ec.GetComponent<BuilderPrioritizable>();
-                if (prio != null)
-                {
-                    prio.SetPriority(parsed);
-                    return _jw.BeginObj().Prop("id", buildingId).Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)).Prop("constructionPriority", prio.Priority.ToString()).CloseObj().ToString();
-                }
+                type = TimberbotPure.DeterminePriorityToSet(finished, wpPrio != null, builderPrio != null);
             }
 
-            if (type == "workplace" || string.IsNullOrEmpty(type))
+            if (type == "workplace" && wpPrio != null)
             {
-                var wpPrio = ec.GetComponent<WorkplacePriority>();
-                if (wpPrio != null)
-                {
-                    wpPrio.SetPriority(parsed);
-                    return _jw.BeginObj().Prop("id", buildingId).Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)).Prop("workplacePriority", wpPrio.Priority.ToString()).CloseObj().ToString();
-                }
+                wpPrio.SetPriority(parsed);
+                PostLog($"Set workplace priority of {buildingId} to {parsed}");
+                return _jw.Result(("id", buildingId), ("name", N(ec)), ("workplacePriority", wpPrio.Priority.ToString()));
+            }
+            if (type == "construction" && builderPrio != null)
+            {
+                builderPrio.SetPriority(parsed);
+                PostLog($"Set construction priority of {buildingId} to {parsed}");
+                return _jw.Result(("id", buildingId), ("name", N(ec)), ("constructionPriority", builderPrio.Priority.ToString()));
             }
 
             return _jw.Error("invalid_type: no priority of that type. type must be 'construction' or 'workplace', or omit for auto-detect. run: timberbot.py set_priority id:N priority:Normal", ("id", buildingId), ("name", N(ec)), ("type", type));
@@ -296,13 +320,14 @@ namespace Timberbot
         {
             var ec = _cache.FindEntity(buildingId);
             if (ec == null)
-                return _jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", buildingId));
+                return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
 
             var hp = ec.GetComponent<HaulPrioritizable>();
             if (hp == null)
                 return _jw.Error("invalid_type: no haul priority. only buildings with inventories support haul priority. run: timberbot.py buildings to find storage/workshop buildings", ("id", buildingId), ("name", N(ec)));
 
             hp.Prioritized = prioritized;
+            PostLog($"{(prioritized ? "Prioritized" : "Unprioritized")} hauling for {buildingId}");
             return _jw.BeginObj().Prop("id", buildingId).Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)).Prop("haulPrioritized", hp.Prioritized).CloseObj().ToString();
         }
 
@@ -315,7 +340,7 @@ namespace Timberbot
         {
             var ec = _cache.FindEntity(buildingId);
             if (ec == null)
-                return _jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", buildingId));
+                return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
 
             var manufactory = ec.GetComponent<Manufactory>();
             if (manufactory == null)
@@ -328,6 +353,7 @@ namespace Timberbot
                 try
                 {
                     manufactory.SetRecipe(null);
+                    PostLog($"Cleared recipe for {buildingId}");
                     return _jw.BeginObj().Prop("id", buildingId).Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)).Prop("recipe", "none").CloseObj().ToString();
                 }
                 catch (System.Exception ex)
@@ -350,6 +376,7 @@ namespace Timberbot
             try
             {
                 manufactory.SetRecipe(recipe);
+                PostLog($"Set recipe for building {buildingId} to {recipe.Id}");
                 return _jw.BeginObj().Prop("id", buildingId).Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)).Prop("recipe", recipe.Id).CloseObj().ToString();
             }
             catch (System.Exception ex)
@@ -364,7 +391,7 @@ namespace Timberbot
         {
             var ec = _cache.FindEntity(buildingId);
             if (ec == null)
-                return _jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", buildingId));
+                return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
 
             var farmhouse = ec.GetComponent<FarmHouse>();
             if (farmhouse == null)
@@ -373,11 +400,13 @@ namespace Timberbot
             if (action == "planting")
             {
                 farmhouse.PrioritizePlanting();
+                PostLog($"Set farmhouse {buildingId} mode to: Planting");
                 return _jw.BeginObj().Prop("id", buildingId).Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)).Prop("action", "planting").CloseObj().ToString();
             }
             else if (action == "harvesting" || action == "none")
             {
                 farmhouse.UnprioritizePlanting();
+                PostLog($"Set farmhouse {buildingId} mode to: Default");
                 return _jw.BeginObj().Prop("id", buildingId).Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)).Prop("action", "default").CloseObj().ToString();
             }
 
@@ -389,7 +418,7 @@ namespace Timberbot
         {
             var ec = _cache.FindEntity(buildingId);
             if (ec == null)
-                return _jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", buildingId));
+                return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
 
             var prioritizer = ec.GetComponent<PlantablePrioritizer>();
             if (prioritizer == null)
@@ -398,6 +427,7 @@ namespace Timberbot
             if (string.IsNullOrEmpty(plantableName) || plantableName == "none")
             {
                 prioritizer.PrioritizePlantable(null);
+                PostLog($"Cleared prioritized plantable for {buildingId}");
                 return _jw.BeginObj().Prop("id", buildingId).Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)).Prop("prioritized", "none").CloseObj().ToString();
             }
 
@@ -418,6 +448,8 @@ namespace Timberbot
                 return _jw.Error("not_found: plantable not in this building's list. run: timberbot.py buildings id:N detail:full to see available plantables", ("plantableName", plantableName), ("available", available));
 
             prioritizer.PrioritizePlantable(match);
+            _readv2.InvalidateBuildings();
+            PostLog($"Set prioritized plantable for {buildingId} to {match.TemplateName}");
             return _jw.BeginObj().Prop("id", buildingId).Prop("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)).Prop("prioritized", match.TemplateName).CloseObj().ToString();
         }
 
@@ -430,14 +462,16 @@ namespace Timberbot
         {
             var ec = _cache.FindEntity(buildingId);
             if (ec == null)
-                return _jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", buildingId));
+                return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
 
             var workplace = ec.GetComponent<Workplace>();
             if (workplace == null)
                 return _jw.Error("invalid_type: not a workplace. only staffed buildings (lumberjacks, farms, etc) have workers. run: timberbot.py buildings to find staffed buildings", ("id", buildingId), ("name", N(ec)));
 
-            var clamped = Mathf.Clamp(count, 1, workplace.MaxWorkers);
+            var clamped = Mathf.Clamp(count, 0, workplace.MaxWorkers);
             workplace.SetDesiredWorkers(clamped);
+            _readv2.InvalidateBuildings();
+            PostLog($"Set desired workers for {buildingId} to {clamped}");
             return _jw.Result(("id", buildingId), ("name", TimberbotEntityRegistry.CanonicalName(ec.GameObject.name)), ("desiredWorkers", workplace.DesiredWorkers), ("maxWorkers", workplace.MaxWorkers), ("assignedWorkers", workplace.NumberOfAssignedWorkers));
         }
 
@@ -464,6 +498,8 @@ namespace Timberbot
                 _treeCuttingArea.AddCoordinates(coords);
             else
                 _treeCuttingArea.RemoveCoordinates(coords);
+            _readv2.InvalidateNaturalResources();
+            PostLog($"{(marked ? "Marked" : "Unmarked")} {coords.Count} tiles for tree cutting");
 
             return new
             {
@@ -482,7 +518,7 @@ namespace Timberbot
         {
             var ec = _cache.FindEntity(buildingId);
             if (ec == null)
-                return _jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", buildingId));
+                return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
 
             var sp = ec.GetComponent<StockpilePriority>();
             if (sp == null)
@@ -519,6 +555,8 @@ namespace Timberbot
             var sga2 = ec.GetComponent<SingleGoodAllower>();
             var currentGood = sga2 != null && sga2.HasAllowedGood ? sga2.AllowedGood : "";
             var currentMode = sp.IsEmptyActive ? "empty" : sp.IsObtainActive ? "obtain" : sp.IsSupplyActive ? "supply" : "accept";
+            _readv2.InvalidateBuildings();
+            PostLog($"Configured storage {buildingId}: mode={currentMode}, good={currentGood}");
             return _jw.Result(("id", buildingId), ("name", name), ("good", currentGood), ("mode", currentMode));
         }
 
@@ -551,6 +589,7 @@ namespace Timberbot
                 _plantingService.SetPlantingCoordinates(c, crop);
                 planted++;
             }
+            PostLog($"Marked {planted} tiles for planting {crop} (skipped {skipped})");
 
             return new
             {
@@ -584,7 +623,7 @@ namespace Timberbot
             if (buildingId != 0)
             {
                 var ec = _cache.FindEntity(buildingId);
-                if (ec == null) return _jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", buildingId));
+                if (ec == null) return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
                 var inRange = ec.GetComponent<Timberborn.Planting.InRangePlantingCoordinates>();
                 if (inRange == null) return _jw.Error("invalid_type: no planting range. only farmhouses and foresters have planting ranges. run: timberbot.py buildings name:FarmHouse to find farmhouses", ("id", buildingId), ("name", N(ec)));
 
@@ -635,6 +674,7 @@ namespace Timberbot
             {
                 _plantingService.UnsetPlantingCoordinates(c);
             }
+            PostLog($"Cleared planting zone for {coords.Count} tiles");
 
             return new
             {
@@ -676,6 +716,7 @@ namespace Timberbot
                             return _jw.Error("insufficient_science: not enough science points to unlock. run: timberbot.py science to check current points", ("building", buildingName), ("scienceCost", cost), ("currentPoints", _scienceService.SciencePoints));
                         _buildingUnlockingService.Unlock(buildingSpec);
                         _toolUnlockingService.UnlockInternal(blockObjectTool, () => { });
+                        PostLog($"Unlocked building: {buildingName}");
                         return _jw.Result(("building", buildingName), ("unlocked", true), ("remaining", _scienceService.SciencePoints));
                     }
                 }
@@ -722,6 +763,7 @@ namespace Timberbot
                     return _jw.Error("operation_failed: " + ex.Message, ("district", districtName), ("good", goodId));
                 }
 
+                PostLog($"Updated distribution for {goodId} in {districtName}");
                 return _jw.Result(("district", districtName), ("good", goodId), ("importOption", importOption), ("exportThreshold", exportThreshold));
             }
             return _jw.Error("not_found: district does not exist. run: timberbot.py districts to see valid names", ("district", districtName), ("districts", DistrictNames()));
@@ -735,7 +777,7 @@ namespace Timberbot
         {
             var ec = _cache.FindEntity(buildingId);
             if (ec == null)
-                return _jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", buildingId));
+                return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
 
             var terrainRange = ec.GetComponent<Timberborn.BuildingsNavigation.BuildingTerrainRange>();
             if (terrainRange == null)
@@ -869,7 +911,7 @@ namespace Timberbot
                     var ec = _owner._cache.FindEntity(_buildingId);
                     if (ec == null)
                     {
-                        _result = _owner._jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", _buildingId));
+                        _result = _owner._jw.Error("not_found: no entity with this id.", ("id", _buildingId));
                         _completed = true;
                         return false;
                     }
@@ -966,7 +1008,7 @@ namespace Timberbot
                 var ec = _owner._cache.FindEntity(_buildingId);
                 if (ec == null)
                 {
-                    _result = _owner._jw.Error("not_found: no entity with this id. ids are ephemeral and change on reload. run: timberbot.py buildings to get current ids", ("id", _buildingId));
+                    _result = _owner._jw.Error("not_found: no entity with this id.", ("id", _buildingId));
                     _completed = true;
                     return false;
                 }
@@ -985,6 +1027,529 @@ namespace Timberbot
                 _name = TimberbotEntityRegistry.CanonicalName(ec.GameObject.name);
                 return true;
             }
+        }
+
+        // ================================================================
+        // AUTOMATION WRITE ENDPOINTS
+        // ================================================================
+
+        // Wire a sensor/relay output to a building's input.
+        public object LinkAutomation(int sourceId, int targetId, string input)
+        {
+            var source = _cache.FindEntity(sourceId);
+            if (source == null)
+                return _jw.Error("not_found: no entity with this id.", ("id", sourceId));
+
+            var target = _cache.FindEntity(targetId);
+            if (target == null)
+                return _jw.Error("not_found: no entity with this id.", ("id", targetId));
+
+            var sourceAutomator = source.GetComponent<Automator>();
+            if (sourceAutomator == null || !sourceAutomator.IsTransmitter)
+                return _jw.Error("invalid_type: source is not a transmitter", ("id", sourceId), ("name", N(source)));
+
+            var inputLower = input?.ToLowerInvariant();
+            var automatable = target.GetComponent<Automatable>();
+            if (automatable != null)
+            {
+                automatable.SetInput(sourceAutomator);
+                PostLog($"Linked {sourceId} to input A of {targetId}");
+                return _jw.BeginObj()
+                    .Prop("id", targetId)
+                    .Prop("name", N(target))
+                    .Prop("input", "a")  // Automatable has only one input slot
+                    .Prop("sourceId", sourceId)
+                    .Prop("sourceName", N(source))
+                    .Prop("connected", true)
+                    .CloseObj().ToString();
+            }
+
+            var relay = target.GetComponent<Relay>();
+            if (relay != null)
+            {
+                if (inputLower != "a" && inputLower != "b")
+                    return _jw.Error("invalid_param: input must be a or b for Relay", ("got", input));
+                if (inputLower == "b" && !relay.UsesInputB)
+                    return _jw.Error("invalid_param: Relay mode " + relay.Mode + " does not use input B. Change mode first with configure_automation property:mode", ("mode", relay.Mode.ToString()), ("availableModes", "And, Or, Xor"));
+                if (inputLower == "a")
+                    relay.SetInputA(sourceAutomator);
+                else
+                    relay.SetInputB(sourceAutomator);
+                PostLog($"Linked {sourceId} to input {input} of relay {targetId}");
+                return _jw.BeginObj()
+                    .Prop("id", targetId)
+                    .Prop("name", N(target))
+                    .Prop("input", input)
+                    .Prop("sourceId", sourceId)
+                    .Prop("sourceName", N(source))
+                    .Prop("connected", true)
+                    .CloseObj().ToString();
+            }
+
+            var memory = target.GetComponent<Memory>();
+            if (memory != null)
+            {
+                if (inputLower != "a" && inputLower != "b" && inputLower != "reset")
+                    return _jw.Error("invalid_param: input must be a, b, or reset for Memory", ("got", input));
+                if (inputLower == "b" && !memory.UsesInputB)
+                    return _jw.Error("invalid_param: Memory mode " + memory.Mode + " does not use input B. Change mode first with configure_automation property:mode", ("mode", memory.Mode.ToString()), ("availableModes", "Latch, FlipFlop"));
+                if (inputLower == "a")
+                    memory.SetInputA(sourceAutomator);
+                else if (inputLower == "b")
+                    memory.SetInputB(sourceAutomator);
+                else
+                    memory.SetResetInput(sourceAutomator);
+                PostLog($"Linked {sourceId} to input {input} of memory {targetId}");
+                return _jw.BeginObj()
+                    .Prop("id", targetId)
+                    .Prop("name", N(target))
+                    .Prop("input", input)
+                    .Prop("sourceId", sourceId)
+                    .Prop("sourceName", N(source))
+                    .Prop("connected", true)
+                    .CloseObj().ToString();
+            }
+
+            return _jw.Error("invalid_type: target cannot accept automation input", ("id", targetId), ("name", N(target)));
+        }
+
+        // Disconnect a wiring input from a building.
+        public object UnlinkAutomation(int targetId, string input)
+        {
+            var target = _cache.FindEntity(targetId);
+            if (target == null)
+                return _jw.Error("not_found: no entity with this id.", ("id", targetId));
+
+            var inputLower = input?.ToLowerInvariant();
+
+            int oldSrcId = 0;
+            string oldSrcName = "";
+            void CaptureOldSource(Automator aut)
+            {
+                if (aut == null) return;
+                var ec = aut.GetComponent<EntityComponent>();
+                if (ec == null) return;
+                oldSrcId = _cache.GetLegacyId(ec);
+                oldSrcName = TimberbotEntityRegistry.CanonicalName(ec.GameObject.name);
+            }
+
+            var automatable = target.GetComponent<Automatable>();
+            if (automatable != null)
+            {
+                CaptureOldSource(automatable.Input);
+                if (automatable.IsAutomated)
+                    automatable._inputConnection.Disconnect();
+                PostLog($"Disconnected input A of {targetId}");
+                return _jw.BeginObj()
+                    .Prop("id", targetId)
+                    .Prop("name", N(target))
+                    .Prop("input", "a")
+                    .Prop("connected", false)
+                    .Prop("sourceId", oldSrcId)
+                    .Prop("sourceName", oldSrcName)
+                    .CloseObj().ToString();
+            }
+
+            var relay = target.GetComponent<Relay>();
+            if (relay != null)
+            {
+                if (inputLower != "a" && inputLower != "b")
+                    return _jw.Error("invalid_param: input must be a or b for Relay", ("got", input));
+                if (inputLower == "b" && !relay.UsesInputB)
+                    return _jw.Error("invalid_param: Relay mode " + relay.Mode + " does not use input B. Change mode first with configure_automation property:mode", ("mode", relay.Mode.ToString()), ("availableModes", "And, Or, Xor"));
+                
+                CaptureOldSource(inputLower == "a" ? relay.InputA : relay.InputB);
+                if (inputLower == "a")
+                    relay.SetInputA(null);
+                else
+                    relay.SetInputB(null);
+                PostLog($"Disconnected input {input} of relay {targetId}");
+                return _jw.BeginObj()
+                    .Prop("id", targetId)
+                    .Prop("name", N(target))
+                    .Prop("input", input)
+                    .Prop("connected", false)
+                    .Prop("sourceId", oldSrcId)
+                    .Prop("sourceName", oldSrcName)
+                    .CloseObj().ToString();
+            }
+
+            var memory = target.GetComponent<Memory>();
+            if (memory != null)
+            {
+                if (inputLower != "a" && inputLower != "b" && inputLower != "reset")
+                    return _jw.Error("invalid_param: input must be a, b, or reset for Memory", ("got", input));
+                if (inputLower == "b" && !memory.UsesInputB)
+                    return _jw.Error("invalid_param: Memory mode " + memory.Mode + " does not use input B. Change mode first with configure_automation property:mode", ("mode", memory.Mode.ToString()), ("availableModes", "Latch, FlipFlop"));
+                
+                CaptureOldSource(inputLower == "a" ? memory.InputA : inputLower == "b" ? memory.InputB : memory.ResetInput);
+                if (inputLower == "a")
+                    memory.SetInputA(null);
+                else if (inputLower == "b")
+                    memory.SetInputB(null);
+                else
+                    memory.SetResetInput(null);
+                PostLog($"Disconnected input {input} of memory {targetId}");
+                return _jw.BeginObj()
+                    .Prop("id", targetId)
+                    .Prop("name", N(target))
+                    .Prop("input", input)
+                    .Prop("connected", false)
+                    .Prop("sourceId", oldSrcId)
+                    .Prop("sourceName", oldSrcName)
+                    .CloseObj().ToString();
+            }
+
+            return _jw.Error("invalid_type: target has no automation input", ("id", targetId), ("name", N(target)));
+        }
+
+        // Set a property on an automation component.
+        public object ConfigureAutomation(int buildingId, string property, string value)
+        {
+            var ec = _cache.FindEntity(buildingId);
+            if (ec == null)
+                return _jw.Error("not_found: no entity with this id.", ("id", buildingId));
+
+            var depthSensor = ec.GetComponent<DepthSensor>();
+            if (depthSensor != null)
+            {
+                if (property == "threshold")
+                {
+                    if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold))
+                        return _jw.Error("invalid_param: threshold must be a number", ("value", value));
+                    depthSensor.SetThreshold(threshold);
+                    PostLog($"Configured DepthSensor {buildingId} threshold = {threshold}");
+                    return _jw.BeginObj().Prop("id", buildingId).Prop("name", N(ec)).Prop("property", property).Prop("value", threshold).Prop("automationType", "DepthSensor").CloseObj().ToString();
+                }
+                if (property == "mode")
+                {
+                    if (!Enum.TryParse<NumericComparisonMode>(value, true, out var mode))
+                        return _jw.Error("invalid_param: mode must be one of: Equal, NotEqual, Greater, GreaterOrEqual, Less, LessOrEqual", ("got", value));
+                    depthSensor.SetMode(mode);
+                    PostLog($"Configured DepthSensor {buildingId} mode = {mode}");
+                    return _jw.BeginObj().Prop("id", buildingId).Prop("name", N(ec)).Prop("property", property).Prop("value", mode.ToString()).Prop("automationType", "DepthSensor").CloseObj().ToString();
+                }
+                return _jw.Error("invalid_param: unknown property for DepthSensor", ("property", property), ("available", "threshold, mode"));
+            }
+
+            var contaminationSensor = ec.GetComponent<ContaminationSensor>();
+            if (contaminationSensor != null)
+            {
+                if (property == "threshold")
+                {
+                    if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold))
+                        return _jw.Error("invalid_param: threshold must be a number", ("value", value));
+                    contaminationSensor.SetThreshold(threshold);
+                    PostLog($"Configured ContaminationSensor {buildingId} threshold = {threshold}");
+                    return _jw.BeginObj().Prop("id", buildingId).Prop("name", N(ec)).Prop("property", property).Prop("value", threshold).Prop("automationType", "ContaminationSensor").CloseObj().ToString();
+                }
+                if (property == "mode")
+                {
+                    if (!Enum.TryParse<NumericComparisonMode>(value, true, out var mode))
+                        return _jw.Error("invalid_param: mode must be one of: Equal, NotEqual, Greater, GreaterOrEqual, Less, LessOrEqual", ("got", value));
+                    contaminationSensor.SetMode(mode);
+                    PostLog($"Configured ContaminationSensor {buildingId} mode = {mode}");
+                    return _jw.BeginObj().Prop("id", buildingId).Prop("name", N(ec)).Prop("property", property).Prop("value", mode.ToString()).Prop("automationType", "ContaminationSensor").CloseObj().ToString();
+                }
+                return _jw.Error("invalid_param: unknown property for ContaminationSensor", ("property", property), ("available", "threshold, mode"));
+            }
+
+            var flowSensor = ec.GetComponent<FlowSensor>();
+            if (flowSensor != null)
+            {
+                if (property == "threshold")
+                {
+                    if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold))
+                        return _jw.Error("invalid_param: threshold must be a number", ("value", value));
+                    flowSensor.SetThreshold(threshold);
+                    PostLog($"Configured FlowSensor {buildingId} threshold = {threshold}");
+                    return _jw.BeginObj().Prop("id", buildingId).Prop("name", N(ec)).Prop("property", property).Prop("value", threshold).Prop("automationType", "FlowSensor").CloseObj().ToString();
+                }
+                if (property == "mode")
+                {
+                    if (!Enum.TryParse<NumericComparisonMode>(value, true, out var mode))
+                        return _jw.Error("invalid_param: mode must be one of: Equal, NotEqual, Greater, GreaterOrEqual, Less, LessOrEqual", ("got", value));
+                    flowSensor.SetMode(mode);
+                    PostLog($"Configured FlowSensor {buildingId} mode = {mode}");
+                    return _jw.BeginObj().Prop("id", buildingId).Prop("name", N(ec)).Prop("property", property).Prop("value", mode.ToString()).Prop("automationType", "FlowSensor").CloseObj().ToString();
+                }
+                return _jw.Error("invalid_param: unknown property for FlowSensor", ("property", property), ("available", "threshold, mode"));
+            }
+
+            var resourceCounter = ec.GetComponent<ResourceCounter>();
+            if (resourceCounter != null)
+                return ConfigureResourceCounter(resourceCounter, property, value, buildingId, N(ec));
+
+            var populationCounter = ec.GetComponent<PopulationCounter>();
+            if (populationCounter != null)
+                return ConfigurePopulationCounter(populationCounter, property, value, buildingId, N(ec));
+
+            var powerMeter = ec.GetComponent<PowerMeter>();
+            if (powerMeter != null)
+                return ConfigurePowerMeter(powerMeter, property, value, buildingId, N(ec));
+
+            var relay = ec.GetComponent<Relay>();
+            if (relay != null)
+                return ConfigureRelay(relay, property, value, buildingId, N(ec));
+
+            var memory = ec.GetComponent<Memory>();
+            if (memory != null)
+                return ConfigureMemory(memory, property, value, buildingId, N(ec));
+
+            var chronometer = ec.GetComponent<Chronometer>();
+            if (chronometer != null)
+                return ConfigureChronometer(chronometer, property, value, buildingId, N(ec));
+
+            var lever = ec.GetComponent<Lever>();
+            if (lever != null)
+                return ConfigureLever(lever, property, value, buildingId, N(ec));
+
+            return _jw.Error("invalid_type: building has no automation component", ("id", buildingId), ("name", N(ec)));
+        }
+
+        private object ConfigureResourceCounter(ResourceCounter component, string property, string value, int buildingId, string name)
+        {
+            if (property == "goodId")
+            {
+                component.SetGoodId(value);
+                PostLog($"Configured ResourceCounter {buildingId} goodId = {value}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", value).Prop("automationType", "ResourceCounter").CloseObj().ToString();
+            }
+            if (property == "threshold")
+            {
+                if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var threshold))
+                    return _jw.Error("invalid_param: threshold must be an integer", ("value", value));
+                component.SetThreshold(threshold);
+                PostLog($"Configured ResourceCounter {buildingId} threshold = {threshold}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", threshold).Prop("automationType", "ResourceCounter").CloseObj().ToString();
+            }
+            if (property == "fillRateThreshold")
+            {
+                if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var frThreshold))
+                    return _jw.Error("invalid_param: fillRateThreshold must be a number", ("value", value));
+                component.SetFillRateThreshold(frThreshold);
+                PostLog($"Configured ResourceCounter {buildingId} fillRateThreshold = {frThreshold}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", frThreshold).Prop("automationType", "ResourceCounter").CloseObj().ToString();
+            }
+            if (property == "mode")
+            {
+                if (!Enum.TryParse<ResourceCounterMode>(value, true, out var mode))
+                    return _jw.Error("invalid_param: mode must be StockLevel or FillRate", ("got", value));
+                component.SetMode(mode);
+                PostLog($"Configured ResourceCounter {buildingId} mode = {mode}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", mode.ToString()).Prop("automationType", "ResourceCounter").CloseObj().ToString();
+            }
+            if (property == "comparisonMode")
+            {
+                if (!Enum.TryParse<NumericComparisonMode>(value, true, out var mode))
+                    return _jw.Error("invalid_param: comparisonMode must be one of: Equal, NotEqual, Greater, GreaterOrEqual, Less, LessOrEqual", ("got", value));
+                component.SetComparisonMode(mode);
+                PostLog($"Configured ResourceCounter {buildingId} comparisonMode = {mode}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", mode.ToString()).Prop("automationType", "ResourceCounter").CloseObj().ToString();
+            }
+            if (property == "includeInputs")
+            {
+                if (!bool.TryParse(value, out var include))
+                    return _jw.Error("invalid_param: includeInputs must be true or false", ("value", value));
+                component.SetIncludeInputs(include);
+                PostLog($"Configured ResourceCounter {buildingId} includeInputs = {include}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", include).Prop("automationType", "ResourceCounter").CloseObj().ToString();
+            }
+            return _jw.Error("invalid_param: unknown property for ResourceCounter", ("property", property), ("available", "goodId, threshold, fillRateThreshold, mode, comparisonMode, includeInputs"));
+        }
+
+        private object ConfigurePopulationCounter(PopulationCounter component, string property, string value, int buildingId, string name)
+        {
+            if (property == "threshold")
+            {
+                if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var threshold))
+                    return _jw.Error("invalid_param: threshold must be an integer", ("value", value));
+                component.SetThreshold(threshold);
+                PostLog($"Configured PopulationCounter {buildingId} threshold = {threshold}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", threshold).Prop("automationType", "PopulationCounter").CloseObj().ToString();
+            }
+            if (property == "mode")
+            {
+                if (!Enum.TryParse<PopulationCounterMode>(value, true, out var mode))
+                    return _jw.Error("invalid_param: mode must be Greater, Less, GreaterOrEqual, or LessOrEqual", ("got", value));
+                component.SetMode(mode);
+                PostLog($"Configured PopulationCounter {buildingId} mode = {mode}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", mode.ToString()).Prop("automationType", "PopulationCounter").CloseObj().ToString();
+            }
+            if (property == "comparisonMode")
+            {
+                if (!Enum.TryParse<NumericComparisonMode>(value, true, out var mode))
+                    return _jw.Error("invalid_param: comparisonMode must be one of: Equal, NotEqual, Greater, GreaterOrEqual, Less, LessOrEqual", ("got", value));
+                component.SetComparisonMode(mode);
+                PostLog($"Configured PopulationCounter {buildingId} comparisonMode = {mode}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", mode.ToString()).Prop("automationType", "PopulationCounter").CloseObj().ToString();
+            }
+            if (property == "globalMode")
+            {
+                if (!bool.TryParse(value, out var global))
+                    return _jw.Error("invalid_param: globalMode must be true or false", ("value", value));
+                component.SetGlobalMode(global);
+                PostLog($"Configured PopulationCounter {buildingId} globalMode = {global}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", global).Prop("automationType", "PopulationCounter").CloseObj().ToString();
+            }
+            if (property == "countBeavers")
+            {
+                if (!bool.TryParse(value, out var count))
+                    return _jw.Error("invalid_param: countBeavers must be true or false", ("value", value));
+                component.SetCountBeavers(count);
+                PostLog($"Configured PopulationCounter {buildingId} countBeavers = {count}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", count).Prop("automationType", "PopulationCounter").CloseObj().ToString();
+            }
+            if (property == "countBots")
+            {
+                if (!bool.TryParse(value, out var count))
+                    return _jw.Error("invalid_param: countBots must be true or false", ("value", value));
+                component.SetCountBots(count);
+                PostLog($"Configured PopulationCounter {buildingId} countBots = {count}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", count).Prop("automationType", "PopulationCounter").CloseObj().ToString();
+            }
+            return _jw.Error("invalid_param: unknown property for PopulationCounter", ("property", property), ("available", "threshold, mode, comparisonMode, globalMode, countBeavers, countBots"));
+        }
+
+        private object ConfigurePowerMeter(PowerMeter component, string property, string value, int buildingId, string name)
+        {
+            if (property == "mode")
+            {
+                if (!Enum.TryParse<PowerMeterMode>(value, true, out var mode))
+                    return _jw.Error("invalid_param: mode must be Power or Percent", ("got", value));
+                component.SetMode(mode);
+                PostLog($"Configured PowerMeter {buildingId} mode = {mode}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", mode.ToString()).Prop("automationType", "PowerMeter").CloseObj().ToString();
+            }
+            if (property == "comparisonMode")
+            {
+                if (!Enum.TryParse<NumericComparisonMode>(value, true, out var mode))
+                    return _jw.Error("invalid_param: comparisonMode must be one of: Equal, NotEqual, Greater, GreaterOrEqual, Less, LessOrEqual", ("got", value));
+                component.SetComparisonMode(mode);
+                PostLog($"Configured PowerMeter {buildingId} comparisonMode = {mode}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", mode.ToString()).Prop("automationType", "PowerMeter").CloseObj().ToString();
+            }
+            if (property == "intThreshold")
+            {
+                if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var threshold))
+                    return _jw.Error("invalid_param: intThreshold must be an integer", ("value", value));
+                component.SetIntThreshold(threshold);
+                PostLog($"Configured PowerMeter {buildingId} intThreshold = {threshold}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", threshold).Prop("automationType", "PowerMeter").CloseObj().ToString();
+            }
+            if (property == "percentThreshold")
+            {
+                if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var pctThreshold))
+                    return _jw.Error("invalid_param: percentThreshold must be a number", ("value", value));
+                component.SetPercentThreshold(pctThreshold);
+                PostLog($"Configured PowerMeter {buildingId} percentThreshold = {pctThreshold}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", pctThreshold).Prop("automationType", "PowerMeter").CloseObj().ToString();
+            }
+            return _jw.Error("invalid_param: unknown property for PowerMeter", ("property", property), ("available", "mode, comparisonMode, intThreshold, percentThreshold"));
+        }
+
+        private object ConfigureRelay(Relay component, string property, string value, int buildingId, string name)
+        {
+            if (property == "mode")
+            {
+                if (!Enum.TryParse<RelayMode>(value, true, out var mode))
+                    return _jw.Error("invalid_param: mode must be Not, And, Or, Xor, or Passthrough", ("got", value));
+                component.SetMode(mode);
+                PostLog($"Configured Relay {buildingId} mode = {mode}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", mode.ToString()).Prop("automationType", "Relay").CloseObj().ToString();
+            }
+            return _jw.Error("invalid_param: unknown property for Relay", ("property", property), ("available", "mode"));
+        }
+
+        private object ConfigureMemory(Memory component, string property, string value, int buildingId, string name)
+        {
+            if (property == "mode")
+            {
+                if (!Enum.TryParse<MemoryMode>(value, true, out var mode))
+                    return _jw.Error("invalid_param: mode must be SetReset, Toggle, Latch, or FlipFlop", ("got", value));
+                component.SetMode(mode);
+                PostLog($"Configured Memory {buildingId} mode = {mode}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", mode.ToString()).Prop("automationType", "Memory").CloseObj().ToString();
+            }
+            return _jw.Error("invalid_param: unknown property for Memory", ("property", property), ("available", "mode"));
+        }
+
+        private object ConfigureChronometer(Chronometer component, string property, string value, int buildingId, string name)
+        {
+            if (property == "startTime")
+            {
+                if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var startTime))
+                    return _jw.Error("invalid_param: startTime must be a number", ("value", value));
+                component.SetStartTime(startTime);
+                PostLog($"Configured Chronometer {buildingId} startTime = {startTime}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", startTime).Prop("automationType", "Chronometer").CloseObj().ToString();
+            }
+            if (property == "endTime")
+            {
+                if (!float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var endTime))
+                    return _jw.Error("invalid_param: endTime must be a number", ("value", value));
+                component.SetEndTime(endTime);
+                PostLog($"Configured Chronometer {buildingId} endTime = {endTime}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", endTime).Prop("automationType", "Chronometer").CloseObj().ToString();
+            }
+            if (property == "mode")
+            {
+                if (!Enum.TryParse<ChronometerMode>(value, true, out var mode))
+                    return _jw.Error("invalid_param: mode must be TimeRange, WorkingHours, or NonWorkingHours", ("got", value));
+                component.SetMode(mode);
+                PostLog($"Configured Chronometer {buildingId} mode = {mode}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", mode.ToString()).Prop("automationType", "Chronometer").CloseObj().ToString();
+            }
+            return _jw.Error("invalid_param: unknown property for Chronometer", ("property", property), ("available", "startTime, endTime, mode"));
+        }
+
+        private object ConfigureLever(Lever component, string property, string value, int buildingId, string name)
+        {
+            if (property == "springReturn")
+            {
+                if (!bool.TryParse(value, out var springReturn))
+                    return _jw.Error("invalid_param: springReturn must be true or false", ("value", value));
+                component.SetSpringReturn(springReturn);
+                PostLog($"Configured Lever {buildingId} springReturn = {springReturn}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", springReturn).Prop("automationType", "Lever").CloseObj().ToString();
+            }
+            if (property == "pinned")
+            {
+                if (!bool.TryParse(value, out var pinned))
+                    return _jw.Error("invalid_param: pinned must be true or false", ("value", value));
+                component.SetPinned(pinned);
+                PostLog($"Configured Lever {buildingId} pinned = {pinned}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", pinned).Prop("automationType", "Lever").CloseObj().ToString();
+            }
+            if (property == "state")
+            {
+                if (!bool.TryParse(value, out var state))
+                    return _jw.Error("invalid_param: state must be true or false", ("value", value));
+                component.SwitchState(state);
+                PostLog($"Configured Lever {buildingId} state = {state}");
+                return _jw.BeginObj().Prop("id", buildingId).Prop("name", name).Prop("property", property).Prop("value", state).Prop("automationType", "Lever").CloseObj().ToString();
+            }
+            return _jw.Error("invalid_param: unknown property for Lever", ("property", property), ("available", "springReturn, pinned, state"));
+        }
+
+        public object RenameEntity(int buildingId, string newName)
+        {
+            var ec = _cache.FindEntity(buildingId);
+            if (ec == null)
+                return _jw.Error("not_found: entity not found", ("id", buildingId));
+            
+            var named = ec.GetComponent<NamedEntity>();
+            if (named == null)
+                return _jw.Error("invalid_type: this entity cannot be renamed", ("id", buildingId), ("name", N(ec)));
+
+            named.SetEntityName(newName);
+            PostLog($"Renamed entity {buildingId} to '{newName}'");
+            
+            return _jw.BeginObj()
+                .Prop("id", buildingId)
+                .Prop("name", N(ec))
+                .Prop("customName", named.EntityName)
+                .CloseObj().ToString();
         }
 
         // PLACEMENT VALIDATION

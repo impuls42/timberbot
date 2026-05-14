@@ -29,6 +29,8 @@ import re
 import subprocess
 import sys
 import time
+from typing import Any, cast
+
 import requests
 
 
@@ -49,21 +51,21 @@ def _saves_dir():
 
 
 _MEMORY_BASE = os.path.join(_mod_dir(), "memory")
-_MEMORY_DIR = _MEMORY_BASE  # overridden per-settlement by brain()
+_memory_dir = _MEMORY_BASE  # overridden per-settlement by brain()
 
 
-def _sanitize_name(name):
+def _sanitize_name(name: str) -> str:
     """Sanitize settlement name for filesystem."""
     return re.sub(r'[<>:"/\\|?*]', '_', name).strip() or "unknown"
 
 
-def _load_brain_file(mdir=None):
+def _load_brain_file(mdir: str | None = None) -> dict[str, Any]:
     """Load brain.toon or return empty dict."""
-    d = mdir or _MEMORY_DIR
+    d = mdir or _memory_dir
     bpath = os.path.join(d, "brain.toon")
     if os.path.exists(bpath):
         try:
-            import toons
+            import toons  # pyright: ignore[reportMissingImports]
             with open(bpath) as f:
                 return toons.load(f)
         except Exception:
@@ -71,16 +73,16 @@ def _load_brain_file(mdir=None):
     return {}
 
 
-def _save_brain_file(brain, mdir=None):
+def _save_brain_file(brain: dict[str, Any], mdir: str | None = None) -> None:
     """Write brain.toon."""
-    d = mdir or _MEMORY_DIR
+    d = mdir or _memory_dir
     os.makedirs(d, exist_ok=True)
-    import toons
+    import toons  # pyright: ignore[reportMissingImports]
     with open(os.path.join(d, "brain.toon"), "w") as f:
         toons.dump(brain, f)
 
 
-def _update_brain_locations(locations, mdir=None):
+def _update_brain_locations(locations: dict[str, Any], mdir: str | None = None) -> None:
     """Update the locations dict in brain.toon."""
     brain = _load_brain_file(mdir)
     brain["locations"] = locations
@@ -93,7 +95,7 @@ def _update_brain_locations(locations, mdir=None):
 
 class TimberbotError(Exception):
     """API returned an error response. e.code is the prefix before ':', e.response is the full dict."""
-    def __init__(self, response):
+    def __init__(self, response: dict[str, Any]) -> None:
         self.response = response
         self.error = response.get("error", "unknown")
         self.code = self.error.split(":")[0].strip()
@@ -108,7 +110,7 @@ class Timberbot:
     No client-side transformation of API data.
     """
 
-    def __init__(self, host=None, port=None, json_mode=False, write_timeout=60):
+    def __init__(self, host: str | None = None, port: int | None = None, json_mode: bool = False, write_timeout: int = 60) -> None:
         if host is None or port is None:
             try:
                 with open(_settings_path()) as f:
@@ -120,39 +122,41 @@ class Timberbot:
             except Exception:
                 host = host or "127.0.0.1"
                 port = port or 8085
+        self.host = host
+        self.port = port
         self.url = f"http://{host}:{port}"
         self._format = "json" if json_mode else "toon"
         self._write_timeout = write_timeout
         self.s = requests.Session()
         self.s.headers["Accept"] = "application/json"
 
-    def _check(self, data):
+    def _check(self, data: Any) -> Any:
         if isinstance(data, dict) and "error" in data:
             raise TimberbotError(data)
         return data
 
-    def _get(self, path, params=None):
-        p = {"format": self._format}
+    def _get(self, path: str, params: dict[str, int | str] | None = None) -> dict[str, Any]:
+        p: dict[str, int | str] = {"format": self._format}
         if params:
             p.update(params)
         r = self.s.get(f"{self.url}{path}", params=p, timeout=5)
         r.raise_for_status()
         return self._check(r.json())
 
-    def _post(self, path, data):
+    def _post(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
         data["format"] = self._format
         r = self.s.post(f"{self.url}{path}", json=data, timeout=self._write_timeout)
         return self._check(r.json())
 
-    def _post_json(self, path, data):
+    def _post_json(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
         """Force JSON format for internal programmatic use."""
         data["format"] = "json"
         r = self.s.post(f"{self.url}{path}", json=data, timeout=self._write_timeout)
         return self._check(r.json())
 
-    def _get_json(self, path, params=None):
+    def _get_json(self, path: str, params: dict[str, int | str] | None = None) -> dict[str, Any]:
         """Force JSON format for internal programmatic use."""
-        p = {"format": "json"}
+        p: dict[str, int | str] = {"format": "json"}
         if params:
             p.update(params)
         r = self.s.get(f"{self.url}{path}", params=p, timeout=5)
@@ -161,7 +165,7 @@ class Timberbot:
 
     #. connection --
 
-    def ping(self):
+    def ping(self) -> bool:
         """True if Timberbot mod is reachable."""
         try:
             return self._get("/api/ping").get("ready", False)
@@ -170,283 +174,338 @@ class Timberbot:
 
     #. webhooks --
 
-    def register_webhook(self, url, events=None):
+    def register_webhook(self, url: str, events: list[str] | None = None) -> dict[str, Any]:
         """Register a webhook URL to receive push notifications for game events.
         events: list of event names to subscribe to (None = all events).
         Available: drought.start, drought.end, building.placed, building.demolished,
                    beaver.born, beaver.died, day.start, night.start"""
-        data = {"url": url}
+        data: dict[str, Any] = {"url": url}
         if events:
             data["events"] = events
         return self._post("/api/webhooks", data)
 
-    def unregister_webhook(self, id):
+    def unregister_webhook(self, id: int) -> dict[str, Any]:
         """Unregister a webhook by ID."""
         return self._post("/api/webhooks/delete", {"id": id})
 
-    def list_webhooks(self):
+    def list_webhooks(self) -> dict[str, Any]:
         """List all registered webhooks."""
         return self._get("/api/webhooks")
 
     #. read state (nouns) --
 
-    def summary(self):
+    def summary(self) -> dict[str, Any]:
         """Full snapshot: time + weather + districts with resources and population."""
         return self._get("/api/summary")
 
-    def time(self):
+    def time(self) -> dict[str, Any]:
         """Game time: {dayNumber, dayProgress, partialDayNumber}."""
         return self._get("/api/time")
 
-    def weather(self):
+    def weather(self) -> dict[str, Any]:
         """Weather: {cycle, cycleDay, isHazardous, temperateWeatherDuration, hazardousWeatherDuration}."""
         return self._get("/api/weather")
 
-    def population(self):
+    def population(self) -> list[dict[str, Any]] | dict[str, Any]:
         """Beaver counts: [{district, adults, children, bots}]."""
-        return self._get("/api/population")
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/population"))
 
-    def resources(self):
+    def resources(self) -> dict[str, Any]:
         """Resource stocks: {districtName: {goodName: {available, all}}}."""
         return self._get("/api/resources")
 
-    def districts(self):
+    def districts(self) -> list[dict[str, Any]] | dict[str, Any]:
         """Districts: [{name, population: {adults, children, bots}, resources: {...}}]."""
-        return self._get("/api/districts")
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/districts"))
 
-    def buildings(self, limit=0, offset=0, detail="basic", id=0):
-        """All buildings. detail: basic (compact), full (all fields). id selects a single building.
-        Server defaults to limit=100. CLI passes limit=0 (unlimited) by default."""
-        params = {"limit": limit, "offset": offset}
+    def buildings(self, limit: int = 0, offset: int = 0, detail: str = "basic", id: int = 0, name: str = "", x: int = 0, y: int = 0, radius: int = 0) -> list[dict[str, Any]] | dict[str, Any]:
+        """All buildings. detail: basic|full. id: single building. name: substring filter. x/y/radius: proximity filter."""
+        params: dict[str, int | str] = {"limit": limit, "offset": offset}
         if id:
             params["id"] = id
         if detail != "basic":
             params["detail"] = detail
-        return self._get("/api/buildings", params=params)
+        if name:
+            params["name"] = name
+        if x and y:
+            params["x"] = x
+            params["y"] = y
+            if radius:
+                params["radius"] = radius
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/buildings", params=params))
 
-    def buildings_v2(self, limit=0, offset=0, detail="basic", id=0):
-        """Compatibility alias for the native /api/buildings snapshot path."""
-        params = {"limit": limit, "offset": offset}
+    def buildings_v2(self, limit: int = 0, offset: int = 0, detail: str = "basic", id: int = 0, name: str = "", x: int = 0, y: int = 0, radius: int = 0) -> list[dict[str, Any]] | dict[str, Any]:
+        """Compatibility alias for buildings()."""
+        return self.buildings(limit=limit, offset=offset, detail=detail, id=id, name=name, x=x, y=y, radius=radius)
+
+    def trees(self, limit: int = 0, offset: int = 0, name: str = "", x: int = 0, y: int = 0, radius: int = 0) -> list[dict[str, Any]] | dict[str, Any]:
+        """Trees: [{id, name, x, y, z, marked, alive, grown, growth}]. name: species filter. x/y/radius: proximity."""
+        params: dict[str, int | str] = {"limit": limit, "offset": offset}
+        if name:
+            params["name"] = name
+        if x and y:
+            params["x"] = x
+            params["y"] = y
+            if radius:
+                params["radius"] = radius
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/trees", params=params))
+
+    def crops(self, limit: int = 0, offset: int = 0, name: str = "", x: int = 0, y: int = 0, radius: int = 0) -> list[dict[str, Any]] | dict[str, Any]:
+        """Crops in the ground: [{id, name, x, y, z, marked, alive, grown, growth}]. name: crop filter. x/y/radius: proximity."""
+        params: dict[str, int | str] = {"limit": limit, "offset": offset}
+        if name:
+            params["name"] = name
+        if x and y:
+            params["x"] = x
+            params["y"] = y
+            if radius:
+                params["radius"] = radius
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/crops", params=params))
+
+    def gatherables(self, limit: int = 0, offset: int = 0, name: str = "", x: int = 0, y: int = 0, radius: int = 0) -> list[dict[str, Any]] | dict[str, Any]:
+        """All gatherable resources (berry bushes etc): [{id, name, x, y, z, alive}]. name/x/y/radius: filters."""
+        params: dict[str, int | str] = {"limit": limit, "offset": offset}
+        if name:
+            params["name"] = name
+        if x and y:
+            params["x"] = x
+            params["y"] = y
+            if radius:
+                params["radius"] = radius
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/gatherables", params=params))
+
+    def beavers(self, limit: int = 0, offset: int = 0, detail: str = "basic", id: int = 0, name: str = "", x: int = 0, y: int = 0, radius: int = 0) -> list[dict[str, Any]] | dict[str, Any]:
+        """All beavers with wellbeing and needs. detail:full for all needs. name/x/y/radius: filters."""
+        params: dict[str, int | str] = {"limit": limit, "offset": offset}
         if id:
             params["id"] = id
         if detail != "basic":
             params["detail"] = detail
-        return self._get("/api/buildings", params=params)
+        if name:
+            params["name"] = name
+        if x and y:
+            params["x"] = x
+            params["y"] = y
+            if radius:
+                params["radius"] = radius
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/beavers", params=params))
 
-    def trees(self, limit=0, offset=0):
-        """Trees: [{id, name, x, y, z, marked, alive, grown, growth}]."""
-        return self._get("/api/trees", params={"limit": limit, "offset": offset})
-
-    def crops(self, limit=0, offset=0):
-        """Crops in the ground: [{id, name, x, y, z, marked, alive, grown, growth}]."""
-        return self._get("/api/crops", params={"limit": limit, "offset": offset})
-
-    def gatherables(self, limit=0, offset=0):
-        """All gatherable resources (berry bushes etc): [{id, name, x, y, z, alive}]."""
-        return self._get("/api/gatherables", params={"limit": limit, "offset": offset})
-
-    def beavers(self, limit=0, offset=0, detail="basic", id=0):
-        """All beavers with wellbeing and needs. detail:full shows all needs with group category. id selects a single beaver."""
-        params = {"limit": limit, "offset": offset}
-        if id:
-            params["id"] = id
-        if detail != "basic":
-            params["detail"] = detail
-        return self._get("/api/beavers", params=params)
-
-    def workhours(self):
+    def workhours(self) -> dict[str, Any]:
         """Work schedule: {endHours, areWorkingHours, hoursPassedToday}."""
         return self._get("/api/workhours")
 
-    def migrate(self, from_district, to_district, count=1):
+    def migrate(self, from_district: str, to_district: str, count: int = 1) -> dict[str, Any]:
         """Move beavers between districts."""
         return self._post("/api/district/migrate", {
             "from": from_district, "to": to_district, "count": count
         })
 
-    def set_workhours(self, end_hours):
+    def set_workhours(self, end_hours: int) -> dict[str, Any]:
         """Set when work ends (1-24). Beavers work from dawn until endHours."""
         return self._post("/api/workhours", {"endHours": end_hours})
 
-    def science(self):
+    def science(self) -> dict[str, Any]:
         """Science points and unlockable buildings: {points, unlockables: [{name, cost, unlocked}]}."""
         return self._get("/api/science")
 
-    def wellbeing(self):
+    def wellbeing(self) -> dict[str, Any]:
         """Population wellbeing breakdown by category: {beavers, categories: [{group, current, max, needs}]}."""
         return self._get("/api/wellbeing")
 
-    def unlock_building(self, building):
+    def unlock_building(self, building: str) -> dict[str, Any]:
         """Unlock a building using science points."""
         return self._post("/api/science/unlock", {"building": building})
 
-    def notifications(self):
+    def notifications(self) -> list[dict[str, Any]] | dict[str, Any]:
         """Game notification history: [{subject, description, entityId, cycle, cycleDay}]."""
-        return self._get("/api/notifications")
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/notifications"))
 
-    def alerts(self):
+    def alerts(self) -> list[dict[str, Any]] | dict[str, Any]:
         """Alerts: unstaffed, unpowered, unreachable, status issues."""
-        return self._get("/api/alerts")
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/alerts"))
 
-    def distribution(self):
+    def distribution(self) -> list[dict[str, Any]] | dict[str, Any]:
         """Distribution settings per district: [{district, goods: [{good, importOption, exportThreshold}]}]."""
-        return self._get("/api/distribution")
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/distribution"))
 
-    def set_distribution(self, district, good, import_option="", export_threshold=-1):
+    def set_distribution(self, district: str, good: str, import_option: str = "", export_threshold: int = -1) -> dict[str, Any]:
         """Set import/export for a good in a district. import_option: Forced, Auto, None."""
         return self._post("/api/distribution", {
             "district": district, "good": good,
             "import": import_option, "exportThreshold": export_threshold
         })
 
-    def prefabs(self):
+    def prefabs(self) -> list[dict[str, Any]] | dict[str, Any]:
         """Available building templates: [{name, sizeX, sizeY, sizeZ}]."""
-        return self._get("/api/prefabs")
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/prefabs"))
 
-    def power(self):
+    def power(self) -> list[dict[str, Any]] | dict[str, Any]:
         """Power networks: [{id, supply, demand, buildings}]."""
-        return self._get("/api/power")
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/power"))
 
-    def speed(self):
+    def speed(self) -> dict[str, Any]:
         """Current game speed: {speed: 0-3}."""
         return self._get("/api/speed")
 
-    def tiles(self, x1=0, y1=0, x2=0, y2=0):
+    def tiles(self, x1: int = 0, y1: int = 0, x2: int = 0, y2: int = 0) -> dict[str, Any]:
         """Tile data for a region: terrain, water, occupants, moisture, contamination. No args = map size only."""
         return self._get("/api/tiles", {"x1": x1, "y1": y1, "x2": x2, "y2": y2})
 
     #. write actions (verb_noun) --
 
-    def set_speed(self, speed):
+    def set_speed(self, speed: int) -> dict[str, Any]:
         """Set game speed. 0=pause, 1=normal, 2=fast, 3=fastest."""
         return self._post("/api/speed", {"speed": speed})
 
-    def pause_building(self, id):
+    def pause_building(self, id: int) -> dict[str, Any]:
         """Pause a building."""
         return self._post("/api/building/pause", {"id": id, "paused": True})
 
-    def unpause_building(self, id):
+    def unpause_building(self, id: int) -> dict[str, Any]:
         """Unpause a building."""
         return self._post("/api/building/pause", {"id": id, "paused": False})
 
-    def set_clutch(self, id, engaged):
+    def set_clutch(self, id: int, engaged: bool) -> dict[str, Any]:
         """Engage or disengage a clutch. engaged: True/False."""
         return self._post("/api/building/clutch", {"id": id, "engaged": engaged})
 
-    def set_priority(self, id, priority, type=""):
+    def set_priority(self, id: int, priority: str, type: str = "") -> dict[str, Any]:
         """Set building priority. Values: VeryLow, Normal, VeryHigh. Type: workplace (finished) or construction (building)."""
         return self._post("/api/building/priority", {"id": id, "priority": priority, "type": type})
 
-    def set_haul_priority(self, id, prioritized=True):
+    def set_haul_priority(self, id: int, prioritized: bool = True) -> dict[str, Any]:
         """Set hauler priority on a building. Haulers will deliver goods here first."""
         return self._post("/api/building/hauling", {"id": id, "prioritized": prioritized})
 
-    def set_recipe(self, id, recipe):
+    def set_recipe(self, id: int, recipe: str) -> dict[str, Any]:
         """Set manufactory recipe. Use 'none' to clear. Lists available recipes on error."""
         return self._post("/api/building/recipe", {"id": id, "recipe": recipe})
 
-    def set_farmhouse_action(self, id, action):
+    def set_farmhouse_action(self, id: int, action: str) -> dict[str, Any]:
         """Set farmhouse priority action: 'planting' or 'harvesting'."""
         return self._post("/api/building/farmhouse", {"id": id, "action": action})
 
-    def set_plantable_priority(self, id, plantable):
+    def set_plantable_priority(self, id: int, plantable: str) -> dict[str, Any]:
         """Set prioritized plantable on forester/gatherer. Use 'none' to clear."""
         return self._post("/api/building/plantable", {"id": id, "plantable": plantable})
 
-    def set_workers(self, id, count):
+    def set_workers(self, id: int, count: int) -> dict[str, Any]:
         """Set desired worker count (0 to maxWorkers)."""
         return self._post("/api/building/workers", {"id": id, "count": count})
 
-    def set_floodgate(self, id, height):
+    def set_floodgate(self, id: int, height: float) -> dict[str, Any]:
         """Set floodgate height (clamped to min/max)."""
         return self._post("/api/building/floodgate", {"id": id, "height": height})
 
-    def debug(self, target="help", **kwargs):
+    def debug(self, target: str = "help", **kwargs: Any) -> dict[str, Any]:
         """Generic live debug surface. Targets include help, roots, get, fields, describe, call, compare, assert, validate, validate_all."""
         body = {"target": target}
         body.update(kwargs)
         return self._post("/api/debug", body)
 
-    def find_placement(self, prefab, x1, y1, x2, y2):
+    def find_placement(self, prefab: str, x1: int = 0, y1: int = 0, x2: int = 0, y2: int = 0, x: int | None = None, y: int | None = None, radius: int | None = None) -> dict[str, Any]:
         """Find valid placements for a building in an area. Returns spots sorted by path access."""
-        return self._post("/api/placement/find", {"prefab": prefab, "x1": x1, "y1": y1, "x2": x2, "y2": y2})
+        body = {"prefab": prefab, "x1": x1, "y1": y1, "x2": x2, "y2": y2}
+        if x is not None and y is not None:
+            body["x"] = x
+            body["y"] = y
+            if radius is not None: body["radius"] = radius
+        return self._post("/api/placement/find", body)
 
-    def place_building(self, prefab, x, y, z, orientation="south"):
+    def place_building(self, prefab: str, x: int, y: int, z: int, orientation: str = "south") -> dict[str, Any]:
         """Place a building. Orientation: south, west, north, east."""
         return self._post("/api/building/place", {
             "prefab": prefab, "x": x, "y": y, "z": z,
             "orientation": str(orientation).lower()
         })
 
-    def demolish_building(self, id):
+    def demolish_building(self, id: int) -> dict[str, Any]:
         """Demolish a building. Get IDs from buildings()."""
         return self._post("/api/building/demolish", {"id": id})
 
-    def demolish_crop(self, id):
+    def demolish_crop(self, id: int) -> dict[str, Any]:
         """Demolish a planted crop entity by ID. Get IDs from crops()."""
         return self._post("/api/crop/demolish", {"id": id})
 
-    def mark_trees(self, x1, y1, x2, y2, z):
+    def mark_trees(self, x1: int, y1: int, x2: int, y2: int, z: int) -> dict[str, Any]:
         """Mark a rectangular area for tree cutting."""
         return self._post("/api/cutting/area", {
             "x1": x1, "y1": y1, "x2": x2, "y2": y2, "z": z, "marked": True
         })
 
-    def plant_crop(self, x1, y1, x2, y2, z, crop):
+    def plant_crop(self, x1: int, y1: int, x2: int, y2: int, z: int, crop: str) -> dict[str, Any]:
         """Mark area for planting. Crops: Kohlrabi, Cassava, Carrot, Potato, Wheat, etc."""
         return self._post("/api/planting/mark", {
             "x1": x1, "y1": y1, "x2": x2, "y2": y2, "z": z, "crop": crop
         })
 
-    def find_planting(self, crop, id=0, x1=0, y1=0, x2=0, y2=0, z=0):
+    def find_planting(self, crop: str, id: int = 0, x1: int = 0, y1: int = 0, x2: int = 0, y2: int = 0, z: int = 0) -> dict[str, Any]:
         """Find valid planting spots. Use id for farmhouse range, or x1/y1/x2/y2/z for area."""
         return self._post("/api/planting/find", {
             "crop": crop, "id": id,
             "x1": x1, "y1": y1, "x2": x2, "y2": y2, "z": z
         })
 
-    def building_range(self, id):
+    def building_range(self, id: int) -> dict[str, Any]:
         """Get work range tiles for a building (farmhouse, lumberjack, forester)."""
         return self._post("/api/building/range", {"id": id})
 
-    def clear_planting(self, x1, y1, x2, y2, z):
+    def clear_planting(self, x1: int, y1: int, x2: int, y2: int, z: int) -> dict[str, Any]:
         """Clear planting marks from a rectangular area."""
         return self._post("/api/planting/clear", {
             "x1": x1, "y1": y1, "x2": x2, "y2": y2, "z": z
         })
 
-    def clear_trees(self, x1, y1, x2, y2, z):
+    def clear_trees(self, x1: int, y1: int, x2: int, y2: int, z: int) -> dict[str, Any]:
         """Clear tree cutting marks from a rectangular area."""
         return self._post("/api/cutting/area", {
             "x1": x1, "y1": y1, "x2": x2, "y2": y2, "z": z, "marked": False
         })
 
-    def set_storage(self, id, good="", mode=""):
+    def set_storage(self, id: int, good: str = "", mode: str = "") -> dict[str, Any]:
         """Set storage mode and/or allowed good. mode: accept, obtain, supply, empty. good: good name or 'none' to clear."""
-        body = {"id": id}
+        body: dict[str, int | str] = {"id": id}
         if good: body["good"] = good
         if mode: body["mode"] = mode
         return self._post("/api/building/storage", body)
 
-    def place_path(self, x1, y1, x2, y2, z=0, style="direct", sections=0, timings=False):
+    def place_path(self, x1: int, y1: int, x2: int, y2: int, _z: int = 0, style: str = "direct", sections: int = 0, timings: bool = False) -> dict[str, Any]:
         """Route a path using A* to avoid obstacles, with auto-stairs at z-level changes. z param ignored. style: 'direct' (staircase) or 'straight' (minimize turns). sections: 0=all, N=place N stair crossings then stop."""
-        body = {"x1": x1, "y1": y1, "x2": x2, "y2": y2, "style": style}
+        body: dict[str, Any] = {"x1": x1, "y1": y1, "x2": x2, "y2": y2, "style": style}
         if sections: body["sections"] = sections
         if timings: body["timings"] = True
         return self._post("/api/path/place", body)
 
+    #. automation --
+
+    def link(self, source_id: int, target_id: int, input: str = "a"):
+        """Wire a sensor/relay output to a building automation input. input: a, b, or reset (for Memory)."""
+        return self._post("/api/automation/link", {"sourceId": source_id, "targetId": target_id, "input": input})
+
+    def unlink(self, id: int, input: str = "a"):
+        """Disconnect an automation input. input: a, b, or reset (for Memory)."""
+        return self._post("/api/automation/unlink", {"id": id, "input": input})
+
+    def configure_automation(self, id: int, property: str, value: str):
+        """Configure an automation component property (threshold, mode, etc.)."""
+        return self._post("/api/automation/configure", {"id": id, "property": property, "value": value})
+
+    def rename_automation(self, id: int, name: str):
+        """Set a custom label for an automation entity."""
+        return self._post("/api/automation/rename", {"id": id, "name": name})
+
     #. helpers --
 
-    def tree_clusters(self):
+    def tree_clusters(self) -> list[dict[str, Any]] | dict[str, Any]:
         """Find clusters of grown trees. Returns top clusters by grown count."""
-        return self._get("/api/tree_clusters")
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/tree_clusters"))
 
-    def food_clusters(self):
+    def food_clusters(self) -> list[dict[str, Any]] | dict[str, Any]:
         """Find clusters of gatherable food (berries, bushes). Returns top clusters by grown count."""
-        return self._get("/api/food_clusters")
+        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/food_clusters"))
 
     @staticmethod
-    def near(items, x, y, radius=20):
+    def near(items: list[dict[str, Any]], x: int, y: int, radius: int = 20) -> list[dict[str, Any]]:
         """Filter items to those within radius of (x,y). Sorted by distance."""
         result = []
         for i in items:
@@ -459,12 +518,12 @@ class Timberbot:
         return result
 
     @staticmethod
-    def named(items, name):
+    def named(items: list[dict[str, Any]], name: str) -> list[dict[str, Any]]:
         """Filter items whose name contains the given string (case-insensitive)."""
         low = name.lower()
         return [i for i in items if low in i.get("name", "").lower()]
 
-    def map(self, x1, y1, x2, y2):
+    def map(self, x1: int, y1: int, x2: int, y2: int) -> dict[str, Any]:
         """Colored ASCII map with terrain height shading, buildings, water, trees."""
         R = "\033[0m"
         DIM = "\033[2m"
@@ -572,7 +631,7 @@ class Timberbot:
             "Numbercruncher": ("S", BWHT),
         }
 
-        def _zbg(z):
+        def _zbg(z: int) -> str:
             # gradient within tens bands: 0-9 dark(234-242), 10-19 bright(244-252), 20-22 brightest(254+)
             if z < 10:
                 shade = 234 + z
@@ -644,9 +703,9 @@ class Timberbot:
                     continue
                 delta = ""
                 if bg != pbg:
-                    delta += bg
+                    delta += bg or ""
                 if co != pco:
-                    delta += co
+                    delta += co or ""
                 row += delta + ch
                 pbg = bg
                 pco = co
@@ -676,24 +735,24 @@ class Timberbot:
     # Spatial memory
     # ------------------------------------------------------------------
 
-    def brain(self, goal=None):
+    def brain(self, goal: str | None = None) -> dict[str, Any]:
         """Live summary + persistent goal/tasks/locations."""
-        global _MEMORY_DIR
+        global _memory_dir
 
         summary = self._get_json("/api/summary")
 
         # set per-settlement memory dir
-        settlement = _sanitize_name(summary.get("settlement", summary.get("settlementName", "unknown")) if isinstance(summary, dict) else "unknown")
-        _MEMORY_DIR = os.path.join(_MEMORY_BASE, settlement)
+        settlement = _sanitize_name(summary.get("settlement", summary.get("settlementName", "unknown")))
+        _memory_dir = os.path.join(_MEMORY_BASE, settlement)
 
         # load persistent data
         existing_goal = ""
         tasks = []
         locations = {}
-        bpath = os.path.join(_MEMORY_DIR, "brain.toon")
+        bpath = os.path.join(_memory_dir, "brain.toon")
         if os.path.exists(bpath):
             try:
-                import toons as _t
+                import toons as _t  # pyright: ignore[reportMissingImports]
                 with open(bpath) as f:
                     old = _t.load(f)
                     existing_goal = old.get("goal", "")
@@ -710,89 +769,88 @@ class Timberbot:
 
         # auto-seed locations from live data on first run
         if not locations:
-            districts = summary.get("districts", []) if isinstance(summary, dict) else []
+            districts = summary.get("districts", [])
             dc = next((d.get("dc") for d in districts if d.get("dc")), None)
             if dc:
                 locations["dc"] = {"x": dc["x"], "y": dc["y"], "z": dc.get("z", 0)}
-            tree_clusters = summary.get("treeClusters", []) if isinstance(summary, dict) else []
+            tree_clusters = summary.get("treeClusters", [])
             for i, tc in enumerate(tree_clusters[:3]):
                 label = "forest" if i == 0 else f"forest-{i+1}"
                 locations[label] = {"x": tc["x"], "y": tc["y"], "z": tc.get("z", 0), "species": list(tc.get("species", {}).keys())}
-            food_clusters = summary.get("foodClusters", []) if isinstance(summary, dict) else []
+            food_clusters = summary.get("foodClusters", [])
             for i, fc in enumerate(food_clusters[:3]):
                 label = "berries" if i == 0 else f"berries-{i+1}"
                 locations[label] = {"x": fc["x"], "y": fc["y"], "z": fc.get("z", 0), "species": list(fc.get("species", {}).keys())}
 
         # persist brain.toon
-        import toons as _t
-        os.makedirs(_MEMORY_DIR, exist_ok=True)
+        import toons as _t  # pyright: ignore[reportMissingImports]
+        os.makedirs(_memory_dir, exist_ok=True)
         from datetime import datetime
         brain_data = {"timestamp": datetime.now().isoformat(), "goal": current_goal, "tasks": tasks, "locations": locations}
         with open(bpath, "w") as f:
             _t.dump(brain_data, f)
 
         # compact summary: flatten nested dicts into CSV-style for toon rendering
-        if isinstance(summary, dict):
-            s = summary
-            # flatten time (insert after faction to keep at top)
-            if "time" in s:
-                t = s.pop("time")
-                # insert after settlement/faction
-                insert = {}
-                for k in list(s.keys()):
-                    insert[k] = s.pop(k)
-                    if k == "faction":
-                        insert["day"] = t.get("dayNumber", 0)
-                        insert["dayProgress"] = round(t.get("dayProgress", 0), 2)
-                        insert["speed"] = t.get("speed", 0)
-                s.update(insert)
-            # flatten weather (insert right after speed)
-            if "weather" in s:
-                w = s.pop("weather")
-                insert = {}
-                for k in list(s.keys()):
-                    insert[k] = s.pop(k)
-                    if k == "speed":
-                        insert["weather"] = f'cycle {w.get("cycle",0)} day {w.get("cycleDay",0)} {"DROUGHT" if w.get("isHazardous") else "temperate"} {w.get("temperateWeatherDuration",0)}t/{w.get("hazardousWeatherDuration",0)}d'
-                s.update(insert)
-            # flatten districts into compact rows
-            if "districts" in s:
-                compact_districts = []
-                for d in s["districts"]:
-                    cd = {"name": d.get("name", "")}
-                    pop = d.get("population", {})
-                    cd["pop"] = f'{pop.get("adults",0)}a {pop.get("children",0)}c {pop.get("bots",0)}b'
-                    res = d.get("resources", {})
-                    cd["resources"] = " ".join(f'{k}:{v}' for k, v in res.items())
-                    h = d.get("housing", {})
-                    cd["beds"] = f'{h.get("occupiedBeds",0)}/{h.get("totalBeds",0)} homeless:{h.get("homeless",0)}'
-                    e = d.get("employment", {})
-                    cd["workers"] = f'{e.get("assigned",0)}/{e.get("vacancies",0)} idle:{e.get("unemployed",0)}'
-                    wb = d.get("wellbeing", {})
-                    cd["wellbeing"] = f'{wb.get("average",0)}/77 miserable:{wb.get("miserable",0)} critical:{wb.get("critical",0)}'
-                    dc = d.get("dc", {})
-                    if dc:
-                        cd["dc"] = f'{dc["x"]},{dc["y"]},z{dc.get("z",0)} {dc.get("orientation","")} entrance:{dc.get("entranceX",0)},{dc.get("entranceY",0)}'
-                    compact_districts.append(cd)
-                s["districts"] = compact_districts
-            # flatten tree/crop species into CSV
-            if "trees" in s and isinstance(s["trees"], dict):
-                sp = s["trees"].get("species", [])
-                s["trees"] = {"marked": s["trees"].get("markedGrown", 0), "seedling": s["trees"].get("markedSeedling", 0), "unmarked": s["trees"].get("unmarkedGrown", 0),
-                              "species": [{k: v for k, v in x.items()} for x in sp]}
-            if "crops" in s and isinstance(s["crops"], dict):
-                sp = s["crops"].get("species", [])
-                s["crops"] = {"ready": s["crops"].get("ready", 0), "growing": s["crops"].get("growing", 0),
-                              "species": [{k: v for k, v in x.items()} for x in sp]}
-            # flatten wellbeing categories
-            if "wellbeing" in s and isinstance(s["wellbeing"], dict):
-                cats = s["wellbeing"].get("categories", [])
-                s["wellbeing"] = {"avg": s["wellbeing"].get("average", 0), "miserable": s["wellbeing"].get("miserable", 0), "critical": s["wellbeing"].get("critical", 0),
-                                  "categories": [{k: v for k, v in c.items()} for c in cats]}
-            # flatten clusters
-            for key in ("treeClusters", "foodClusters"):
-                if key in s:
-                    s[key] = [{"x": c["x"], "y": c["y"], "z": c.get("z", 0), "grown": c.get("grown", 0), "total": c.get("total", 0), "species": ",".join(c.get("species", {}).keys())} for c in s[key]]
+        s = summary
+        # flatten time (insert after faction to keep at top)
+        if "time" in s:
+            t = s.pop("time")
+            # insert after settlement/faction
+            insert = {}
+            for k in list(s.keys()):
+                insert[k] = s.pop(k)
+                if k == "faction":
+                    insert["day"] = t.get("dayNumber", 0)
+                    insert["dayProgress"] = round(t.get("dayProgress", 0), 2)
+                    insert["speed"] = t.get("speed", 0)
+            s.update(insert)
+        # flatten weather (insert right after speed)
+        if "weather" in s:
+            w = s.pop("weather")
+            insert = {}
+            for k in list(s.keys()):
+                insert[k] = s.pop(k)
+                if k == "speed":
+                    insert["weather"] = f'cycle {w.get("cycle",0)} day {w.get("cycleDay",0)} {"DROUGHT" if w.get("isHazardous") else "temperate"} {w.get("temperateWeatherDuration",0)}t/{w.get("hazardousWeatherDuration",0)}d'
+            s.update(insert)
+        # flatten districts into compact rows
+        if "districts" in s:
+            compact_districts = []
+            for d in s["districts"]:
+                cd = {"name": d.get("name", "")}
+                pop = d.get("population", {})
+                cd["pop"] = f'{pop.get("adults",0)}a {pop.get("children",0)}c {pop.get("bots",0)}b'
+                res = d.get("resources", {})
+                cd["resources"] = " ".join(f'{k}:{v}' for k, v in res.items())
+                h = d.get("housing", {})
+                cd["beds"] = f'{h.get("occupiedBeds",0)}/{h.get("totalBeds",0)} homeless:{h.get("homeless",0)}'
+                e = d.get("employment", {})
+                cd["workers"] = f'{e.get("assigned",0)}/{e.get("vacancies",0)} idle:{e.get("unemployed",0)}'
+                wb = d.get("wellbeing", {})
+                cd["wellbeing"] = f'{wb.get("average",0)}/77 miserable:{wb.get("miserable",0)} critical:{wb.get("critical",0)}'
+                dc = d.get("dc", {})
+                if dc:
+                    cd["dc"] = f'{dc["x"]},{dc["y"]},z{dc.get("z",0)} {dc.get("orientation","")} entrance:{dc.get("entranceX",0)},{dc.get("entranceY",0)}'
+                compact_districts.append(cd)
+            s["districts"] = compact_districts
+        # flatten tree/crop species into CSV
+        if "trees" in s and isinstance(s["trees"], dict):
+            sp = s["trees"].get("species", [])
+            s["trees"] = {"marked": s["trees"].get("markedGrown", 0), "seedling": s["trees"].get("markedSeedling", 0), "unmarked": s["trees"].get("unmarkedGrown", 0),
+                          "species": [{k: v for k, v in x.items()} for x in sp]}
+        if "crops" in s and isinstance(s["crops"], dict):
+            sp = s["crops"].get("species", [])
+            s["crops"] = {"ready": s["crops"].get("ready", 0), "growing": s["crops"].get("growing", 0),
+                          "species": [{k: v for k, v in x.items()} for x in sp]}
+        # flatten wellbeing categories
+        if "wellbeing" in s and isinstance(s["wellbeing"], dict):
+            cats = s["wellbeing"].get("categories", [])
+            s["wellbeing"] = {"avg": s["wellbeing"].get("average", 0), "miserable": s["wellbeing"].get("miserable", 0), "critical": s["wellbeing"].get("critical", 0),
+                              "categories": [{k: v for k, v in c.items()} for c in cats]}
+        # flatten clusters
+        for key in ("treeClusters", "foodClusters"):
+            if key in s:
+                s[key] = [{"x": c["x"], "y": c["y"], "z": c.get("z", 0), "grown": c.get("grown", 0), "total": c.get("total", 0), "species": ",".join(c.get("species", {}).keys())} for c in s[key]]
 
         # compact locations
         compact_locs = {}
@@ -808,12 +866,12 @@ class Timberbot:
 
         return {"summary": summary, "goal": current_goal, "tasks": tasks, "locations": compact_locs}
 
-    def set_location(self, name, x, y, z=0, note=""):
+    def set_location(self, name: str, x: int, y: int, z: int = 0, note: str = "") -> dict[str, int | str]:
         """Save a named location. Persists across sessions."""
         self._ensure_settlement_dir()
         brain = _load_brain_file()
         locations = brain.get("locations", {})
-        loc = {"x": int(x), "y": int(y), "z": int(z)}
+        loc: dict[str, int | str] = {"x": int(x), "y": int(y), "z": int(z)}
         if note:
             loc["note"] = note
         locations[name] = loc
@@ -821,7 +879,7 @@ class Timberbot:
         _save_brain_file(brain)
         return {"saved": name, "x": loc["x"], "y": loc["y"], "z": loc["z"]}
 
-    def remove_location(self, name):
+    def remove_location(self, name: str) -> dict[str, Any]:
         """Remove a named location."""
         self._ensure_settlement_dir()
         brain = _load_brain_file()
@@ -833,19 +891,19 @@ class Timberbot:
         _save_brain_file(brain)
         return {"removed": name}
 
-    def list_locations(self):
+    def list_locations(self) -> dict[str, Any]:
         """List all saved locations."""
         self._ensure_settlement_dir()
         brain = _load_brain_file()
         return brain.get("locations", {})
 
-    def clear_brain(self):
+    def clear_brain(self) -> dict[str, str]:
         """Wipe memory for current settlement. Run brain again to start fresh."""
         self._ensure_settlement_dir()
         import shutil
-        if os.path.isdir(_MEMORY_DIR) and _MEMORY_DIR != _MEMORY_BASE:
-            shutil.rmtree(_MEMORY_DIR)
-            return {"cleared": _MEMORY_DIR}
+        if os.path.isdir(_memory_dir) and _memory_dir != _MEMORY_BASE:
+            shutil.rmtree(_memory_dir)
+            return {"cleared": _memory_dir}
         return {"error": "no settlement memory to clear"}
 
     # ------------------------------------------------------------------
@@ -853,18 +911,18 @@ class Timberbot:
     # ------------------------------------------------------------------
 
     def _ensure_settlement_dir(self):
-        """Set _MEMORY_DIR to the correct settlement folder. Call before any disk operation."""
-        global _MEMORY_DIR
-        if _MEMORY_DIR != _MEMORY_BASE:
+        """Set _memory_dir to the correct settlement folder. Call before any disk operation."""
+        global _memory_dir
+        if _memory_dir != _MEMORY_BASE:
             return  # already set by brain()
         try:
             r = self.s.get(f"{self.url}/api/settlement", timeout=5)
             name = _sanitize_name(r.json().get("name", "unknown"))
-            _MEMORY_DIR = os.path.join(_MEMORY_BASE, name)
+            _memory_dir = os.path.join(_MEMORY_BASE, name)
         except Exception:
             pass
 
-    def add_task(self, action):
+    def add_task(self, action: str) -> dict[str, Any]:
         """Add a pending task to brain.toon. Returns the new task."""
         self._ensure_settlement_dir()
         brain = _load_brain_file()
@@ -876,7 +934,7 @@ class Timberbot:
         _save_brain_file(brain)
         return task
 
-    def update_task(self, id, status, error=None):
+    def update_task(self, id: int, status: str, error: str | None = None) -> dict[str, Any]:
         """Update task status. status: pending/active/done/failed. Optional error for failed."""
         self._ensure_settlement_dir()
         brain = _load_brain_file()
@@ -893,13 +951,13 @@ class Timberbot:
                 return t
         return {"error": f"task {id} not found"}
 
-    def list_tasks(self):
+    def list_tasks(self) -> list[dict[str, Any]]:
         """List all tasks from brain.toon."""
         self._ensure_settlement_dir()
         brain = _load_brain_file()
         return brain.get("tasks", [])
 
-    def clear_tasks(self, status="done"):
+    def clear_tasks(self, status: str = "done") -> dict[str, Any]:
         """Remove tasks with given status (default: done). Returns count cleared."""
         self._ensure_settlement_dir()
         brain = _load_brain_file()
@@ -913,17 +971,17 @@ class Timberbot:
     # Agent control
     # ------------------------------------------------------------------
 
-    def agent_status(self):
+    def agent_status(self) -> dict[str, Any]:
         """Get AI agent loop status."""
         return self._get("/api/agent/status")
 
-    def agent_stop(self):
+    def agent_stop(self) -> dict[str, Any]:
         """Stop AI agent loop."""
         return self._post("/api/agent/stop", {})
 
-    def find(self, source, name=None, x=None, y=None, radius=20, limit=0):
+    def find(self, source: str, name: str | None = None, x: int | None = None, y: int | None = None, radius: int = 20, limit: int = 0) -> dict[str, Any]:
         """Find entities from a source (buildings/trees/gatherables/beavers). Filters server-side."""
-        params = {"limit": limit}
+        params: dict[str, int | str] = {"limit": limit}
         if name:
             params["name"] = name
         if x is not None and y is not None:
@@ -952,18 +1010,18 @@ _BCYN = "\033[96m"
 W = 86  # total width
 
 # ensure UTF-8 output on Windows
-import sys as _sys
-if _sys.stdout.encoding != 'utf-8':
+import io, sys as _sys
+if _sys.stdout.encoding != 'utf-8' and isinstance(_sys.stdout, io.TextIOWrapper):
     _sys.stdout.reconfigure(encoding='utf-8')
 
 
-def _cv(val, warn, crit, fmt=".0f"):
+def _cv(val: float, warn: float, crit: float, fmt: str = ".0f") -> str:
     """color a value: green/yellow/red based on thresholds"""
     c = _BRED if val < crit else _BYEL if val < warn else _BGRN
     return f"{c}{_BOLD}{val:{fmt}}{_RST}"
 
 
-def _bar(cur, mx, w=12):
+def _bar(cur: float, mx: float, w: int = 12) -> str:
     """progress bar with gradient: ████░░░░"""
     if mx <= 0:
         return f"{_DIM}{'░' * w}{_RST}"
@@ -977,7 +1035,7 @@ def _hline():
     return f" {_DIM}{'─' * W}{_RST}"
 
 
-def _row(left, right=None, split=43):
+def _row(left: str, right: str | None = None, split: int = 43) -> str:
     """row with optional two-column layout. No side borders."""
     import re
     if right is None:
@@ -988,7 +1046,7 @@ def _row(left, right=None, split=43):
         return f"  {left}{' ' * pad_l}  {right}"
 
 
-def _top_render(summary, wellbeing_data=None, trees_data=None, crops_data=None, interval=5, agent_data=None, agent_turns=5):
+def _top_render(summary: dict[str, Any] | None, wellbeing_data: dict[str, Any] | None = None, trees_data: list[dict[str, Any]] | None = None, crops_data: list[dict[str, Any]] | None = None, interval: int = 5, agent_data: dict[str, Any] | None = None, agent_turns: int = 5) -> None:
     if not summary:
         print(f"\n {_RED}-- game not reachable --{_RST}\n")
         return
@@ -1057,13 +1115,13 @@ def _top_render(summary, wellbeing_data=None, trees_data=None, crops_data=None, 
                 "Coffee", "MangroveFruit"]
     _RAW_CROPS = ["Soybean", "Corn", "Sunflower", "Eggplant", "Algae", "Cassava", "Mushroom"]
     total_food = sum(resources.get(g, 0) for g in _EDIBLE)
-    total_raw = sum(resources.get(g, 0) for g in _RAW_CROPS)
+    _ = sum(resources.get(g, 0) for g in _RAW_CROPS)
     total_water = resources.get("Water", 0)
     food_days = round(total_food / total_pop, 1) if total_pop > 0 else 0
     water_days = round(total_water / (total_pop * 2), 1) if total_pop > 0 else 0
 
     food_items = [(g, resources.get(g, 0)) for g in _EDIBLE if resources.get(g, 0) > 0]
-    raw_crops = [(g, resources.get(g, 0)) for g in _RAW_CROPS if resources.get(g, 0) > 0]
+    _ = [(g, resources.get(g, 0)) for g in _RAW_CROPS if resources.get(g, 0) > 0]
 
     wb_cats = []
     # prefer categories from summary (avoids extra API call), fall back to separate wellbeing_data
@@ -1234,7 +1292,7 @@ def _top_render(summary, wellbeing_data=None, trees_data=None, crops_data=None, 
             visible = history[-8:]  # last 8 turns
             for rec in visible:
                 tn = rec.get("turn", 0)
-                ok = rec.get("ok", 0)
+                _ok = rec.get("ok", 0)
                 failed = rec.get("failed", 0)
                 secs = rec.get("seconds", 0)
                 cmds = rec.get("commands", [])
@@ -1272,8 +1330,18 @@ def _top_render(summary, wellbeing_data=None, trees_data=None, crops_data=None, 
     print(f"  {_DIM}{keys}  ·  refreshing every {interval}s{_RST}")
 
 
-def _top(interval=5):
-    import msvcrt
+def _top(interval: int = 5) -> None:
+    import time
+    import sys
+    
+    is_win = sys.platform == "win32"
+    if is_win:
+        import msvcrt
+    else:
+        import select
+        import tty
+        import termios
+
     bot = Timberbot(json_mode=True)
 
     if not bot.ping():
@@ -1281,14 +1349,26 @@ def _top(interval=5):
         print(f"  {_DIM}start Timberborn with the mod loaded{_RST}\n")
         sys.exit(1)
 
-    agent_turns = 5  # default turns for [s]tart
+    agent_turns = 5
     agent_model = "claude-haiku-4-5-20251001"
+
+    old_settings = None
+    if not is_win:
+        old_settings = termios.tcgetattr(sys.stdin)  # pyright: ignore[reportPossiblyUnboundVariable]
+        tty.setcbreak(sys.stdin.fileno())  # pyright: ignore[reportPossiblyUnboundVariable]
 
     def _drain_key():
         """Non-blocking read of a keypress, or None."""
-        if msvcrt.kbhit():
-            return msvcrt.getch()
-        return None
+        if is_win:
+            if msvcrt.kbhit():  # pyright: ignore[reportPossiblyUnboundVariable]
+                return msvcrt.getch()  # pyright: ignore[reportPossiblyUnboundVariable]
+            return None
+        else:
+            rlist, _, _ = select.select([sys.stdin], [], [], 0)  # pyright: ignore[reportPossiblyUnboundVariable]
+            if rlist:
+                ch = sys.stdin.read(1)
+                return ch.encode('utf-8')
+            return None
 
     try:
         while True:
@@ -1319,14 +1399,14 @@ def _top(interval=5):
                     agent_st = agent.get("status") if agent else "idle"
                     if agent_st in ("idle", "done", "error", None):
                         try:
-                            bot._post("/api/agent/start", {"binary": "claude", "turns": agent_turns, "model": agent_model, "interval": 5, "timeout": 300})
+                            _ = bot._post("/api/agent/start", {"binary": "claude", "turns": agent_turns, "model": agent_model, "interval": 5, "timeout": 300})
                             # force refresh
                             break
-                        except Exception as e:
+                        except Exception:
                             pass
                 elif ch == b'x':
                     try:
-                        bot._post("/api/agent/stop", {})
+                        _ = bot._post("/api/agent/stop", {})
                     except Exception:
                         pass
                     break
@@ -1338,12 +1418,15 @@ def _top(interval=5):
                     break
                 elif ch in (b'0', b'1', b'2', b'3'):
                     try:
-                        bot.set_speed(int(ch))
+                        _ = bot.set_speed(int(ch))
                     except Exception:
                         pass
                     break
     except KeyboardInterrupt:
         print(f"\n  {_DIM}bye!{_RST}\n")
+    finally:
+        if old_settings and not is_win:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)  # pyright: ignore[reportPossiblyUnboundVariable]
 
 
 # Workforce manager (manage subcommand)
@@ -1356,11 +1439,11 @@ _LOW_PRIORITY = ["Inventor", "Metalsmith", "BotPartFactory", "BotAssembler",
                  "IndustrialLumberMill", "LargePowerWheel", "DistrictCenter"]
 
 
-def _is_essential(name):
+def _is_essential(name: str) -> bool:
     return any(e in name for e in _ESSENTIAL)
 
 
-def _manage():
+def _manage() -> None:
     bot = Timberbot(json_mode=True)
 
     if not bot.ping():
@@ -1377,7 +1460,8 @@ def _manage():
             try:
                 summary = bot.summary()
                 idle = sum(d.get("employment", {}).get("unemployed", 0) for d in summary.get("districts", []))
-                buildings = bot.buildings()
+                bldgs = bot.buildings()
+                blist: list[dict[str, Any]] = bldgs.get("buildings", []) if isinstance(bldgs, dict) else bldgs
             except Exception:
                 print(f"  {_RED}-- connection lost --{_RST}")
                 time.sleep(10)
@@ -1390,12 +1474,12 @@ def _manage():
                 # find something to pause from low-priority list
                 acted = False
                 for prio_name in _LOW_PRIORITY:
-                    for b in buildings:
+                    for b in blist:
                         if (prio_name in b.get("name", "") and
                                 not b.get("paused") and
                                 b.get("assignedWorkers", 0) > 0 and
                                 not _is_essential(b.get("name", ""))):
-                            bot.pause_building(b["id"])
+                            _ = bot.pause_building(b["id"])
                             paused_by_us.append(b["id"])
                             print(f"  {ts}  {_BRED}0 idle{_RST}  paused {_BYEL}{b['name']}{_RST} id:{b['id']}")
                             acted = True
@@ -1409,11 +1493,11 @@ def _manage():
                 # unpause the last thing we paused
                 bid = paused_by_us.pop()
                 name = "?"
-                for b in buildings:
+                for b in blist:
                     if b.get("id") == bid:
                         name = b.get("name", "?")
                         break
-                bot.unpause_building(bid)
+                _ = bot.unpause_building(bid)
                 print(f"  {ts}  {_BYEL}{idle} idle{_RST}  unpaused {_BGRN}{name}{_RST} id:{bid}")
 
             else:
@@ -1436,7 +1520,7 @@ import inspect
 
 
 
-def _cast(a):
+def _cast(a: str) -> bool | int | float | str:
     if a.lower() == "true":
         return True
     if a.lower() == "false":
@@ -1453,7 +1537,7 @@ def _cast(a):
 _SAVES_DIR = _saves_dir()
 
 
-def _start_agent(args):
+def _start_agent(args: list[str]) -> None:
     """Start AI agent loop via the mod's HTTP API.
 
     Usage: timberbot.py start binary:claude [turns:5] [model:MODEL] [interval:10] [timeout:120] [goal:"survive and grow"]
@@ -1502,19 +1586,19 @@ def _start_agent(args):
         data["command"] = command
 
     try:
-        result = bot._post("/api/agent/start", data)
+        _ = bot._post("/api/agent/start", data)
     except TimberbotError as e:
         print(f"  {_RED}error: {e.error}{_RST}", file=sys.stderr)
         sys.exit(1)
 
-    label = command or binary
+    _label = command or binary
     print(f"  {_BGRN}started{_RST} binary={binary} turns={turns} interval={interval}s")
     if command:
         print(f"  {_DIM}command: {command}{_RST}")
     print(f"  {_DIM}use 'timberbot.py top' to monitor{_RST}")
 
 
-def _launch(args):
+def _launch(args: list[str]) -> None:
     """Prepare a save launch via autoload.json.
 
     Usage: timberbot.py launch settlement:<name> [save:<filename>] [timeout:120]
@@ -1600,10 +1684,10 @@ def _launch(args):
     print(f"  {_BOLD}launching{_RST} {settlement} / {save_name}")
     steam_exe = r"C:\Games\Steam\steam.exe"
     if os.path.exists(steam_exe):
-        subprocess.Popen([steam_exe, "-applaunch", "1062090"])
+        _ = subprocess.Popen([steam_exe, "-applaunch", "1062090"])
     else:
         # fall back to protocol handler
-        subprocess.Popen(["cmd.exe", "/c", "start", "steam://rungameid/1062090"], shell=False)
+        _ = subprocess.Popen(["cmd.exe", "/c", "start", "steam://rungameid/1062090"], shell=False)
 
     # wait for Timberborn.exe to appear (confirms Steam actually launched it)
     print(f"  {_DIM}waiting for Timberborn.exe to start...{_RST}")
@@ -1640,13 +1724,13 @@ def _launch(args):
     sys.exit(1)
 
 
-def _method_params(method):
+def _method_params(method: Any) -> list[str]:
     """Get parameter names (excluding self) for a method."""
     sig = inspect.signature(method)
     return [p.name for p in sig.parameters.values() if p.name != "self"]
 
 
-def _format_usage(name, method):
+def _format_usage(name: str, method: Any) -> str:
     """Format usage string showing key:value pairs."""
     params = []
     sig = inspect.signature(method)
@@ -1661,7 +1745,20 @@ def _format_usage(name, method):
 
 
 def main():
-    if len(sys.argv) < 2:
+    help_mode = "--help" in sys.argv or "-h" in sys.argv
+    json_mode = "--json" in sys.argv
+    host_override = None
+    port_override = None
+    for a in sys.argv[1:]:
+        if a.startswith("--host="):
+            host_override = a.split("=", 1)[1]
+        elif a.startswith("--port="):
+            try: port_override = int(a.split("=", 1)[1])
+            except ValueError: pass
+    skip = {"--", "--json", "--help", "-h"}
+    raw_args = [a for a in sys.argv[1:] if a not in skip and not a.startswith("--host=") and not a.startswith("--port=")]
+
+    if not raw_args:
         bot = Timberbot()
         print("usage: timberbot.py <method> key:value ...")
         print()
@@ -1683,21 +1780,27 @@ def main():
         else:
             print(f"  {'launch':30s} prepare autoload and launch the game (manual open on macOS)")
         print(f"  {'start':30s} start the built-in interactive agent")
-        sys.exit(1)
+        sys.exit(0 if help_mode else 1)
 
-    json_mode = "--json" in sys.argv
-    host_override = None
-    port_override = None
-    for a in sys.argv[1:]:
-        if a.startswith("--host="):
-            host_override = a.split("=", 1)[1]
-        elif a.startswith("--port="):
-            try: port_override = int(a.split("=", 1)[1])
-            except ValueError: pass
-    skip = {"--", "--json"}
-    raw_args = [a for a in sys.argv[1:] if a not in skip and not a.startswith("--host=") and not a.startswith("--port=")]
     method_name = raw_args[0]
     args = raw_args[1:]
+
+    if help_mode:
+        bot = Timberbot()
+        if not hasattr(bot, method_name):
+            print(f"error: unknown method '{method_name}'", file=sys.stderr)
+            sys.exit(1)
+        method = getattr(bot, method_name)
+        if not callable(method):
+            print(f"'{method_name}' is a property or not callable.")
+            sys.exit(0)
+        doc = method.__doc__ or "No documentation available."
+        print(f"Method: {method_name}")
+        print("-" * (8 + len(method_name)))
+        print(doc.strip())
+        print()
+        print(f"Usage:\n  {_format_usage(method_name, method).strip()}")
+        sys.exit(0)
 
     if method_name == "top":
         # parse optional interval: top interval:3
@@ -1757,7 +1860,7 @@ def main():
             print(json.dumps(e.response, indent=2), file=sys.stderr)
         else:
             try:
-                import toons
+                import toons  # pyright: ignore[reportMissingImports]
                 print(toons.dumps(e.response), file=sys.stderr)
             except ImportError:
                 print(json.dumps(e.response, indent=2), file=sys.stderr)
@@ -1770,7 +1873,7 @@ def main():
         print(json.dumps(result, indent=2))
     else:
         try:
-            import toons
+            import toons  # pyright: ignore[reportMissingImports]
             print(toons.dumps(result))
         except ImportError:
             print(json.dumps(result, indent=2))

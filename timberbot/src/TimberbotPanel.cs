@@ -70,6 +70,14 @@ namespace Timberbot
         private NineSliceButton _webhookValidateUrlsPresetBtn;
         private TextField _maxBodyBytesField;
 
+        // Console Widget
+        private VisualElement _consoleRoot;
+        private ScrollView _consoleScroll;
+        private bool _consoleIsDragging;
+        private bool _consoleCollapsed;
+        private TextField _actionLoggingEnabledField;
+        private NineSliceButton _actionLoggingEnabledPresetBtn;
+
         private VisualElement _presetPopup;
         private ScrollView _presetScroll;
         private VisualElement _presetPopupAnchor;
@@ -201,15 +209,24 @@ namespace Timberbot
         {
             BuildWidget();
             BuildModal();
+            BuildConsole();
 
             _veInit.InitializeVisualElement(_widget);
             _veInit.InitializeVisualElement(_modalOverlay);
+            _veInit.InitializeVisualElement(_consoleRoot);
 
             _layout.AddAbsoluteItem(_widget);
             _layout.AddAbsoluteItem(_modalOverlay);
+            _layout.AddAbsoluteItem(_consoleRoot);
 
             _widget.ToggleDisplayStyle(true);
             _modalOverlay.ToggleDisplayStyle(false);
+            UpdateConsoleVisibility();
+            
+            if (_service.Write != null)
+                _service.Write.OnActionLog += HandleActionLog;
+            if (_service.Placement != null)
+                _service.Placement.OnActionLog += HandleActionLog;
 
             TimberbotLog.Info("panel: attached to game UI");
         }
@@ -401,6 +418,7 @@ namespace Timberbot
             var savedModel = _service.GetUISetting("agentModel");
             var savedEffort = _service.GetUISetting("agentEffort");
             var savedGoal = _service.GetUISetting("agentGoal") ?? "reach 50 beavers with 77 well-being";
+            var savedActionLoggingEnabled = NormalizeBoolString(_service.GetUISetting("actionLoggingEnabled"), true);
             var savedDebugEndpointEnabled = NormalizeBoolString(_service.GetUISetting("debugEndpointEnabled"), false);
             var savedHttpPort = NormalizeValue(_service.GetUISetting("httpPort"), "8085");
             var savedWebhooksEnabled = NormalizeBoolString(_service.GetUISetting("webhooksEnabled"), true);
@@ -476,6 +494,17 @@ namespace Timberbot
             _agentSettingsContainer.Add(agentActionRow);
 
             _runtimeSettingsContainer.Add(MakeHintLabel("Timberborn must be restarted or save loaded after changing these settings."));
+
+            _actionLoggingEnabledField = MakeTextField(savedActionLoggingEnabled);
+            _actionLoggingEnabledField.RegisterValueChangedCallback(evt =>
+            {
+                var value = NormalizeBoolString(evt.newValue, true);
+                _actionLoggingEnabledField.SetValueWithoutNotify(value);
+                _service.ActionLoggingEnabled = (value == "true");
+                UpdateConsoleVisibility();
+            });
+            _actionLoggingEnabledPresetBtn = MakePresetButton("v", () => TogglePresetMenu(_actionLoggingEnabledPresetBtn, _actionLoggingEnabledField, BoolChoices));
+            _runtimeSettingsContainer.Add(MakePresetFieldRow("actionLoggingEnabled:", _actionLoggingEnabledField, _actionLoggingEnabledPresetBtn));
 
             _debugEndpointField = MakeTextField(savedDebugEndpointEnabled);
             _debugEndpointField.RegisterValueChangedCallback(evt =>
@@ -1265,6 +1294,209 @@ namespace Timberbot
             button.style.marginLeft = 4;
             row.Add(button);
             return row;
+        }
+
+        private void BuildConsole()
+        {
+            _consoleRoot = new VisualElement();
+            _consoleRoot.style.position = Position.Absolute;
+            _consoleRoot.style.bottom = 280;
+            _consoleRoot.style.left = 10;
+            _consoleRoot.style.width = 380;
+            _consoleRoot.style.height = 180;
+            _consoleRoot.style.paddingTop = 4;
+            _consoleRoot.style.paddingBottom = 4;
+            _consoleRoot.style.paddingLeft = 8;
+            _consoleRoot.style.paddingRight = 8;
+            
+            // Premium Glassy HUD style
+            _consoleRoot.style.backgroundColor = new Color(0f, 0.02f, 0f, 0.75f);
+            _consoleRoot.style.borderLeftWidth = 1;
+            _consoleRoot.style.borderRightWidth = 1;
+            _consoleRoot.style.borderTopWidth = 1;
+            _consoleRoot.style.borderBottomWidth = 1;
+            _consoleRoot.style.borderLeftColor = new Color(0.3f, 0.5f, 0.3f, 0.4f);
+            _consoleRoot.style.borderRightColor = new Color(0.3f, 0.5f, 0.3f, 0.4f);
+            _consoleRoot.style.borderTopColor = new Color(0.3f, 0.5f, 0.3f, 0.4f);
+            _consoleRoot.style.borderBottomColor = new Color(0.3f, 0.5f, 0.3f, 0.4f);
+            _consoleRoot.style.borderTopLeftRadius = 6;
+            _consoleRoot.style.borderTopRightRadius = 6;
+            _consoleRoot.style.borderBottomLeftRadius = 6;
+            _consoleRoot.style.borderBottomRightRadius = 6;
+
+            // Containers for layout state switching
+            var expandedBox = new VisualElement();
+            expandedBox.style.flexGrow = 1;
+            expandedBox.style.display = DisplayStyle.Flex;
+
+            var collapsedBox = new VisualElement();
+            collapsedBox.style.flexGrow = 1;
+            collapsedBox.style.alignItems = Align.Center;
+            collapsedBox.style.justifyContent = Justify.Center;
+            collapsedBox.style.display = DisplayStyle.None;
+
+            _consoleRoot.Add(expandedBox);
+            _consoleRoot.Add(collapsedBox);
+
+            // Layout toggler logic
+            System.Action refreshLayout = () =>
+            {
+                bool hide = _consoleCollapsed;
+                expandedBox.style.display = hide ? DisplayStyle.None : DisplayStyle.Flex;
+                collapsedBox.style.display = hide ? DisplayStyle.Flex : DisplayStyle.None;
+
+                if (hide)
+                {
+                    _consoleRoot.style.width = 36;
+                    _consoleRoot.style.height = 36;
+                    _consoleRoot.style.paddingLeft = 0;
+                    _consoleRoot.style.paddingRight = 0;
+                    _consoleRoot.style.paddingTop = 0;
+                    _consoleRoot.style.paddingBottom = 0;
+                }
+                else
+                {
+                    _consoleRoot.style.width = 380;
+                    _consoleRoot.style.height = 180;
+                    _consoleRoot.style.paddingLeft = 8;
+                    _consoleRoot.style.paddingRight = 8;
+                    _consoleRoot.style.paddingTop = 4;
+                    _consoleRoot.style.paddingBottom = 4;
+                }
+            };
+
+            // ==========================================
+            // 1. BUILD EXPANDED VIEW
+            // ==========================================
+            var titleContainer = new VisualElement();
+            titleContainer.style.flexDirection = FlexDirection.Row;
+            titleContainer.style.justifyContent = Justify.SpaceBetween;
+            titleContainer.style.alignItems = Align.Center;
+            titleContainer.style.marginBottom = 6;
+            titleContainer.style.paddingBottom = 2;
+            titleContainer.style.borderBottomWidth = 1;
+            titleContainer.style.borderBottomColor = new Color(0.3f, 0.5f, 0.3f, 0.2f);
+            expandedBox.Add(titleContainer);
+
+            var titleLabel = new Label("Timberbot Action Console");
+            titleLabel.AddToClassList("text--yellow");
+            titleLabel.AddToClassList("game-text-normal");
+            titleLabel.AddToClassList("text--bold");
+            titleLabel.style.fontSize = 10;
+            titleLabel.style.flexGrow = 1; // allow maximum clickable area for drag
+            titleContainer.Add(titleLabel);
+
+            var minimizeBtn = new Label("[-]");
+            minimizeBtn.AddToClassList("text--yellow");
+            minimizeBtn.AddToClassList("text--bold");
+            minimizeBtn.style.fontSize = 10;
+            minimizeBtn.style.marginLeft = 4;
+            minimizeBtn.RegisterCallback<ClickEvent>(evt =>
+            {
+                _consoleCollapsed = true;
+                refreshLayout();
+                evt.StopPropagation();
+            });
+            titleContainer.Add(minimizeBtn);
+
+            _consoleScroll = new ScrollView(ScrollViewMode.Vertical);
+            _consoleScroll.style.flexGrow = 1;
+            expandedBox.Add(_consoleScroll);
+
+            // ==========================================
+            // 2. BUILD COLLAPSED VIEW (Tiny Square Button)
+            // ==========================================
+            var expandIcon = new Label("[+]");
+            expandIcon.AddToClassList("text--yellow");
+            expandIcon.AddToClassList("game-text-normal");
+            expandIcon.AddToClassList("text--bold");
+            expandIcon.style.fontSize = 12;
+            expandIcon.style.marginTop = 0;
+            collapsedBox.Add(expandIcon);
+
+            // ==========================================
+            // 3. INJECT REUSABLE DRAG MECHANICS
+            // ==========================================
+            System.Action<VisualElement, System.Action> bindDraggable = (target, onClick) =>
+            {
+                Vector2 anchorRootPos = Vector2.zero;
+                Vector2 anchorMousePos = Vector2.zero;
+                float dragDistSq = 0f;
+
+                target.RegisterCallback<PointerDownEvent>(evt =>
+                {
+                    anchorRootPos = new Vector2(_consoleRoot.resolvedStyle.left, _consoleRoot.resolvedStyle.top);
+                    anchorMousePos = evt.position;
+                    dragDistSq = 0f;
+                    _consoleIsDragging = true;
+                    target.CapturePointer(evt.pointerId);
+                    evt.StopPropagation();
+                });
+
+                target.RegisterCallback<PointerMoveEvent>(evt =>
+                {
+                    if (!_consoleIsDragging) return;
+                    Vector2 delta = (Vector2)evt.position - anchorMousePos;
+                    dragDistSq = delta.sqrMagnitude;
+                    
+                    _consoleRoot.style.bottom = StyleKeyword.Null;
+                    _consoleRoot.style.left = anchorRootPos.x + delta.x;
+                    _consoleRoot.style.top = anchorRootPos.y + delta.y;
+                    evt.StopPropagation();
+                });
+
+                target.RegisterCallback<PointerUpEvent>(evt =>
+                {
+                    if (_consoleIsDragging)
+                    {
+                        _consoleIsDragging = false;
+                        target.ReleasePointer(evt.pointerId);
+                        evt.StopPropagation();
+
+                        // Fire click logic ONLY if movement is minimal (<5px radius)
+                        if (onClick != null && dragDistSq < 25f)
+                        {
+                            onClick();
+                        }
+                    }
+                });
+            };
+
+            // Apply drag logic. The collapsed box expands ONLY on actual stationary click.
+            bindDraggable(titleLabel, null);
+            bindDraggable(collapsedBox, () =>
+            {
+                _consoleCollapsed = false;
+                refreshLayout();
+            });
+        }
+
+        private void UpdateConsoleVisibility()
+        {
+            if (_consoleRoot != null)
+            {
+                _consoleRoot.ToggleDisplayStyle(_service.ActionLoggingEnabled);
+            }
+        }
+
+        private void HandleActionLog(string message)
+        {
+            if (_consoleScroll == null) return;
+
+            var row = new Label($"[{System.DateTime.Now:HH:mm:ss}] {message}");
+            row.style.color = Color.white;
+            row.style.fontSize = 11;
+            row.style.whiteSpace = WhiteSpace.Normal;
+            row.style.marginBottom = 2;
+            
+            _consoleScroll.Add(row);
+
+            if (_consoleScroll.childCount > 40)
+                _consoleScroll.RemoveAt(0);
+
+            _consoleScroll.schedule.Execute(() => {
+                _consoleScroll.verticalScroller.value = _consoleScroll.verticalScroller.highValue;
+            }).StartingIn(50);
         }
     }
 }

@@ -436,4 +436,137 @@ namespace Timberbot.Tests
         public void NotANumber_ReturnsFallback() =>
             Assert.Equal("0.5", TimberbotPure.NormalizeDoubleString("abc", 0.5, 0.0));
     }
+
+    public class PassesFilterTests
+    {
+        [Theory]
+        [InlineData("Lodge", 10, 10, null, 0, 0, 0, true)]
+        [InlineData("Lodge", 10, 10, "Lodge", 0, 0, 0, true)]
+        [InlineData("Lodge", 10, 10, "Farm", 0, 0, 0, false)]
+        [InlineData("Lodge", 10, 10, "lodge", 0, 0, 0, true)]
+        [InlineData("Lodge", 10, 10, null, 10, 10, 5, true)]
+        [InlineData("Lodge", 20, 20, null, 10, 10, 5, false)]
+        [InlineData("Lodge", 12, 13, null, 10, 10, 5, true)] // dist = 2 + 3 = 5
+        [InlineData("Lodge", 12, 14, null, 10, 10, 5, false)] // dist = 2 + 4 = 6
+        [InlineData("Lumberjack", 10, 10, "Lumber", 10, 10, 1, true)]
+        public void FilteringLogic(string name, int x, int y, string fName, int fX, int fY, int fRadius, bool expected) =>
+            Assert.Equal(expected, TimberbotPure.PassesFilter(name, x, y, fName, fX, fY, fRadius));
+    }
+
+    public class ToToonDictTests
+    {
+        [Fact]
+        public void Empty_ReturnsEmpty() => Assert.Equal("", TimberbotPure.ToToonDict(new System.Collections.Generic.Dictionary<string, int>()));
+
+        [Fact]
+        public void Null_ReturnsEmpty() => Assert.Equal("", TimberbotPure.ToToonDict(null));
+
+        [Fact]
+        public void SingleItem() =>
+            Assert.Equal("Log:10", TimberbotPure.ToToonDict(new System.Collections.Generic.Dictionary<string, int> { { "Log", 10 } }));
+
+        [Fact]
+        public void MultipleItems() =>
+            Assert.Equal("Log:10/Plank:5", TimberbotPure.ToToonDict(new System.Collections.Generic.Dictionary<string, int> { { "Log", 10 }, { "Plank", 5 } }));
+    }
+
+    public class GetBeaverTierTests
+    {
+        [Theory]
+        [InlineData(20f, false, "ecstatic")]
+        [InlineData(16f, false, "ecstatic")]
+        [InlineData(15.9f, false, "happy")]
+        [InlineData(12f, false, "happy")]
+        [InlineData(11.9f, false, "okay")]
+        [InlineData(8f, false, "okay")]
+        [InlineData(7.9f, false, "unhappy")]
+        [InlineData(4f, false, "unhappy")]
+        [InlineData(3.9f, false, "miserable")]
+        [InlineData(0f, false, "miserable")]
+        [InlineData(20f, true, "operational")]
+        [InlineData(0f, true, "operational")]
+        public void TierMapping(float wb, bool isBot, string expected) =>
+            Assert.Equal(expected, TimberbotPure.GetBeaverTier(wb, isBot));
+    }
+
+    public class DeterminePriorityToSetTests
+    {
+        [Theory]
+        [InlineData(true, true, true, "workplace")]
+        [InlineData(true, true, false, "workplace")]
+        [InlineData(true, false, true, "construction")]
+        [InlineData(false, true, true, "construction")]
+        [InlineData(false, false, true, "construction")]
+        [InlineData(false, true, false, "workplace")]
+        [InlineData(true, false, false, null)]
+        public void PriorityAutoDetect(bool finished, bool hasWp, bool hasBuilder, string expected) =>
+            Assert.Equal(expected, TimberbotPure.DeterminePriorityToSet(finished, hasWp, hasBuilder));
+    }
+
+    public class DetermineAutomationTypeTests
+    {
+        [Fact]
+        public void DetectsRelay() =>
+            Assert.Equal("Relay", TimberbotPure.DetermineAutomationType(true, false, false, false, false, false, false, false, false, false, true));
+
+        [Fact]
+        public void DetectsMemory() =>
+            Assert.Equal("Memory", TimberbotPure.DetermineAutomationType(false, true, false, false, false, false, false, false, false, false, true));
+
+        [Fact]
+        public void DetectsAutomatable_Fallback() =>
+            Assert.Equal("Automatable", TimberbotPure.DetermineAutomationType(false, false, false, false, false, false, false, false, false, false, true));
+
+        [Fact]
+        public void ReturnsEmpty_IfNone() =>
+            Assert.Equal("", TimberbotPure.DetermineAutomationType(false, false, false, false, false, false, false, false, false, false, false));
+
+        [Fact]
+        public void Priority_RelayOverAutomatable() =>
+            Assert.Equal("Relay", TimberbotPure.DetermineAutomationType(true, false, false, false, false, false, false, false, false, false, true));
+    }
+
+    public class PureCollectionQueryTests
+    {
+        [Fact]
+        public void Parse_Basic()
+        {
+            var q = PureCollectionQuery.Parse("json", "full", 0, 10, 20, null, 0, 0, 0);
+            Assert.Equal("json", q.Format);
+            Assert.Null(q.SingleId);
+            Assert.Equal(10, q.Limit);
+            Assert.Equal(20, q.Offset);
+            Assert.True(q.NeedsFullDetail);
+            Assert.True(q.Paginated);
+            Assert.False(q.HasFilter);
+        }
+
+        [Fact]
+        public void Parse_SingleId_Param()
+        {
+            var q = PureCollectionQuery.Parse(null, null, 123, 0, 0, null, 0, 0, 0);
+            Assert.Equal(123, q.SingleId);
+            Assert.True(q.NeedsFullDetail);
+            Assert.False(q.Paginated);
+        }
+
+        [Fact]
+        public void Parse_SingleId_DetailPrefix()
+        {
+            var q = PureCollectionQuery.Parse(null, "id:456", 0, 0, 0, null, 0, 0, 0);
+            Assert.Equal(456, q.SingleId);
+            Assert.True(q.NeedsFullDetail);
+        }
+
+        [Fact]
+        public void Parse_Filter()
+        {
+            var q = PureCollectionQuery.Parse(null, null, 0, 0, 0, "test", 1, 2, 3);
+            Assert.True(q.HasFilter);
+            Assert.Equal("test", q.FilterName);
+            Assert.Equal(1, q.FilterX);
+            Assert.Equal(2, q.FilterY);
+            Assert.Equal(3, q.FilterRadius);
+        }
+    }
 }
