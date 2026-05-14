@@ -1,0 +1,1451 @@
+openapi: 3.1.0
+info:
+  title: Timberbot HTTP API
+  description: |
+    Read/write HTTP API for the Timberbot Timberborn mod. The mod binds to
+    `http://localhost:8085` by default and exposes the colony state for AI
+    agents and scripts.
+
+    This spec is the single source of truth for the HTTP contract. Both
+    sides have contract tests that diff against it:
+
+    - **C# side** (`timberbot/test/OpenApiContractTests.cs`) walks the route
+      tables in `TimberbotHttpServer.cs` and asserts every route is in the
+      spec (and vice versa).
+    - **Python side** (`python/tests/test_openapi_spec.py`) validates the
+      document, asserts unique operationIds, and asserts every operationId
+      has a corresponding `TimberbotClient` method.
+
+    **Response schemas are skeletal** in this revision — full body shapes
+    will be filled in once we capture real game responses and generate
+    Pydantic models from them. See the `responses-fixtures-needed.md` note
+    in the PR for the handoff to a future session with live-game access.
+  version: 1.0.0
+  contact:
+    name: Timberbot
+    url: https://github.com/impuls42/timberbot
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:8085
+    description: Default local mod listener (override via settings.json httpPort/listenAddress).
+
+tags:
+  - name: meta
+    description: Health, identity, ping.
+  - name: read
+    description: Read game state (snapshots, scalars).
+  - name: read-list
+    description: Read list endpoints with pagination/filter capabilities.
+  - name: write
+    description: Mutating actions (paused/queued onto the main thread).
+  - name: placement
+    description: A* path routing and building placement.
+  - name: automation
+    description: Sensor/relay/memory wiring (`Automator`/`Automatable`).
+  - name: webhooks
+    description: Outbound HTTP push for game events.
+  - name: agent
+    description: Built-in interactive AI-agent launcher.
+  - name: debug
+    description: Reflection inspector + benchmark (gated by `debugEndpointEnabled`).
+
+components:
+  parameters:
+    Format:
+      name: format
+      in: query
+      description: |
+        `toon` (default) returns the compact TOON CSV-like rendering for
+        AI/CLI consumption. `json` returns the full nested JSON.
+      required: false
+      schema: { type: string, enum: [toon, json], default: toon }
+    Limit:
+      name: limit
+      in: query
+      description: Pagination page size. `0` = unlimited. Defaults to `100`.
+      required: false
+      schema: { type: integer, minimum: 0, default: 100 }
+    Offset:
+      name: offset
+      in: query
+      description: Pagination offset.
+      required: false
+      schema: { type: integer, minimum: 0, default: 0 }
+    Detail:
+      name: detail
+      in: query
+      description: |
+        `basic` (default) returns compact fields; `full` returns all fields
+        including inventories/needs. Use `id:<n>` as a shorthand for
+        `?id=<n>&detail=full`.
+      required: false
+      schema: { type: string, enum: [basic, full], default: basic }
+    Id:
+      name: id
+      in: query
+      description: Single-entity lookup by integer ID.
+      required: false
+      schema: { type: integer }
+    NameFilter:
+      name: name
+      in: query
+      description: Server-side substring filter on the entity name.
+      required: false
+      schema: { type: string }
+    X:
+      name: x
+      in: query
+      description: Proximity-filter centre, X coordinate.
+      required: false
+      schema: { type: integer }
+    Y:
+      name: y
+      in: query
+      description: Proximity-filter centre, Y coordinate.
+      required: false
+      schema: { type: integer }
+    Radius:
+      name: radius
+      in: query
+      description: Proximity-filter Manhattan radius (requires X and Y).
+      required: false
+      schema: { type: integer, minimum: 0 }
+    TileX1:
+      name: x1
+      in: query
+      schema: { type: integer }
+    TileY1:
+      name: y1
+      in: query
+      schema: { type: integer }
+    TileX2:
+      name: x2
+      in: query
+      schema: { type: integer }
+    TileY2:
+      name: y2
+      in: query
+      schema: { type: integer }
+
+  schemas:
+    # --- Response envelopes (skeletal; real shapes filled in next session) ---
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, description: 'Error code, e.g. `not_found: id 42`.' }
+      additionalProperties: true
+    PingResponse:
+      type: object
+      required: [status, ready]
+      properties:
+        status: { type: string, example: ok }
+        ready: { type: boolean }
+      additionalProperties: false
+    SettlementName:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+      additionalProperties: false
+    StatusResult:
+      description: Generic mutation acknowledgement.
+      type: object
+      additionalProperties: true
+    Summary:
+      description: 'Aggregated snapshot: time + weather + districts + key totals.'
+      type: object
+      additionalProperties: true
+    Time:
+      type: object
+      additionalProperties: true
+    Weather:
+      type: object
+      additionalProperties: true
+    Population:
+      type: array
+      items: { type: object, additionalProperties: true }
+    Resources:
+      type: object
+      additionalProperties: true
+    DistrictList:
+      type: array
+      items: { type: object, additionalProperties: true }
+    BuildingList:
+      type: object
+      additionalProperties: true
+    Building:
+      type: object
+      additionalProperties: true
+    BeaverList:
+      type: object
+      additionalProperties: true
+    EntityList:
+      description: Generic list payload used by trees/crops/gatherables.
+      type: object
+      additionalProperties: true
+    WorkHours:
+      type: object
+      additionalProperties: true
+    Science:
+      type: object
+      additionalProperties: true
+    Wellbeing:
+      type: object
+      additionalProperties: true
+    Notifications:
+      type: array
+      items: { type: object, additionalProperties: true }
+    Alerts:
+      type: object
+      additionalProperties: true
+    Distribution:
+      type: array
+      items: { type: object, additionalProperties: true }
+    Prefabs:
+      type: array
+      items: { type: object, additionalProperties: true }
+    PowerNetworks:
+      type: array
+      items: { type: object, additionalProperties: true }
+    Speed:
+      type: object
+      required: [speed]
+      properties:
+        speed: { type: integer, enum: [0, 1, 2, 3] }
+    Tiles:
+      type: object
+      additionalProperties: true
+    TreeClusters:
+      type: array
+      items: { type: object, additionalProperties: true }
+    FoodClusters:
+      type: array
+      items: { type: object, additionalProperties: true }
+    Webhook:
+      type: object
+      additionalProperties: true
+    WebhookList:
+      type: array
+      items: { $ref: '#/components/schemas/Webhook' }
+    AgentStatus:
+      type: object
+      additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Malformed body or invalid parameters.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    NotFound:
+      description: Entity or endpoint not found.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    ServerError:
+      description: Internal mod error (logged to `Documents/Timberborn/Mods/Timberbot/timberbot.log`).
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    BodyTooLarge:
+      description: Request body exceeded `maxBodyBytes` from settings.json.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+
+paths:
+  # ---------------------------------------------------------------------------
+  # meta
+  # ---------------------------------------------------------------------------
+  /api/ping:
+    get:
+      operationId: ping
+      summary: Liveness check.
+      description: 'Returns `{status: ok, ready: true}` when the mod is loaded into a game session.'
+      tags: [meta]
+      responses:
+        '200':
+          description: Mod is alive and a game is loaded.
+          content: { application/json: { schema: { $ref: '#/components/schemas/PingResponse' } } }
+  /api/settlement:
+    get:
+      operationId: settlement
+      summary: Current settlement name.
+      tags: [meta]
+      responses:
+        '200':
+          description: Settlement identity.
+          content: { application/json: { schema: { $ref: '#/components/schemas/SettlementName' } } }
+
+  # ---------------------------------------------------------------------------
+  # read state (scalars / aggregates)
+  # ---------------------------------------------------------------------------
+  /api/summary:
+    get:
+      operationId: summary
+      summary: One-shot colony snapshot.
+      tags: [read]
+      x-timberbot-capabilities:
+        supports_format: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200':
+          description: Aggregated colony state.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Summary' } } }
+
+  /api/time:
+    get:
+      operationId: time
+      summary: 'Game time: day number, day progress, partial day.'
+      tags: [read]
+      responses:
+        '200':
+          description: Time scalars.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Time' } } }
+
+  /api/weather:
+    get:
+      operationId: weather
+      summary: 'Weather: cycle, season day, drought flags.'
+      tags: [read]
+      responses:
+        '200':
+          description: Weather scalars.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Weather' } } }
+
+  /api/population:
+    get:
+      operationId: population
+      summary: Per-district beaver counts.
+      tags: [read]
+      responses:
+        '200':
+          description: Population per district.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Population' } } }
+
+  /api/resources:
+    get:
+      operationId: resources
+      summary: Resource stocks per district.
+      tags: [read]
+      x-timberbot-capabilities:
+        supports_format: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200':
+          description: Stocks.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Resources' } } }
+
+  /api/districts:
+    get:
+      operationId: districts
+      summary: Districts with population, resources, and housing.
+      tags: [read]
+      x-timberbot-capabilities:
+        supports_format: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200':
+          description: Districts.
+          content: { application/json: { schema: { $ref: '#/components/schemas/DistrictList' } } }
+
+  /api/science:
+    get:
+      operationId: science
+      summary: Science points and unlockable buildings.
+      tags: [read]
+      x-timberbot-capabilities:
+        supports_format: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200':
+          description: Science state.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Science' } } }
+
+  /api/wellbeing:
+    get:
+      operationId: wellbeing
+      summary: Wellbeing categories with current/max per need.
+      tags: [read]
+      x-timberbot-capabilities:
+        supports_format: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200':
+          description: Wellbeing.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Wellbeing' } } }
+
+  /api/workhours:
+    get:
+      operationId: workhours
+      summary: Work schedule.
+      tags: [read]
+      responses:
+        '200':
+          description: Schedule.
+          content: { application/json: { schema: { $ref: '#/components/schemas/WorkHours' } } }
+    post:
+      operationId: set_workhours
+      summary: Set the end-of-work hour.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endHours]
+              properties:
+                endHours: { type: integer, minimum: 1, maximum: 24, default: 16 }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/speed:
+    get:
+      operationId: speed
+      summary: Current game speed.
+      tags: [read]
+      responses:
+        '200':
+          description: Speed scalar.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Speed' } } }
+    post:
+      operationId: set_speed
+      summary: Set game speed (0=pause, 1/2/3=fast forward).
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [speed]
+              properties:
+                speed: { type: integer, enum: [0, 1, 2, 3] }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/prefabs:
+    get:
+      operationId: prefabs
+      summary: Buildable prefab catalogue.
+      tags: [read]
+      responses:
+        '200':
+          description: Prefabs.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Prefabs' } } }
+
+  /api/power:
+    get:
+      operationId: power
+      summary: Power networks (supply/demand/buildings).
+      tags: [read]
+      x-timberbot-capabilities:
+        supports_format: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200':
+          description: Power networks.
+          content: { application/json: { schema: { $ref: '#/components/schemas/PowerNetworks' } } }
+
+  /api/tiles:
+    get:
+      operationId: tiles
+      summary: Terrain / water / occupants over a bounding box.
+      description: 'No bounding box returns map size only; otherwise returns dense tiles within the rect.'
+      tags: [read]
+      parameters:
+        - { $ref: '#/components/parameters/TileX1' }
+        - { $ref: '#/components/parameters/TileY1' }
+        - { $ref: '#/components/parameters/TileX2' }
+        - { $ref: '#/components/parameters/TileY2' }
+      responses:
+        '200':
+          description: Tiles.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Tiles' } } }
+
+  /api/tree_clusters:
+    get:
+      operationId: tree_clusters
+      summary: Clusters of grown trees by species.
+      tags: [read]
+      x-timberbot-capabilities:
+        supports_format: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200':
+          description: Tree clusters.
+          content: { application/json: { schema: { $ref: '#/components/schemas/TreeClusters' } } }
+
+  /api/food_clusters:
+    get:
+      operationId: food_clusters
+      summary: Clusters of gatherable food (berries, bushes).
+      tags: [read]
+      x-timberbot-capabilities:
+        supports_format: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200':
+          description: Food clusters.
+          content: { application/json: { schema: { $ref: '#/components/schemas/FoodClusters' } } }
+
+  # ---------------------------------------------------------------------------
+  # read state (paged / filtered)
+  # ---------------------------------------------------------------------------
+  /api/alerts:
+    get:
+      operationId: alerts
+      summary: Unstaffed / unpowered / unreachable / status alerts.
+      tags: [read-list]
+      x-timberbot-capabilities:
+        supports_format: true
+        supports_pagination: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+      responses:
+        '200':
+          description: Alerts.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Alerts' } } }
+
+  /api/notifications:
+    get:
+      operationId: notifications
+      summary: Game notification history.
+      tags: [read-list]
+      x-timberbot-capabilities:
+        supports_format: true
+        supports_pagination: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+      responses:
+        '200':
+          description: Notifications.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Notifications' } } }
+
+  /api/buildings:
+    get:
+      operationId: buildings
+      summary: Buildings list with optional detail/filter/proximity.
+      tags: [read-list]
+      x-timberbot-capabilities:
+        supports_format: true
+        supports_pagination: true
+        supports_detail_basic: true
+        supports_detail_full: true
+        supports_detail_id: true
+        supports_name_filter: true
+        supports_radius_filter: true
+        projection_backed: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+        - { $ref: '#/components/parameters/Detail' }
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/NameFilter' }
+        - { $ref: '#/components/parameters/X' }
+        - { $ref: '#/components/parameters/Y' }
+        - { $ref: '#/components/parameters/Radius' }
+      responses:
+        '200':
+          description: Buildings.
+          content: { application/json: { schema: { $ref: '#/components/schemas/BuildingList' } } }
+
+  /api/beavers:
+    get:
+      operationId: beavers
+      summary: Beavers with wellbeing and needs.
+      tags: [read-list]
+      x-timberbot-capabilities:
+        supports_format: true
+        supports_pagination: true
+        supports_detail_basic: true
+        supports_detail_full: true
+        supports_detail_id: true
+        supports_name_filter: true
+        supports_radius_filter: true
+        projection_backed: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+        - { $ref: '#/components/parameters/Detail' }
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/NameFilter' }
+        - { $ref: '#/components/parameters/X' }
+        - { $ref: '#/components/parameters/Y' }
+        - { $ref: '#/components/parameters/Radius' }
+      responses:
+        '200':
+          description: Beavers.
+          content: { application/json: { schema: { $ref: '#/components/schemas/BeaverList' } } }
+
+  /api/trees:
+    get:
+      operationId: trees
+      summary: Trees (live + marked) with positions.
+      tags: [read-list]
+      x-timberbot-capabilities:
+        supports_format: true
+        supports_pagination: true
+        supports_name_filter: true
+        supports_radius_filter: true
+        projection_backed: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+        - { $ref: '#/components/parameters/NameFilter' }
+        - { $ref: '#/components/parameters/X' }
+        - { $ref: '#/components/parameters/Y' }
+        - { $ref: '#/components/parameters/Radius' }
+      responses:
+        '200':
+          description: Trees.
+          content: { application/json: { schema: { $ref: '#/components/schemas/EntityList' } } }
+
+  /api/crops:
+    get:
+      operationId: crops
+      summary: Planted crop entities.
+      tags: [read-list]
+      x-timberbot-capabilities:
+        supports_format: true
+        supports_pagination: true
+        supports_name_filter: true
+        supports_radius_filter: true
+        projection_backed: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+        - { $ref: '#/components/parameters/NameFilter' }
+        - { $ref: '#/components/parameters/X' }
+        - { $ref: '#/components/parameters/Y' }
+        - { $ref: '#/components/parameters/Radius' }
+      responses:
+        '200':
+          description: Crops.
+          content: { application/json: { schema: { $ref: '#/components/schemas/EntityList' } } }
+
+  /api/gatherables:
+    get:
+      operationId: gatherables
+      summary: Berry bushes and other wild gatherables.
+      tags: [read-list]
+      x-timberbot-capabilities:
+        supports_format: true
+        supports_pagination: true
+        supports_name_filter: true
+        supports_radius_filter: true
+        projection_backed: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+        - { $ref: '#/components/parameters/NameFilter' }
+        - { $ref: '#/components/parameters/X' }
+        - { $ref: '#/components/parameters/Y' }
+        - { $ref: '#/components/parameters/Radius' }
+      responses:
+        '200':
+          description: Gatherables.
+          content: { application/json: { schema: { $ref: '#/components/schemas/EntityList' } } }
+
+  # ---------------------------------------------------------------------------
+  # write actions
+  # ---------------------------------------------------------------------------
+  /api/building/pause:
+    post:
+      operationId: pause_building
+      summary: Pause / unpause a building (covers both `pause_building` and `unpause_building` client methods via the `paused` flag).
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, paused]
+              properties:
+                id: { type: integer }
+                paused: { type: boolean }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/building/clutch:
+    post:
+      operationId: set_clutch
+      summary: Engage / disengage a clutch building.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, engaged]
+              properties:
+                id: { type: integer }
+                engaged: { type: boolean }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/building/floodgate:
+    post:
+      operationId: set_floodgate
+      summary: Set a floodgate height (clamped to min/max).
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, height]
+              properties:
+                id: { type: integer }
+                height: { type: number, format: float }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/building/priority:
+    post:
+      operationId: set_priority
+      summary: Set workplace or construction priority on a building.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, priority]
+              properties:
+                id: { type: integer }
+                priority: { type: string, enum: [VeryLow, Low, Normal, High, VeryHigh], default: Normal }
+                type:
+                  type: string
+                  enum: ['', workplace, construction]
+                  description: '`workplace` (finished building) or `construction` (under construction). Empty = auto-detect.'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/building/hauling:
+    post:
+      operationId: set_haul_priority
+      summary: Mark a building as hauler-prioritized.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: integer }
+                prioritized: { type: boolean, default: true }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/building/recipe:
+    post:
+      operationId: set_recipe
+      summary: Set the recipe of a manufactory.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, recipe]
+              properties:
+                id: { type: integer }
+                recipe: { type: string, description: 'Recipe name; pass "none" to clear.' }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/building/farmhouse:
+    post:
+      operationId: set_farmhouse_action
+      summary: Set farmhouse priority action.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, action]
+              properties:
+                id: { type: integer }
+                action: { type: string, enum: [planting, harvesting] }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/building/plantable:
+    post:
+      operationId: set_plantable_priority
+      summary: Set the prioritized plantable on a forester/gatherer.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, plantable]
+              properties:
+                id: { type: integer }
+                plantable: { type: string, description: 'Plantable name; pass "none" to clear.' }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/building/workers:
+    post:
+      operationId: set_workers
+      summary: Set desired worker count on a building (0..maxWorkers).
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, count]
+              properties:
+                id: { type: integer }
+                count: { type: integer, minimum: 0 }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/building/range:
+    post:
+      operationId: building_range
+      summary: Get the working-range tiles for a building (farmhouse, lumberjack, forester).
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: integer }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Range tiles.
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/building/storage:
+    post:
+      operationId: set_storage
+      summary: Set storage mode and/or allowed good on a stockpile/warehouse.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: integer }
+                good: { type: string, description: 'Good name; pass "none" to clear.' }
+                mode: { type: string, enum: [accept, obtain, supply, empty] }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/building/demolish:
+    post:
+      operationId: demolish_building
+      summary: Demolish a building.
+      tags: [placement]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: integer }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/crop/demolish:
+    post:
+      operationId: demolish_crop
+      summary: Demolish a planted crop entity.
+      tags: [placement]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: integer }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/building/place:
+    post:
+      operationId: place_building
+      summary: Place a building by prefab + coords + orientation.
+      tags: [placement]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prefab, x, y, z]
+              properties:
+                prefab: { type: string }
+                x: { type: integer }
+                y: { type: integer }
+                z: { type: integer }
+                orientation: { type: string, enum: [north, south, east, west], default: south }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Placement result.
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/placement/find:
+    post:
+      operationId: find_placement
+      summary: Find valid building placements in an area or radius.
+      tags: [placement]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prefab]
+              properties:
+                prefab: { type: string }
+                x1: { type: integer, default: 0 }
+                y1: { type: integer, default: 0 }
+                x2: { type: integer, default: 0 }
+                y2: { type: integer, default: 0 }
+                x:
+                  type: integer
+                  description: 'Centre X (combined with `y` + `radius`, in place of `x1/y1/x2/y2`).'
+                y: { type: integer }
+                radius:
+                  type: integer
+                  description: 'Manhattan radius around `x,y`. Defaults to `DefaultSearchRadius` (30).'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Candidate placements sorted by path access.
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/path/place:
+    post:
+      operationId: place_path
+      summary: Route a path between two points using A* with auto-stairs.
+      tags: [placement]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [x1, y1, x2, y2]
+              properties:
+                x1: { type: integer }
+                y1: { type: integer }
+                x2: { type: integer }
+                y2: { type: integer }
+                style: { type: string, enum: [direct, straight], default: direct }
+                sections: { type: integer, minimum: 0, default: 0, description: '0 = place full path; N = stop after N stair crossings.' }
+                timings: { type: boolean, default: false, description: 'If true, include profiling output in the response.' }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Path placement result.
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/planting/mark:
+    post:
+      operationId: plant_crop
+      summary: Mark a rectangle for planting a specific crop.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [x1, y1, x2, y2, z, crop]
+              properties:
+                x1: { type: integer }
+                y1: { type: integer }
+                x2: { type: integer }
+                y2: { type: integer }
+                z: { type: integer }
+                crop: { type: string }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/planting/find:
+    post:
+      operationId: find_planting
+      summary: Find valid planting spots for a crop, in a farmhouse range or rect.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [crop]
+              properties:
+                crop: { type: string }
+                id:
+                  type: integer
+                  description: 'Farmhouse id (uses the farmhouse range). Accepts `building_id` as an alias.'
+                building_id: { type: integer, description: 'Alias for `id`.' }
+                x1: { type: integer, default: 0 }
+                y1: { type: integer, default: 0 }
+                x2: { type: integer, default: 0 }
+                y2: { type: integer, default: 0 }
+                z: { type: integer, default: 0 }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Candidate planting spots.
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/planting/clear:
+    post:
+      operationId: clear_planting
+      summary: Unmark planting in a rectangle.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [x1, y1, x2, y2, z]
+              properties:
+                x1: { type: integer }
+                y1: { type: integer }
+                x2: { type: integer }
+                y2: { type: integer }
+                z: { type: integer }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/cutting/area:
+    post:
+      operationId: mark_trees
+      summary: Mark or clear a tree-cutting rectangle (covers both `mark_trees` and `clear_trees` client methods via the `marked` flag).
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [x1, y1, x2, y2, z]
+              properties:
+                x1: { type: integer }
+                y1: { type: integer }
+                x2: { type: integer }
+                y2: { type: integer }
+                z: { type: integer }
+                marked: { type: boolean, default: true }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/district/migrate:
+    post:
+      operationId: migrate
+      summary: Migrate beavers between districts.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from, to]
+              properties:
+                from: { type: string }
+                to: { type: string }
+                count: { type: integer, minimum: 1, default: 1 }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/science/unlock:
+    post:
+      operationId: unlock_building
+      summary: Spend science points to unlock a building.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [building]
+              properties:
+                building: { type: string }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/distribution:
+    get:
+      operationId: distribution
+      summary: Import/export rules per district per good.
+      tags: [read]
+      x-timberbot-capabilities:
+        supports_format: true
+      parameters:
+        - { $ref: '#/components/parameters/Format' }
+      responses:
+        '200':
+          description: Distribution.
+          content: { application/json: { schema: { $ref: '#/components/schemas/Distribution' } } }
+    post:
+      operationId: set_distribution
+      summary: Set import/export rule for a good in a district.
+      tags: [write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [district, good]
+              properties:
+                district: { type: string }
+                good: { type: string }
+                import:
+                  type: string
+                  description: '"Forced", "Auto", "None", or "" (leave unchanged).'
+                exportThreshold:
+                  type: integer
+                  description: 'Export-above threshold. `-1` = leave unchanged.'
+                  default: -1
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  # ---------------------------------------------------------------------------
+  # automation wiring
+  # ---------------------------------------------------------------------------
+  /api/automation/link:
+    post:
+      operationId: link
+      summary: Wire a sensor/relay output to a building automation input.
+      tags: [automation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sourceId, targetId]
+              properties:
+                sourceId: { type: integer }
+                targetId: { type: integer }
+                input:
+                  type: string
+                  enum: [a, b, reset]
+                  default: a
+                  description: 'Input port (Memory components support "reset").'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/automation/unlink:
+    post:
+      operationId: unlink
+      summary: Disconnect an automation input.
+      tags: [automation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: integer }
+                input:
+                  type: string
+                  enum: [a, b, reset]
+                  default: a
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/automation/configure:
+    post:
+      operationId: configure_automation
+      summary: Set a property on an automation component (threshold, mode, …).
+      tags: [automation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, property, value]
+              properties:
+                id: { type: integer }
+                property: { type: string }
+                value: { type: string }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/automation/rename:
+    post:
+      operationId: rename_automation
+      summary: Set a custom label on an automation entity.
+      tags: [automation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, name]
+              properties:
+                id: { type: integer }
+                name: { type: string }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  # ---------------------------------------------------------------------------
+  # webhooks
+  # ---------------------------------------------------------------------------
+  /api/webhooks:
+    get:
+      operationId: list_webhooks
+      summary: List registered outbound webhooks.
+      tags: [webhooks]
+      responses:
+        '200':
+          description: Webhooks.
+          content: { application/json: { schema: { $ref: '#/components/schemas/WebhookList' } } }
+    post:
+      operationId: register_webhook
+      summary: Register a webhook URL to receive game-event push notifications.
+      tags: [webhooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, format: uri }
+                events:
+                  type: array
+                  items: { type: string }
+                  description: 'List of event names; omit for all events.'
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/webhooks/delete:
+    post:
+      operationId: unregister_webhook
+      summary: Unregister a webhook by ID.
+      tags: [webhooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: string }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  # ---------------------------------------------------------------------------
+  # debug / benchmark (gated by debugEndpointEnabled)
+  # ---------------------------------------------------------------------------
+  /api/debug:
+    post:
+      operationId: debug
+      summary: Reflection-based live inspector.
+      description: |
+        Disabled by default (set `debugEndpointEnabled: true` in `settings.json`).
+        Accepts a free-form body with a `target` discriminator (`help`, `roots`,
+        `get`, `fields`, `describe`, `call`, `compare`, `assert`,
+        `validate`, `validate_all`) plus target-specific extra fields.
+      tags: [debug]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target]
+              properties:
+                target: { type: string }
+              additionalProperties: true
+      responses:
+        '200':
+          description: Inspector output.
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/benchmark:
+    post:
+      operationId: benchmark
+      summary: Run a benchmark loop over a debug target.
+      tags: [debug]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                iterations: { type: integer, minimum: 1, default: 100 }
+              additionalProperties: true
+      responses:
+        '200':
+          description: Benchmark result.
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        '400': { $ref: '#/components/responses/BadRequest' }

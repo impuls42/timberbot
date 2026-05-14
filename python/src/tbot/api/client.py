@@ -88,6 +88,10 @@ class TimberbotClient:
         except (requests.ConnectionError, requests.Timeout):
             return False
 
+    def settlement(self) -> dict[str, Any]:
+        """The current settlement's metadata (`{name: ...}`)."""
+        return self._get("/api/settlement")
+
     # ------------------------------------------------------------------
     # Webhooks
     # ------------------------------------------------------------------
@@ -363,6 +367,12 @@ class TimberbotClient:
         body = {"target": target}
         body.update(kwargs)
         return self._post("/api/debug", body)
+
+    def benchmark(self, iterations: int = 100, **kwargs: Any) -> dict[str, Any]:
+        """Run the debug benchmark loop. Gated by `debugEndpointEnabled` in settings.json."""
+        body: dict[str, Any] = {"iterations": iterations}
+        body.update(kwargs)
+        return self._post("/api/benchmark", body)
 
     def find_placement(
         self, prefab: str, x1: int = 0, y1: int = 0, x2: int = 0, y2: int = 0,

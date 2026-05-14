@@ -10,6 +10,12 @@ namespace Timberbot
     // Original call sites delegate here via one-liners.
     public static class TimberbotPure
     {
+        // Major version of the HTTP contract authored at /openapi.yaml.
+        // Surfaced via /api/ping for client-side version checks. Bump when a
+        // breaking change ships. The Python side has the same constant in
+        // python/src/tbot/__about__.py - keep them in lockstep.
+        public const string OPENAPI_VERSION = "1.0.0";
+
         // --- from TimberbotAgent ---
 
         public static string JsonEscape(string s)

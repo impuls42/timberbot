@@ -32,6 +32,8 @@ dev = [
   "pytest-httpserver>=1.0",
   "mypy>=1.8",
   "ruff>=0.5",
+  "openapi-spec-validator>=0.7",
+  "pyyaml>=6.0",
   # Used by the integration suite (`validation_runner.py` decorates with
   # @override). Native in 3.12+ but tbot supports 3.10/3.11 too.
   "typing-extensions>=4.5",
