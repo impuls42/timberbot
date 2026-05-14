@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tbot"
+version = "0.9.0"
+description = "Python client and CLI for the Timberbot Timberborn HTTP API"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Timberbot contributors" },
+]
+keywords = ["timberborn", "timberbot", "modding", "ai-agent"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Games/Entertainment",
+]
+dependencies = [
+  "requests>=2.33.1",
+  "toons>=0.5.4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pytest-httpserver>=1.0",
+  "mypy>=1.8",
+  "ruff>=0.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/impuls42/timberbot"
+Issues = "https://github.com/impuls42/timberbot/issues"
+
+[project.scripts]
+tbot = "tbot.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tbot"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/tbot",
+  "README.md",
+  "pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+warn_unused_ignores = true
+ignore_missing_imports = true
