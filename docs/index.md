@@ -1,7 +1,7 @@
 # Timberbot API
 
 <p align="center">
-  <img src="thumbnail.png" alt="Timberbot — a cybernetic beaver playing Timberborn at a desk" width="320">
+  <img src="thumbnail.png" alt="Timberbot — a cybernetic beaver playing Timberborn at a desk">
 </p>
 
 **Full read/write HTTP API for controlling Timberborn with AI.**

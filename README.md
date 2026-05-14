@@ -1,7 +1,7 @@
 # Timberbot API
 
 <p align="center">
-  <img src="timberbot/src/thumbnail.png" alt="Timberbot — a cybernetic beaver playing Timberborn at a desk" width="320">
+  <img src="timberbot/src/thumbnail.png" alt="Timberbot — a cybernetic beaver playing Timberborn at a desk">
 </p>
 
 **Status: active. mod works, still adding features**
