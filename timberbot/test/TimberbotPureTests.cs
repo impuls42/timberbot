@@ -569,4 +569,143 @@ namespace Timberbot.Tests
             Assert.Equal(3, q.FilterRadius);
         }
     }
+
+    public class BuildTbotAgentRunArgsTests
+    {
+        // Minimal invocation: just backend + goal.
+        [Fact]
+        public void Minimal_BackendAndGoal()
+        {
+            var args = TimberbotPure.BuildTbotAgentRunArgs(
+                backend: "claude", goal: "reach 50 beavers",
+                model: null, effort: null, commandTemplate: null, terminalPrefix: null);
+            Assert.Equal("agent run --backend \"claude\" --goal \"reach 50 beavers\"", args);
+        }
+
+        // Null backend falls back to "claude" (matches the legacy TimberbotAgent default).
+        [Fact]
+        public void NullBackend_DefaultsToClaude()
+        {
+            var args = TimberbotPure.BuildTbotAgentRunArgs(
+                backend: null, goal: "x",
+                model: null, effort: null, commandTemplate: null, terminalPrefix: null);
+            Assert.Contains("--backend \"claude\"", args);
+        }
+
+        // Null goal is rendered as an empty quoted string so the Python CLI errors out
+        // with a clear "--goal is required" message instead of mis-parsing.
+        [Fact]
+        public void NullGoal_RendersEmptyQuotedString()
+        {
+            var args = TimberbotPure.BuildTbotAgentRunArgs(
+                backend: "claude", goal: null,
+                model: null, effort: null, commandTemplate: null, terminalPrefix: null);
+            Assert.Contains("--goal \"\"", args);
+        }
+
+        [Fact]
+        public void ModelAndEffort_AppendedWhenSet()
+        {
+            var args = TimberbotPure.BuildTbotAgentRunArgs(
+                backend: "claude", goal: "g",
+                model: "claude-haiku-4-5", effort: "high",
+                commandTemplate: null, terminalPrefix: null);
+            Assert.Contains("--model \"claude-haiku-4-5\"", args);
+            Assert.Contains("--effort \"high\"", args);
+        }
+
+        // Empty (vs null) optional flags are still skipped — matches the legacy
+        // `string.IsNullOrEmpty` checks the C# launcher used.
+        [Fact]
+        public void EmptyOptionalFlags_AreSkipped()
+        {
+            var args = TimberbotPure.BuildTbotAgentRunArgs(
+                backend: "claude", goal: "g",
+                model: "", effort: "", commandTemplate: "", terminalPrefix: "");
+            Assert.DoesNotContain("--model", args);
+            Assert.DoesNotContain("--effort", args);
+            Assert.DoesNotContain("--command", args);
+            Assert.DoesNotContain("--terminal-prefix", args);
+        }
+
+        // Custom backend with a template — the template itself goes through the
+        // standard QuoteArg, so it survives the round-trip even with spaces.
+        [Fact]
+        public void CustomTemplate_IsQuoted()
+        {
+            var template = "aider --system-prompt-file {skill} {prompt}";
+            var args = TimberbotPure.BuildTbotAgentRunArgs(
+                backend: "custom", goal: "g",
+                model: null, effort: null, commandTemplate: template, terminalPrefix: null);
+            Assert.Contains("--command \"aider --system-prompt-file {skill} {prompt}\"", args);
+        }
+
+        // Windows Terminal launch prefix with a {cwd} placeholder. The placeholder
+        // is substituted on the Python side; here we just check it round-trips
+        // through QuoteArg unmodified.
+        [Fact]
+        public void TerminalPrefix_RoundTripsThroughQuoteArg()
+        {
+            var args = TimberbotPure.BuildTbotAgentRunArgs(
+                backend: "claude", goal: "g",
+                model: null, effort: null,
+                commandTemplate: null, terminalPrefix: "wt -d {cwd} --");
+            Assert.Contains("--terminal-prefix \"wt -d {cwd} --\"", args);
+        }
+
+        // Goal containing embedded double-quotes must be backslash-escaped (per
+        // the QuoteArg contract) so the shell sees the right argv on the other end.
+        [Fact]
+        public void GoalWithDoubleQuotes_IsEscaped()
+        {
+            var args = TimberbotPure.BuildTbotAgentRunArgs(
+                backend: "claude", goal: "say \"hi\" to beavers",
+                model: null, effort: null, commandTemplate: null, terminalPrefix: null);
+            Assert.Contains("--goal \"say \\\"hi\\\" to beavers\"", args);
+        }
+
+        // Backslash in a path-shaped arg must also be escaped.
+        [Fact]
+        public void TemplateWithBackslash_IsEscaped()
+        {
+            var args = TimberbotPure.BuildTbotAgentRunArgs(
+                backend: "custom", goal: "g",
+                model: null, effort: null,
+                commandTemplate: @"C:\bin\aider --prompt {prompt}", terminalPrefix: null);
+            Assert.Contains(@"--command ""C:\\bin\\aider --prompt {prompt}""", args);
+        }
+
+        // The argv always starts with `agent run` so the Python CLI's
+        // built-in-command dispatcher routes it correctly.
+        [Fact]
+        public void ArgsAlwaysStartWithAgentRun()
+        {
+            var args = TimberbotPure.BuildTbotAgentRunArgs(
+                backend: "opencode", goal: "g",
+                model: "x", effort: "y", commandTemplate: null, terminalPrefix: null);
+            Assert.StartsWith("agent run ", args);
+        }
+
+        // Argument order matches the Python CLI's argparse - backend, goal, then
+        // optional flags in declaration order. This ordering is stable contract:
+        // both sides of the wire depend on it.
+        [Fact]
+        public void ArgumentOrder_IsBackendGoalThenOptionals()
+        {
+            var args = TimberbotPure.BuildTbotAgentRunArgs(
+                backend: "claude", goal: "g",
+                model: "m", effort: "e", commandTemplate: "t", terminalPrefix: "p");
+            int backend = args.IndexOf("--backend");
+            int goal = args.IndexOf("--goal");
+            int model = args.IndexOf("--model");
+            int effort = args.IndexOf("--effort");
+            int command = args.IndexOf("--command");
+            int terminal = args.IndexOf("--terminal-prefix");
+            Assert.True(backend < goal);
+            Assert.True(goal < model);
+            Assert.True(model < effort);
+            Assert.True(effort < command);
+            Assert.True(command < terminal);
+        }
+    }
 }

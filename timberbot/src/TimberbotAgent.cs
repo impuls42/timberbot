@@ -149,31 +149,6 @@ namespace Timberbot
 
         private static string JsonEscape(string s) => TimberbotPure.JsonEscape(s);
 
-        // Build the argv passed to `tbot agent run`. Returns the command line
-        // string ready for ProcessStartInfo.Arguments. Public for testing.
-        public static string BuildTbotAgentRunArgs(
-            string backend,
-            string goal,
-            string model,
-            string effort,
-            string commandTemplate,
-            string terminalPrefix)
-        {
-            var sb = new StringBuilder();
-            sb.Append("agent run");
-            sb.Append(" --backend ").Append(TimberbotPure.QuoteArg(backend ?? "claude"));
-            sb.Append(" --goal ").Append(TimberbotPure.QuoteArg(goal ?? ""));
-            if (!string.IsNullOrEmpty(model))
-                sb.Append(" --model ").Append(TimberbotPure.QuoteArg(model));
-            if (!string.IsNullOrEmpty(effort))
-                sb.Append(" --effort ").Append(TimberbotPure.QuoteArg(effort));
-            if (!string.IsNullOrEmpty(commandTemplate))
-                sb.Append(" --command ").Append(TimberbotPure.QuoteArg(commandTemplate));
-            if (!string.IsNullOrEmpty(terminalPrefix))
-                sb.Append(" --terminal-prefix ").Append(TimberbotPure.QuoteArg(terminalPrefix));
-            return sb.ToString();
-        }
-
         private void InteractiveSession()
         {
             try
@@ -181,7 +156,7 @@ namespace Timberbot
                 _status = AgentStatus.GatheringState;
 
                 var effectiveTerminal = _terminalOverride ?? _terminal;
-                var args = BuildTbotAgentRunArgs(
+                var args = TimberbotPure.BuildTbotAgentRunArgs(
                     _binary, _goal, _model, _effort, _commandTemplate, effectiveTerminal);
                 _currentCmd = $"{_tbotCommand} {args}";
 
