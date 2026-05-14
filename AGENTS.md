@@ -68,7 +68,6 @@ timberbot/
 │   ├── script/
 │   │   └── timberbot.py          # Python CLI client (1800+ lines)
 │   └── test/                     # Test scripts
-├── opencode.json                 # OpenCode agent config
 ├── mkdocs.yml                    # MkDocs config for documentation site
 ├── venv/                         # Python virtual environment
 └── README.md

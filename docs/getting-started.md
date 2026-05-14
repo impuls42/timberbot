@@ -251,6 +251,7 @@ All settings persist to `settings.json`, including:
 
 - agent/UI settings such as `Binary`, `Model`, `Effort`, `Goal`, and widget position
 - runtime settings such as `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `writeBudgetMs`, `terminal`, and `pythonCommand`
+- security settings such as `listenAddress` (default `localhost`), `agentAllowlistEnabled` (default `true`), `webhookValidateUrls` (default `true`), and `maxBodyBytes` (default `1048576`)
 
 Editing `settings.json` directly is the advanced/manual path. The normal path is to change settings in-game and let Timberbot save them for you.
 

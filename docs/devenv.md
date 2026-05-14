@@ -179,7 +179,7 @@ Decompiled sources are not checked into the repo — generate them on demand fro
 
 ## Optional: OpenCode (for AI-assisted development)
 
-The repo includes an `agents/beaver-developer.md` agent and `opencode.json` config.
+The repo ships drop-in prompts under `agents/` (`timberbot`, `scout`, `wirer`, `auditor`, `beaver-developer`) that work with OpenCode, Claude Code, or any agent runner that loads a markdown system prompt.
 
 ### Install
 
@@ -190,7 +190,7 @@ curl -fsSL https://opencode.ai/install | bash
 
 ### Configure
 
-The project config at `opencode.json` sets the default model and enables the buddy MCP server. The Beaver Developer agent at `agents/beaver-developer.md` is pre-configured for MiniMax M2.7.
+Point your agent runner at the relevant file in `agents/`. The Beaver Developer prompt (`agents/beaver-developer.md`) is tuned for working on this codebase itself; the others target gameplay roles.
 
 ---
 

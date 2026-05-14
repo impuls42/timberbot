@@ -27,6 +27,8 @@ timberbot.py place_path x1:110 y1:130 x2:130 y2:150       # A* pathfinding with 
 timberbot.py set_speed speed:3                    # fast forward
 timberbot.py science                              # science points + unlockable buildings
 timberbot.py distribution                         # import/export settings per district
+timberbot.py link source_id:42 target_id:44 input:a       # wire sensor -> building
+timberbot.py configure_automation id:42 property:threshold value:50
 timberbot.py top                                  # live colony dashboard
 timberbot.py                                      # list all methods
 ```
@@ -47,11 +49,13 @@ curl -X POST http://localhost:8085/api/speed -d '{"speed": 3}'
 ## Features
 
 - **A* pathfinding**. `place_path` routes around obstacles, water, and ruins with auto-stairs
+- **Automation wiring**. link/unlink sensors, relays, and memory cells to any pausable building, and configure thresholds, modes, and logic over HTTP
 - **Fresh-on-request reads**. no stale data, zero cost when idle
 - **Blocker tracking**. ruins and editor objects visible in /api/tiles and placement errors
 - **Write job system**. budgeted frame execution, no spikes
 - **Debug endpoint**. reflection inspector with chaining and validation
 - **Webhooks**. subscribe to game events over HTTP
+- **Safe by default**. binds to localhost, validates webhook URLs, caps request body size, and gates agent launches behind an allowlist
 - **Zero-alloc hot path**. no garbage collection pressure on read endpoints
 
 ## Docs
@@ -60,6 +64,9 @@ curl -X POST http://localhost:8085/api/speed -d '{"speed": 3}'
 - [API Reference](docs/api-reference.md). all HTTP endpoints
 - [Timberbot AI](docs/timberbot.md). AI guide for agents playing Timberborn
 - [Architecture](docs/architecture.md). internals, thread model, read/write pipeline
+- [Automation Plan](docs/automation-plan.md). decompiled wiring API and `/api/automation/*` design
+- [Agent Prompts](agents/). drop-in prompts for `timberbot`, `scout`, `wirer`, `auditor`, and `beaver-developer` workflows
+- [Repo Guide](AGENTS.md). project layout, build commands, conventions
 - [Developing](docs/developing.md). build from source, add endpoints, Workshop publishing
 
 ## Settings
@@ -69,15 +76,19 @@ Drop a `settings.json` in your mod folder (`Documents/Timberborn/Mods/Timberbot/
 ```json
 {
   "httpPort": 8085,
+  "listenAddress": "localhost",
   "debugEndpointEnabled": true,
   "webhooksEnabled": true,
   "webhookBatchMs": 200,
   "webhookCircuitBreaker": 30,
-  "writeBudgetMs": 1.0
+  "writeBudgetMs": 1.0,
+  "agentAllowlistEnabled": true,
+  "webhookValidateUrls": true,
+  "maxBodyBytes": 1048576
 }
 ```
 
-All fields are optional. missing keys use defaults.
+All fields are optional. missing keys use defaults. The server binds to `localhost` by default. set `listenAddress` to `+` or `0.0.0.0` to accept LAN connections.
 
 ## Requirements
 

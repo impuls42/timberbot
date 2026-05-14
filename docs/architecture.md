@@ -82,7 +82,7 @@ Settings behavior:
 
 Agent ownership:
 
-- `Load()` instantiates `Agent = new TimberbotAgent(_terminal, _pythonCommand)`
+- `Load()` instantiates `Agent = new TimberbotAgent(_terminal, _pythonCommand, _agentAllowlistEnabled, _agentAllowedBinaries)`
 - `Unload()` calls `Agent?.Stop()` before shutting down the HTTP server
 - the service does not run the agent logic itself; it owns the single agent instance and exposes it to the panel and HTTP routes
 
@@ -366,11 +366,15 @@ Registry data (GUID-to-ID maps, webhook lifecycle hooks). Updated on `EntityInit
 {
   "debugEndpointEnabled": true,
   "httpPort": 8085,
+  "listenAddress": "localhost",
   "webhooksEnabled": true,
   "webhookBatchMs": 200,
   "webhookCircuitBreaker": 30,
   "webhookMaxPendingEvents": 1000,
+  "webhookValidateUrls": true,
   "writeBudgetMs": 1.0,
+  "agentAllowlistEnabled": true,
+  "maxBodyBytes": 1048576,
   "terminal": "",
   "pythonCommand": "",
   "agentBinary": "claude",
@@ -394,6 +398,11 @@ There are two categories of settings in the same file:
   - `writeBudgetMs`
   - `terminal`
   - `pythonCommand`
+- security settings (also read by `TimberbotService`, applied at load):
+  - `listenAddress` — bind address; default `localhost`. Use `+`/`0.0.0.0` for LAN
+  - `agentAllowlistEnabled` — gate `/api/agent/*` launches behind an allowlist; default `true`
+  - `webhookValidateUrls` — reject SSRF-shaped webhook targets before dispatch; default `true`
+  - `maxBodyBytes` — POST body size cap before `413 body_too_large`; default `1048576`
 - UI/agent settings written by [`TimberbotPanel`](../timberbot/src/TimberbotPanel.cs):
   - `agentBinary`
   - `agentModel`
