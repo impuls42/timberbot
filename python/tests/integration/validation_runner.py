@@ -30,6 +30,12 @@ NAVMESH_SETTLE_WAIT = 3.0  # extra settle time for navmesh-dependent reachabilit
 
 
 class TestRunner:
+    # Tell pytest not to auto-collect this class - it's a legacy test harness,
+    # not a pytest TestCase. The pytest-shaped wrappers live in
+    # test_validation_methods.py and call into this via the validation_runner
+    # session fixture.
+    __test__ = False
+
     def __init__(self):
         self.bot = Timberbot(
             json_mode=True, write_timeout=300
@@ -399,8 +405,10 @@ class TestRunner:
         if self._doc_contract_cache is not None:
             return self._doc_contract_cache
 
+        # File lives at python/tests/integration/validation_runner.py; the repo
+        # root is four dirname()s up.
         path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
             "docs",
             "api-reference.md",
         )
@@ -4280,9 +4288,6 @@ class TestRunner:
         """Test every CLI command runs without crashing via subprocess."""
         print("\n=== cli commands ===\n")
 
-        import os
-
-        script = os.path.join(os.path.dirname(__file__), "timberbot.py")
         py = sys.executable
 
         def cli(*args, timeout=10):
@@ -4295,7 +4300,7 @@ class TestRunner:
             if p.port:
                 extra.append(f"--port={p.port}")
             return subprocess.run(
-                [py, script] + extra + list(args),
+                [py, "-m", "tbot.cli"] + extra + list(args),
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -5472,8 +5477,7 @@ class TestRunner:
         )
 
     def _subprocess_time(self, cmd_args):
-        """Run timberbot.py as subprocess, return wall-clock ms plus error details."""
-        script = os.path.join(os.path.dirname(__file__), "timberbot.py")
+        """Run `python -m tbot.cli` as subprocess, return wall-clock ms plus error details."""
         t0 = time.perf_counter()
         try:
             from urllib.parse import urlparse
@@ -5485,7 +5489,7 @@ class TestRunner:
             if p.port:
                 extra.append(f"--port={p.port}")
             r = subprocess.run(
-                [sys.executable, script] + extra + cmd_args,
+                [sys.executable, "-m", "tbot.cli"] + extra + cmd_args,
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -5863,8 +5867,10 @@ def main():
     # tee output to timestamped results file
     from datetime import datetime
 
+    # File lives at python/tests/integration/validation_runner.py; repo root is four dirname()s up.
     results_dir = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "test-results"
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+        "test-results",
     )
     os.makedirs(results_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")

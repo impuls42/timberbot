@@ -32,6 +32,9 @@ dev = [
   "pytest-httpserver>=1.0",
   "mypy>=1.8",
   "ruff>=0.5",
+  # Used by the integration suite (`validation_runner.py` decorates with
+  # @override). Native in 3.12+ but tbot supports 3.10/3.11 too.
+  "typing-extensions>=4.5",
 ]
 
 [project.urls]
@@ -53,7 +56,30 @@ include = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+# Skip integration tests by default. To run them: pass `-m integration`
+# (requires a live Timberborn + Timberbot mod listening on localhost:8085).
+addopts = "-ra --strict-markers -m 'not integration'"
+markers = [
+  "integration: hits a live Timberbot mod; skipped without --tbot-host or a local game.",
+  "live_game: alias kept for clarity (every integration test is also live_game).",
+  "slow: runs > 30s; covered by integration but split out for perf/concurrency suites.",
+  # Group markers mirroring validation_runner.TestRunner.GROUPS:
+  "read: read-side endpoints (summary, time, weather, …).",
+  "write: mutating endpoints (speed, priority, recipe, …).",
+  "placement: building/path placement.",
+  "automation: automation wiring (sensors, relays, memory).",
+  "webhooks: webhook registration / delivery.",
+  "perf: latency benchmarks.",
+  "concurrency: multi-threaded fan-out.",
+  "path: path-finding (A*, sections, errors).",
+  "buildings: building-specific behaviors.",
+  "beavers: beaver-specific behaviors.",
+  "crops: crop planting + demolish.",
+  "cli: subprocess CLI behavior.",
+  "security: allowlist / CORS / body-size guards.",
+  "wipe: destructive cleanup paths.",
+  "ungrouped: TestRunner.test_* methods not in any GROUPS entry.",
+]
 
 [tool.ruff]
 line-length = 120
@@ -62,6 +88,15 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 ignore = ["E501"]
+
+# The integration runners (`v2_runner.py`, `validation_runner.py`) are moved
+# wholesale from the legacy `timberbot/script/test_*.py` files. They predate
+# the package and use idioms ruff flags (== True comparisons, type() == X,
+# old-style imports). Conversion to flat pytest functions is a follow-up
+# task; until then, the integration directory is held to a lighter lint bar.
+[tool.ruff.lint.per-file-ignores]
+"tests/integration/v2_runner.py" = ["E712", "E721", "I001", "SIM"]
+"tests/integration/validation_runner.py" = ["E712", "E721", "I001", "SIM"]
 
 [tool.mypy]
 python_version = "3.10"
