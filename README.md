@@ -2,7 +2,9 @@
 
 **Status: active. mod works, still adding features**
 
-[Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3689670088) | [Getting Started](docs/getting-started.md) | [API Reference](docs/api-reference.md)
+> Modified fork of [abix-/TimberbornMods](https://github.com/abix-/TimberbornMods). Extends the original mod with an expanded read/write HTTP API, automation wiring endpoints, webhooks, and AI-agent integrations. All credit for the original mod goes to [abix-](https://github.com/abix-).
+
+[Getting Started](docs/getting-started.md) | [API Reference](docs/api-reference.md) | [Upstream](https://github.com/abix-/TimberbornMods)
 
 C# mod + Python client that lets AI agents read and control a running Timberborn game over HTTP.
 
@@ -99,6 +101,10 @@ All fields are optional. missing keys use defaults. The server binds to `localho
 
 ## Credits
 
+Forked from:
+
+- [abix-/TimberbornMods](https://github.com/abix-/TimberbornMods). upstream Timberbot mod. this repo is a modified fork with added HTTP API, automation wiring, webhooks, and AI-agent tooling
+
 Learned from these Timberborn modding projects:
 
 - [mechanistry/timberborn-modding](https://github.com/mechanistry/timberborn-modding). official modding tools, wiki, and examples
@@ -108,4 +114,3 @@ Learned from these Timberborn modding projects:
 - [CordialGnom/timberborn-unity-modding](https://github.com/CordialGnom/timberborn-unity-modding). `PlantingService.SetPlantingCoordinates()` for crop planting, `PlantingAreaValidator.CanPlant()` for planting validation
 - [Timberborn-KyP-Mods/TimberPrint](https://github.com/Timberborn-KyP-Mods/TimberPrint). `PreviewFactory` + `BlockValidator` patterns for placement validation
 - [toon-format/toon](https://github.com/toon-format/toon). Token-Oriented Object Notation for compact AI output
-

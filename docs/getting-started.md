@@ -4,6 +4,9 @@
 
 Timberbot API gives Claude, Codex, ChatGPT, or your own scripts complete access to your beaver colony over HTTP. read game state, place buildings, manage workers, plant crops, and keep your beavers alive.
 
+!!! info "Modified fork"
+    This project is a modified fork of [abix-/TimberbornMods](https://github.com/abix-/TimberbornMods). It extends the original mod with an expanded read/write HTTP API, automation wiring endpoints, webhooks, and AI-agent integrations. All credit for the original mod goes to [abix-](https://github.com/abix-).
+
 ---
 
 ## What you can do
@@ -26,7 +29,7 @@ Subscribe to Timberbot API on the Steam Workshop. The mod installs automatically
 
 ### Manual install
 
-Download `Timberbot.dll`, `manifest.json`, and `thumbnail.png` from the [latest GitHub release](https://github.com/abix-/TimberbornMods/releases) and place them in:
+Download `Timberbot.dll`, `manifest.json`, and `thumbnail.png` from the [latest GitHub release](https://github.com/impuls42/timberbot/releases) and place them in:
 
 ```
 C:\Users\<you>\Documents\Timberborn\Mods\Timberbot\

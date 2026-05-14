@@ -1,8 +1,8 @@
 site_name: Timberbot API
-site_description: Full read/write HTTP API for controlling Timberborn with AI
-site_url: https://abix-.github.io/TimberbornMods/
-repo_url: https://github.com/abix-/TimberbornMods
-repo_name: abix-/TimberbornMods
+site_description: Full read/write HTTP API for controlling Timberborn with AI (modified fork of abix-/TimberbornMods)
+site_url: https://impuls42.github.io/timberbot/
+repo_url: https://github.com/impuls42/timberbot
+repo_name: impuls42/timberbot
 edit_uri: edit/master/docs/
 
 theme:
@@ -55,10 +55,10 @@ extra_css:
 extra:
   social:
     - icon: fontawesome/brands/github
+      link: https://github.com/impuls42/timberbot
+    - icon: fontawesome/brands/github-alt
       link: https://github.com/abix-/TimberbornMods
-    - icon: fontawesome/brands/steam
-      link: https://steamcommunity.com/sharedfiles/filedetails/?id=3689670088
-
+      name: Upstream (abix-/TimberbornMods)
 nav:
   - Getting Started: getting-started.md
   - API Reference: api-reference.md
@@ -69,4 +69,4 @@ nav:
   - Performance: performance.md
   - Developing: developing.md
 
-copyright: Timberbot API &mdash; Play Timberborn with an AI
+copyright: Timberbot API &mdash; Play Timberborn with an AI &middot; Modified fork of <a href="https://github.com/abix-/TimberbornMods">abix-/TimberbornMods</a>
