@@ -32,9 +32,10 @@ from datetime import datetime
 from typing import Any
 
 import requests
-from test_v2_specs import ENDPOINT_SPECS, FRESHNESS_SCENARIOS, GROUP_NAMES, EndpointSpec
 
 from tbot import Timberbot
+
+from .v2_specs import ENDPOINT_SPECS, FRESHNESS_SCENARIOS, GROUP_NAMES, EndpointSpec
 
 DEFAULT_TIMEOUT = 15
 PERF_TIMEOUT = 30
@@ -172,8 +173,11 @@ class V2Runner:
         self.failed = 0
         self.passed = 0
         self.skipped = 0
+        # File lives at python/tests/integration/v2_runner.py; repo root is four dirname()s up.
         self.artifact_dir = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "test-results", "v2"
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+            "test-results",
+            "v2",
         )
         os.makedirs(self.artifact_dir, exist_ok=True)
         self._log_writer = log_writer
@@ -1486,8 +1490,11 @@ def main():
     )
     args = parser.parse_args()
 
+    # File lives at python/tests/integration/v2_runner.py; repo root is three dirname()s up.
     artifact_dir = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "test-results", "v2"
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+        "test-results",
+        "v2",
     )
     os.makedirs(artifact_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
