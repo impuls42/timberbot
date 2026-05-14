@@ -19,3 +19,5 @@ site/
 docs/reachability-investigation.md
 .claude/
 venv/
+venv-*/
+.pytest_cache/

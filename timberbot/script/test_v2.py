@@ -34,7 +34,7 @@ from typing import Any
 import requests
 from test_v2_specs import ENDPOINT_SPECS, FRESHNESS_SCENARIOS, GROUP_NAMES, EndpointSpec
 
-from timberbot import Timberbot
+from tbot import Timberbot
 
 DEFAULT_TIMEOUT = 15
 PERF_TIMEOUT = 30
