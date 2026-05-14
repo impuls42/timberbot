@@ -1,9 +1,11 @@
 """Argv parsing helpers for the `tbot` CLI."""
 from __future__ import annotations
 
+import contextlib
 import inspect
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 
 def cast_value(a: str) -> bool | int | float | str:
@@ -40,10 +42,8 @@ def parse_flags(argv: list[str]) -> GlobalFlags:
         if a.startswith("--host="):
             host = a.split("=", 1)[1]
         elif a.startswith("--port="):
-            try:
+            with contextlib.suppress(ValueError):
                 port = int(a.split("=", 1)[1])
-            except ValueError:
-                pass
     skip = {"--", "--json", "--help", "-h"}
     positional = [
         a for a in argv

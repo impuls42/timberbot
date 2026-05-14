@@ -1,7 +1,7 @@
-"""Unit tests for tbot.state.SettlementContext."""
+"""Unit tests for tbot.state."""
 from __future__ import annotations
 
-from tbot.state import SettlementContext
+from tbot.state import SettlementContext, compact_locations, compact_summary
 
 
 def test_load_brain_returns_empty_when_no_file(tmp_path):
@@ -90,3 +90,50 @@ def test_refresh_brain_keeps_existing_goal_when_none_passed(tmp_path):
     brain = ctx.refresh_brain({"districts": []}, goal=None)
     assert brain["goal"] == "old goal"
     assert brain["locations"] == {"home": {"x": 1, "y": 2}}
+
+
+def test_compact_summary_flattens_time_and_weather():
+    s = {
+        "faction": "Folktails",
+        "time": {"dayNumber": 7, "dayProgress": 0.42, "speed": 2},
+        "weather": {
+            "cycle": 1, "cycleDay": 3, "isHazardous": True,
+            "temperateWeatherDuration": 10, "hazardousWeatherDuration": 4,
+        },
+    }
+    out = compact_summary(s)
+    assert out["day"] == 7
+    assert out["dayProgress"] == 0.42
+    assert out["speed"] == 2
+    assert "DROUGHT" in out["weather"]
+    assert "time" not in out  # flattened away
+
+
+def test_compact_summary_collapses_districts():
+    s = {
+        "districts": [{
+            "name": "main",
+            "population": {"adults": 10, "children": 4, "bots": 1},
+            "resources": {"Water": 200, "Log": 50},
+            "housing": {"occupiedBeds": 14, "totalBeds": 20, "homeless": 0},
+            "employment": {"assigned": 12, "vacancies": 14, "unemployed": 2},
+            "wellbeing": {"average": 18, "miserable": 0, "critical": 0},
+        }],
+    }
+    out = compact_summary(s)
+    d = out["districts"][0]
+    assert d["pop"] == "10a 4c 1b"
+    assert "Water:200" in d["resources"]
+    assert d["beds"] == "14/20 homeless:0"
+
+
+def test_compact_locations_renders_coords_species_note():
+    locs = {
+        "dc": {"x": 100, "y": 200, "z": 3},
+        "forest": {"x": 50, "y": 60, "z": 1, "species": ["Pine", "Birch"]},
+        "marked": {"x": 1, "y": 2, "note": "demolish later"},
+    }
+    out = compact_locations(locs)
+    assert out["dc"] == "100,200,z3"
+    assert out["forest"] == "50,60,z1 Pine,Birch"
+    assert out["marked"] == "1,2,z0 demolish later"

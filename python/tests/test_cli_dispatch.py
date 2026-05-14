@@ -66,3 +66,18 @@ def test_unknown_param_reports_valid_set(monkeypatch, capsys, httpserver):
     err = capsys.readouterr().err
     assert rc == 1
     assert "unknown parameter" in err
+
+
+def test_map_command_prints_rendered_string(monkeypatch, capsys, httpserver):
+    httpserver.expect_request("/api/tiles").respond_with_json({
+        "tiles": [
+            {"x": 0, "y": 0, "terrain": 5, "water": 1, "occupants": []},
+            {"x": 1, "y": 0, "terrain": 5, "water": 0, "occupants": []},
+        ],
+    })
+    rc = _run(monkeypatch, ["map", "x1:0", "y1:0", "x2:1", "y2:0"], httpserver.host, httpserver.port)
+    out = capsys.readouterr().out
+    assert rc == 0
+    # The CLI should print the rendered map directly, not a {"rendered": True} marker dict.
+    assert "rendered" not in out
+    assert "~" in out  # water glyph from render_map

@@ -1,7 +1,6 @@
 """`tbot manager` — auto-pause low-priority buildings to keep idle haulers in band."""
 from __future__ import annotations
 
-import sys
 import time
 from typing import Any
 

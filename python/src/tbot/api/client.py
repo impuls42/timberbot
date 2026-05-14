@@ -16,7 +16,7 @@ import requests
 
 from tbot.api.exceptions import TimberbotError
 from tbot.settings import resolve_endpoint
-from tbot.state import SettlementContext
+from tbot.state import SettlementContext, compact_locations, compact_summary
 
 
 class TimberbotClient:
@@ -507,19 +507,16 @@ class TimberbotClient:
         low = name.lower()
         return [i for i in items if low in i.get("name", "").lower()]
 
-    def map(self, x1: int, y1: int, x2: int, y2: int) -> dict[str, Any]:
+    def map(self, x1: int, y1: int, x2: int, y2: int) -> str:
         """Colored ASCII map with terrain height shading, buildings, water, trees.
 
-        Prints to stdout for backward compatibility with the legacy CLI; returns a
-        marker dict so the CLI dispatcher knows not to also print the result.
-        Use `tbot.formatters.map.render_map(tiles)` for a string-only renderer.
+        Returns the rendered string; the CLI prints it. Library callers can do
+        `print(client.map(...))` or feed the string into their own UI layer.
         """
         from tbot.formatters.map import render_map
 
         tiles_response = self._get_json("/api/tiles", {"x1": x1, "y1": y1, "x2": x2, "y2": y2})
-        rendered = render_map(tiles_response, x1, y1, x2, y2)
-        print(rendered)
-        return {"rendered": True, "tiles": len(tiles_response.get("tiles", []))}
+        return render_map(tiles_response, x1, y1, x2, y2)
 
     # ------------------------------------------------------------------
     # Settlement memory (delegates to SettlementContext)
@@ -548,10 +545,10 @@ class TimberbotClient:
         self._ctx = SettlementContext(settlement_name)
         brain_data = self._ctx.refresh_brain(summary, goal=goal)
         return {
-            "summary": _compact_summary(summary),
+            "summary": compact_summary(summary),
             "goal": brain_data["goal"],
             "tasks": brain_data["tasks"],
-            "locations": _compact_locations(brain_data["locations"]),
+            "locations": compact_locations(brain_data["locations"]),
         }
 
     def set_location(
@@ -613,105 +610,3 @@ class TimberbotClient:
             params["y"] = y
             params["radius"] = radius
         return self._get(f"/api/{source}", params=params)
-
-
-# ---------------------------------------------------------------------------
-# Internal compaction helpers used by brain()
-# ---------------------------------------------------------------------------
-
-
-def _compact_summary(summary: dict[str, Any]) -> dict[str, Any]:
-    """Mutate-and-return a compact view of /api/summary for brain()."""
-    s = summary
-    if "time" in s:
-        t = s.pop("time")
-        insert = {}
-        for k in list(s.keys()):
-            insert[k] = s.pop(k)
-            if k == "faction":
-                insert["day"] = t.get("dayNumber", 0)
-                insert["dayProgress"] = round(t.get("dayProgress", 0), 2)
-                insert["speed"] = t.get("speed", 0)
-        s.update(insert)
-    if "weather" in s:
-        w = s.pop("weather")
-        insert = {}
-        for k in list(s.keys()):
-            insert[k] = s.pop(k)
-            if k == "speed":
-                insert["weather"] = (
-                    f'cycle {w.get("cycle",0)} day {w.get("cycleDay",0)} '
-                    f'{"DROUGHT" if w.get("isHazardous") else "temperate"} '
-                    f'{w.get("temperateWeatherDuration",0)}t/{w.get("hazardousWeatherDuration",0)}d'
-                )
-        s.update(insert)
-    if "districts" in s:
-        compact_districts = []
-        for d in s["districts"]:
-            cd: dict[str, Any] = {"name": d.get("name", "")}
-            pop = d.get("population", {})
-            cd["pop"] = f'{pop.get("adults",0)}a {pop.get("children",0)}c {pop.get("bots",0)}b'
-            res = d.get("resources", {})
-            cd["resources"] = " ".join(f"{k}:{v}" for k, v in res.items())
-            h = d.get("housing", {})
-            cd["beds"] = f'{h.get("occupiedBeds",0)}/{h.get("totalBeds",0)} homeless:{h.get("homeless",0)}'
-            e = d.get("employment", {})
-            cd["workers"] = f'{e.get("assigned",0)}/{e.get("vacancies",0)} idle:{e.get("unemployed",0)}'
-            wb = d.get("wellbeing", {})
-            cd["wellbeing"] = f'{wb.get("average",0)}/77 miserable:{wb.get("miserable",0)} critical:{wb.get("critical",0)}'
-            dc = d.get("dc", {})
-            if dc:
-                cd["dc"] = (
-                    f'{dc["x"]},{dc["y"]},z{dc.get("z",0)} {dc.get("orientation","")} '
-                    f'entrance:{dc.get("entranceX",0)},{dc.get("entranceY",0)}'
-                )
-            compact_districts.append(cd)
-        s["districts"] = compact_districts
-    if "trees" in s and isinstance(s["trees"], dict):
-        sp = s["trees"].get("species", [])
-        s["trees"] = {
-            "marked": s["trees"].get("markedGrown", 0),
-            "seedling": s["trees"].get("markedSeedling", 0),
-            "unmarked": s["trees"].get("unmarkedGrown", 0),
-            "species": [dict(x) for x in sp],
-        }
-    if "crops" in s and isinstance(s["crops"], dict):
-        sp = s["crops"].get("species", [])
-        s["crops"] = {
-            "ready": s["crops"].get("ready", 0),
-            "growing": s["crops"].get("growing", 0),
-            "species": [dict(x) for x in sp],
-        }
-    if "wellbeing" in s and isinstance(s["wellbeing"], dict):
-        cats = s["wellbeing"].get("categories", [])
-        s["wellbeing"] = {
-            "avg": s["wellbeing"].get("average", 0),
-            "miserable": s["wellbeing"].get("miserable", 0),
-            "critical": s["wellbeing"].get("critical", 0),
-            "categories": [dict(c) for c in cats],
-        }
-    for key in ("treeClusters", "foodClusters"):
-        if key in s:
-            s[key] = [
-                {
-                    "x": c["x"], "y": c["y"], "z": c.get("z", 0),
-                    "grown": c.get("grown", 0), "total": c.get("total", 0),
-                    "species": ",".join(c.get("species", {}).keys()),
-                }
-                for c in s[key]
-            ]
-    return s
-
-
-def _compact_locations(locations: dict[str, Any]) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for name, loc in locations.items():
-        sp = ",".join(loc.get("species", [])) if "species" in loc else ""
-        note = loc.get("note", "")
-        val = f'{loc["x"]},{loc["y"]},z{loc.get("z",0)}'
-        if sp:
-            val += " " + sp
-        if note:
-            val += " " + note
-        out[name] = val
-    return out

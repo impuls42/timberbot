@@ -10,8 +10,8 @@ from typing import Any
 from tbot.formatters.colors import (
     BBLU,
     BGRN,
-    BMAG,
     BLU,
+    BMAG,
     BOLD,
     BWHT,
     BYEL,

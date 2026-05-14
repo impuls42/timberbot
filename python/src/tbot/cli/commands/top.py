@@ -1,6 +1,7 @@
 """`tbot top` — live colony dashboard."""
 from __future__ import annotations
 
+import contextlib
 import sys
 import time
 
@@ -98,10 +99,9 @@ def run(args: list[str]) -> int:
                         except Exception:
                             pass
                 elif ch == b"x":
-                    try:
+                    # network errors during the interactive loop shouldn't kill the dashboard
+                    with contextlib.suppress(Exception):
                         bot._post("/api/agent/stop", {})
-                    except Exception:
-                        pass
                     break
                 elif ch in (b"+", b"="):
                     agent_turns = min(agent_turns + 5, 100)
@@ -110,10 +110,8 @@ def run(args: list[str]) -> int:
                     agent_turns = max(agent_turns - 5, 1)
                     break
                 elif ch in (b"0", b"1", b"2", b"3"):
-                    try:
+                    with contextlib.suppress(Exception):
                         bot.set_speed(int(ch))
-                    except Exception:
-                        pass
                     break
     except KeyboardInterrupt:
         print(f"\n  {DIM}bye!{RST}\n")

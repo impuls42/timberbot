@@ -4,6 +4,7 @@ Linux/Proton support arrives in PR 4.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import platform
@@ -30,10 +31,8 @@ def _parse_args(args: list[str]) -> tuple[str | None, str | None, int]:
         elif key == "save":
             save_name = val
         elif key == "timeout":
-            try:
+            with contextlib.suppress(ValueError):
                 timeout = int(val)
-            except ValueError:
-                pass
     return settlement, save_name, timeout
 
 

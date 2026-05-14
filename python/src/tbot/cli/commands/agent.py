@@ -5,6 +5,7 @@ run ...` namespace and the local backend dispatch arrive in PR 2.
 """
 from __future__ import annotations
 
+import contextlib
 import sys
 
 from tbot.api.client import TimberbotClient
@@ -24,10 +25,8 @@ def _parse_args(args: list[str]) -> dict[str, object]:
             continue
         key, val = a.split(":", 1)
         if key in {"turns", "interval", "timeout"}:
-            try:
+            with contextlib.suppress(ValueError):
                 parsed[key] = int(val)
-            except ValueError:
-                pass
         elif key in {"binary", "model", "goal", "command"}:
             parsed[key] = val
     return parsed

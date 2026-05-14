@@ -14,6 +14,7 @@ not pull in heavy deps until invoked.
 """
 from __future__ import annotations
 
+import contextlib
 import io
 import json
 import platform
@@ -39,10 +40,8 @@ from tbot.cli.dispatcher import (
 def _ensure_utf8_stdout() -> None:
     """Reconfigure stdout to UTF-8 so emoji/box-drawing chars render on Windows."""
     if sys.stdout.encoding != "utf-8" and isinstance(sys.stdout, io.TextIOWrapper):
-        try:
+        with contextlib.suppress(Exception):
             sys.stdout.reconfigure(encoding="utf-8")
-        except Exception:
-            pass
 
 
 def _build_registry() -> CommandRegistry:
@@ -121,9 +120,6 @@ def _print_method_help(method_name: str) -> int:
 def _format_output(result: Any, json_mode: bool) -> None:
     if isinstance(result, str):
         print(result)
-        return
-    if isinstance(result, dict) and result.get("rendered"):
-        # legacy: map() printed already
         return
     if json_mode:
         print(json.dumps(result, indent=2))

@@ -2,6 +2,10 @@
 
 Replaces the module-level `_memory_dir` global from the legacy `timberbot.py`.
 Each `SettlementContext` is bound to one settlement and one disk directory.
+
+This module also owns the `compact_summary` / `compact_locations` formatters
+used to render brain output, since they're tightly coupled to the brain data
+shape produced by `refresh_brain`.
 """
 from __future__ import annotations
 
@@ -168,3 +172,106 @@ class SettlementContext:
         }
         self.save_brain(brain_data)
         return brain_data
+
+
+def compact_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    """Mutate-and-return a compact view of `/api/summary` for brain output.
+
+    Flattens nested time/weather/district/wellbeing/cluster shapes into the
+    one-line CSV-style format the AI agent consumes via brain.toon. Mutates
+    the input dict in place (and returns it) to avoid copying.
+    """
+    s = summary
+    if "time" in s:
+        t = s.pop("time")
+        insert: dict[str, Any] = {}
+        for k in list(s.keys()):
+            insert[k] = s.pop(k)
+            if k == "faction":
+                insert["day"] = t.get("dayNumber", 0)
+                insert["dayProgress"] = round(t.get("dayProgress", 0), 2)
+                insert["speed"] = t.get("speed", 0)
+        s.update(insert)
+    if "weather" in s:
+        w = s.pop("weather")
+        insert = {}
+        for k in list(s.keys()):
+            insert[k] = s.pop(k)
+            if k == "speed":
+                insert["weather"] = (
+                    f'cycle {w.get("cycle",0)} day {w.get("cycleDay",0)} '
+                    f'{"DROUGHT" if w.get("isHazardous") else "temperate"} '
+                    f'{w.get("temperateWeatherDuration",0)}t/{w.get("hazardousWeatherDuration",0)}d'
+                )
+        s.update(insert)
+    if "districts" in s:
+        compact_districts: list[dict[str, Any]] = []
+        for d in s["districts"]:
+            cd: dict[str, Any] = {"name": d.get("name", "")}
+            pop = d.get("population", {})
+            cd["pop"] = f'{pop.get("adults",0)}a {pop.get("children",0)}c {pop.get("bots",0)}b'
+            res = d.get("resources", {})
+            cd["resources"] = " ".join(f"{k}:{v}" for k, v in res.items())
+            h = d.get("housing", {})
+            cd["beds"] = f'{h.get("occupiedBeds",0)}/{h.get("totalBeds",0)} homeless:{h.get("homeless",0)}'
+            e = d.get("employment", {})
+            cd["workers"] = f'{e.get("assigned",0)}/{e.get("vacancies",0)} idle:{e.get("unemployed",0)}'
+            wb = d.get("wellbeing", {})
+            cd["wellbeing"] = f'{wb.get("average",0)}/77 miserable:{wb.get("miserable",0)} critical:{wb.get("critical",0)}'
+            dc = d.get("dc", {})
+            if dc:
+                cd["dc"] = (
+                    f'{dc["x"]},{dc["y"]},z{dc.get("z",0)} {dc.get("orientation","")} '
+                    f'entrance:{dc.get("entranceX",0)},{dc.get("entranceY",0)}'
+                )
+            compact_districts.append(cd)
+        s["districts"] = compact_districts
+    if "trees" in s and isinstance(s["trees"], dict):
+        sp = s["trees"].get("species", [])
+        s["trees"] = {
+            "marked": s["trees"].get("markedGrown", 0),
+            "seedling": s["trees"].get("markedSeedling", 0),
+            "unmarked": s["trees"].get("unmarkedGrown", 0),
+            "species": [dict(x) for x in sp],
+        }
+    if "crops" in s and isinstance(s["crops"], dict):
+        sp = s["crops"].get("species", [])
+        s["crops"] = {
+            "ready": s["crops"].get("ready", 0),
+            "growing": s["crops"].get("growing", 0),
+            "species": [dict(x) for x in sp],
+        }
+    if "wellbeing" in s and isinstance(s["wellbeing"], dict):
+        cats = s["wellbeing"].get("categories", [])
+        s["wellbeing"] = {
+            "avg": s["wellbeing"].get("average", 0),
+            "miserable": s["wellbeing"].get("miserable", 0),
+            "critical": s["wellbeing"].get("critical", 0),
+            "categories": [dict(c) for c in cats],
+        }
+    for key in ("treeClusters", "foodClusters"):
+        if key in s:
+            s[key] = [
+                {
+                    "x": c["x"], "y": c["y"], "z": c.get("z", 0),
+                    "grown": c.get("grown", 0), "total": c.get("total", 0),
+                    "species": ",".join(c.get("species", {}).keys()),
+                }
+                for c in s[key]
+            ]
+    return s
+
+
+def compact_locations(locations: dict[str, Any]) -> dict[str, str]:
+    """Render the brain.toon `locations` dict as compact one-line strings."""
+    out: dict[str, str] = {}
+    for name, loc in locations.items():
+        sp = ",".join(loc.get("species", [])) if "species" in loc else ""
+        note = loc.get("note", "")
+        val = f'{loc["x"]},{loc["y"]},z{loc.get("z",0)}'
+        if sp:
+            val += " " + sp
+        if note:
+            val += " " + note
+        out[name] = val
+    return out
