@@ -1,5 +1,9 @@
 # Timberbot API
 
+<p align="center">
+  <img src="timberbot/src/thumbnail.png" alt="Timberbot — a cybernetic beaver playing Timberborn at a desk" width="320">
+</p>
+
 **Status: active. mod works, still adding features**
 
 > Modified fork of [abix-/TimberbornMods](https://github.com/abix-/TimberbornMods). Extends the original mod with an expanded read/write HTTP API, automation wiring endpoints, webhooks, and AI-agent integrations. All credit for the original mod goes to [abix-](https://github.com/abix-).

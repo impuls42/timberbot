@@ -1,5 +1,9 @@
 # Timberbot API
 
+<p align="center">
+  <img src="thumbnail.png" alt="Timberbot — a cybernetic beaver playing Timberborn at a desk" width="320">
+</p>
+
 **Full read/write HTTP API for controlling Timberborn with AI.**
 
 Timberbot gives Claude, Codex, ChatGPT, or your own scripts complete access to a running Timberborn colony over HTTP. Read game state, place buildings, manage workers, plant crops, wire automation, and keep your beavers alive.
