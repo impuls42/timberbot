@@ -71,6 +71,12 @@ namespace Timberbot
             _tbotCommand = string.IsNullOrWhiteSpace(tbotCommand) ? DEFAULT_TBOT_COMMAND : tbotCommand;
             _allowlistEnabled = allowlistEnabled;
             _allowedBinaries = allowedBinaries;
+
+            // Warn (once) if the user still has the legacy `pythonCommand` setting in
+            // their settings.json. It's silently ignored now; the `tbotCommand` setting
+            // (or `tbot` on PATH) replaces it.
+            if (!string.IsNullOrWhiteSpace(pythonCommand))
+                TimberbotLog.Info($"agent.pythonCommand.legacy: ignoring pythonCommand='{pythonCommand}'; the `tbot` CLI now owns all agent orchestration. Use the `tbotCommand` setting to override the path.");
         }
 
         public AgentStatus CurrentStatus => _status;

@@ -15,7 +15,7 @@ from tbot.config import config_dir
 
 _USAGE = (
     "usage: tbot agent {run|list-backends|prompts} [...]\n"
-    "  tbot agent run --goal STR [--backend NAME] [--model M] [--effort E] \\\n"
+    "  tbot agent run --goal STR --backend NAME [--model M] [--effort E] \\\n"
     "                 [--binary PATH] [--command TEMPLATE] [--terminal-prefix STR] \\\n"
     "                 [--prompt NAME]\n"
     "  tbot agent list-backends\n"
@@ -26,8 +26,10 @@ _USAGE = (
 def _parse_run(args: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="tbot agent run", add_help=True)
     p.add_argument("--goal", required=True, help="Agent goal / initial prompt.")
-    p.add_argument("--backend", default="opencode",
-                   help="Backend name (default: opencode). Run `tbot agent list-backends` for options.")
+    # --backend is required and has no default so the C#/Python wire contract is
+    # explicit on both sides. Run `tbot agent list-backends` for options.
+    p.add_argument("--backend", required=True,
+                   help="Backend name. Required; one of: claude, codex, opencode, custom.")
     p.add_argument("--model", default=None, help="Model identifier passed to the backend.")
     p.add_argument("--effort", default=None, help="Reasoning effort passed to the backend.")
     p.add_argument("--binary", default=None,

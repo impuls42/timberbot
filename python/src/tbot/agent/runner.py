@@ -17,6 +17,10 @@ from tbot.api.client import TimberbotClient
 from tbot.config import config_dir
 
 
+def _default_log(msg: str) -> None:
+    print(msg, file=sys.stderr)
+
+
 def _ensure_backends_imported() -> None:
     """Import the backends package so its `@register_backend` decorators run."""
     import tbot.agent.backends  # noqa: F401
@@ -75,7 +79,7 @@ def run_agent(
     5. Dispatch to backend.run().
     """
     if log is None:
-        log = lambda msg: print(msg, file=sys.stderr)  # noqa: E731
+        log = _default_log
 
     cd = user_config_dir or config_dir()
     cd.mkdir(parents=True, exist_ok=True)
