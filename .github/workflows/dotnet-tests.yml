@@ -1,0 +1,35 @@
+name: C# tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+    paths:
+      - 'timberbot/src/TimberbotPure.cs'
+      - 'timberbot/src/TimberbotJw.cs'
+      - 'timberbot/test/**'
+      - '.github/workflows/dotnet-tests.yml'
+
+jobs:
+  test:
+    # The test csproj is structured to compile only Unity-free files
+    # (TimberbotPure.cs + TimberbotJw.cs), so no Timberborn game DLLs are needed.
+    # Anything testable from this workflow lives in the pure-helpers compile set.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore timberbot/test/Timberbot.Tests.csproj
+
+      - name: Build
+        run: dotnet build timberbot/test/Timberbot.Tests.csproj --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test timberbot/test/Timberbot.Tests.csproj --no-build --configuration Release --verbosity normal

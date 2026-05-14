@@ -108,7 +108,7 @@ Launch flow:
    - `## CURRENT COLONY STATE` followed by the fresh `brain` output, or a failure note
    - the boot-sequence requirement and current goal text
 5. Timberbot generates a merged per-launch instructions file that contains:
-   - the static `agents/timberbot.md`
+   - the static `tbot.agent_prompts.timberbot` (or the user-edited override in `~/.config/timberbot/agent_prompts/`)
    - the current colony state block
    - the current goal and boot requirement
 6. The selected binary is launched interactively against that merged instructions file.

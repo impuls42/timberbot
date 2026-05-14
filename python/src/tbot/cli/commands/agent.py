@@ -1,60 +1,106 @@
-"""`tbot start` — kick off the in-mod agent loop via the HTTP API.
+"""`tbot agent {run|list-backends|prompts}` — Python-side agent dispatch.
 
-This forwards to `/api/agent/start` on the C# mod. The pluggable `tbot agent
-run ...` namespace and the local backend dispatch arrive in PR 2.
+`run` is the new canonical entry point that replaces the legacy `tbot start`
+command (which still exists as a deprecated alias forwarding here). All flags
+are POSIX-style long-form because they're often consumed from C# / scripts.
 """
 from __future__ import annotations
 
-import contextlib
+import argparse
 import sys
 
-from tbot.api.client import TimberbotClient
-from tbot.api.exceptions import TimberbotError
-from tbot.formatters.colors import BGRN, DIM, RED, RST
+from tbot.agent.prompts import list_packaged_prompts
+from tbot.agent.runner import run_agent
+from tbot.config import config_dir
+
+_USAGE = (
+    "usage: tbot agent {run|list-backends|prompts} [...]\n"
+    "  tbot agent run --goal STR --backend NAME [--model M] [--effort E] \\\n"
+    "                 [--binary PATH] [--command TEMPLATE] [--terminal-prefix STR] \\\n"
+    "                 [--prompt NAME]\n"
+    "  tbot agent list-backends\n"
+    "  tbot agent prompts\n"
+)
 
 
-def _parse_args(args: list[str]) -> dict[str, object]:
-    parsed: dict[str, object] = {
-        "binary": "claude",
-        "turns": 5,
-        "interval": 10,
-        "timeout": 120,
-    }
-    for a in args:
-        if ":" not in a:
-            continue
-        key, val = a.split(":", 1)
-        if key in {"turns", "interval", "timeout"}:
-            with contextlib.suppress(ValueError):
-                parsed[key] = int(val)
-        elif key in {"binary", "model", "goal", "command"}:
-            parsed[key] = val
-    return parsed
+def _parse_run(args: list[str]) -> argparse.Namespace:
+    p = argparse.ArgumentParser(prog="tbot agent run", add_help=True)
+    p.add_argument("--goal", required=True, help="Agent goal / initial prompt.")
+    # --backend is required and has no default so the C#/Python wire contract is
+    # explicit on both sides. Run `tbot agent list-backends` for options.
+    p.add_argument("--backend", required=True,
+                   help="Backend name. Required; one of: claude, codex, opencode, custom.")
+    p.add_argument("--model", default=None, help="Model identifier passed to the backend.")
+    p.add_argument("--effort", default=None, help="Reasoning effort passed to the backend.")
+    p.add_argument("--binary", default=None,
+                   help="Override the backend's CLI binary path (e.g. /opt/claude/claude).")
+    p.add_argument("--command", dest="command_template", default=None,
+                   help='Required for --backend custom: argv template with {skill}/{instructions_file}/{prompt}/{prompt_file}/{model}/{effort} placeholders.')
+    p.add_argument("--terminal-prefix", default=None,
+                   help='Optional command prefix used to wrap the agent invocation. Supports {cwd}. Example: "wt -d {cwd} --".')
+    p.add_argument("--prompt", dest="prompt_name", default="timberbot",
+                   help="Name of the system prompt to load (default: timberbot).")
+    return p.parse_args(args)
+
+
+def _cmd_run(args: list[str]) -> int:
+    ns = _parse_run(args)
+    try:
+        return run_agent(
+            backend=ns.backend,
+            goal=ns.goal,
+            model=ns.model,
+            effort=ns.effort,
+            binary=ns.binary,
+            command_template=ns.command_template,
+            terminal_prefix=ns.terminal_prefix,
+            prompt_name=ns.prompt_name,
+        )
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+
+
+def _cmd_list_backends(_args: list[str]) -> int:
+    # Importing the backends package triggers the `@register_backend` decorators.
+    import tbot.agent.backends  # noqa: F401
+    from tbot.agent.backend import known_backend_names
+
+    for name in known_backend_names():
+        print(name)
+    return 0
+
+
+def _cmd_prompts(_args: list[str]) -> int:
+    cd = config_dir()
+    print("# packaged (read-only, ship with `tbot`)")
+    for name in list_packaged_prompts():
+        print(f"  {name}")
+    print(f"# user overrides (in {cd / 'agent_prompts'})")
+    user_dir = cd / "agent_prompts"
+    if user_dir.is_dir():
+        for f in sorted(user_dir.glob("*.md")):
+            print(f"  {f.stem}")
+    else:
+        print("  (none - run `tbot init` to materialize)")
+    return 0
+
+
+_SUBCOMMANDS = {
+    "run": _cmd_run,
+    "list-backends": _cmd_list_backends,
+    "prompts": _cmd_prompts,
+}
 
 
 def run(args: list[str]) -> int:
-    parsed = _parse_args(args)
-
-    bot = TimberbotClient(json_mode=True)
-    if not bot.ping():
-        print(
-            f"  {RED}error: game not reachable. launch first with: tbot launch settlement:<name>{RST}",
-            file=sys.stderr,
-        )
+    """Dispatch `tbot agent <subcommand> ...`."""
+    if not args:
+        print(_USAGE, file=sys.stderr)
         return 1
-
-    body = {k: v for k, v in parsed.items() if v not in (None, "")}
-    try:
-        bot._post("/api/agent/start", body)
-    except TimberbotError as e:
-        print(f"  {RED}error: {e.error}{RST}", file=sys.stderr)
+    sub, rest = args[0], args[1:]
+    handler = _SUBCOMMANDS.get(sub)
+    if handler is None:
+        print(f"error: unknown subcommand '{sub}'\n{_USAGE}", file=sys.stderr)
         return 1
-
-    binary = parsed.get("binary")
-    turns = parsed.get("turns")
-    interval = parsed.get("interval")
-    print(f"  {BGRN}started{RST} binary={binary} turns={turns} interval={interval}s")
-    if "command" in parsed:
-        print(f"  {DIM}command: {parsed['command']}{RST}")
-    print(f"  {DIM}use 'tbot top' to monitor{RST}")
-    return 0
+    return handler(rest)

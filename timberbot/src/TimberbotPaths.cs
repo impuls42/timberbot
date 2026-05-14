@@ -17,8 +17,5 @@ namespace Timberbot
 
         public static string SettingsPath =>
             Path.Combine(ModDir, "settings.json");
-
-        public static string SkillFile =>
-            Path.Combine(ModDir, "skill", "timberbot.md");
     }
 }

@@ -203,21 +203,19 @@ The mod also ships docs for AI play with Claude Code, OpenAI Codex, ChatGPT, or 
 
 The AI docs entrypoints are:
 
-- `agents/timberbot.md` is the Timberbot agent, the slim runtime prompt used at launch
+- the Timberbot agent prompt ships inside the `tbot` Python package (`tbot.agent_prompts.timberbot`); `tbot init` writes editable copies under your config dir
 - [timberbot.md](timberbot.md) is the Timberbot Guide, the full operating guide behind that prompt
 - [api-reference.md](api-reference.md) is the endpoint and response source of truth
 
-### OpenCode setup
+### Launch via `tbot agent run`
 
 ```bash
-# copy the agent entrypoint
-mkdir -p ~/.config/opencode/agents
-cp agents/timberbot.md ~/.config/opencode/agents/timberbot.md
-
-# start OpenCode from the Steam Workshop mod folder root first, or from the Timberbot repo root
-# workshop docs live in Documents/Timberborn/Mods/Timberbot/docs
-opencode
+pip install tbot
+tbot init                                            # materialize prompts into your user config dir
+tbot agent run --backend opencode --goal "reach 50 beavers"
 ```
+
+`tbot agent run` builds the merged instructions file, talks to the running mod over HTTP to gather colony state, and spawns the agent CLI (`claude`, `codex`, `opencode`, or a custom template). Run `tbot agent list-backends` for the full list and `tbot agent prompts` to see installed prompts.
 
 ### OpenAI Codex
 

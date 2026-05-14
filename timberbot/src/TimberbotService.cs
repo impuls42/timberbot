@@ -51,7 +51,8 @@ namespace Timberbot
         private int _webhookMaxPendingEvents = 1000;
         private double _writeBudgetMs = 1.0;
         private string _terminal = "";           // terminal command prefix (e.g. "wezterm start --")
-        private string _pythonCommand = "";      // optional python launcher override
+        private string _pythonCommand = "";      // legacy: ignored. Kept for one release for settings.json backwards-compat.
+        private string _tbotCommand = "";        // optional override for the `tbot` console-script path
         // security settings
         private string _listenAddress = "localhost";
         private string _corsOrigin = "";
@@ -116,7 +117,7 @@ namespace Timberbot
             Placement.DetectFaction();          // detect faction suffix. must run before BuildAllIndexes
             Registry.BuildAllIndexes();        // populate indexes from existing entities
             ReadV2.BuildAll();          // populate v2 building trackers from existing entities
-            Agent = new TimberbotAgent(_terminal, _pythonCommand, _agentAllowlistEnabled, _agentAllowedBinaries);
+            Agent = new TimberbotAgent(_terminal, _pythonCommand, _agentAllowlistEnabled, _agentAllowedBinaries, _tbotCommand);
             _server = new TimberbotHttpServer(_httpPort, this, _debugEnabled, _listenAddress, _corsOrigin, _maxBodyBytes);
             TimberbotLog.Info($"HTTP server started on port {_httpPort}");
         }
@@ -160,6 +161,8 @@ namespace Timberbot
                         _terminal = json.Value<string>("terminal") ?? "";
                     if (json["pythonCommand"] != null)
                         _pythonCommand = json.Value<string>("pythonCommand") ?? "";
+                    if (json["tbotCommand"] != null)
+                        _tbotCommand = json.Value<string>("tbotCommand") ?? "";
                     // security settings
                     if (json["listenAddress"] != null)
                         _listenAddress = json.Value<string>("listenAddress") ?? "localhost";

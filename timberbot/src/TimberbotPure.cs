@@ -49,6 +49,32 @@ namespace Timberbot
             return "'" + value.Replace("'", "'\"'\"'") + "'";
         }
 
+        // Build the argv passed to `tbot agent run`. The C# launcher shells out
+        // to the Python `tbot` CLI for all agent orchestration; this is the one
+        // string-building step left on the C# side.
+        public static string BuildTbotAgentRunArgs(
+            string backend,
+            string goal,
+            string model,
+            string effort,
+            string commandTemplate,
+            string terminalPrefix)
+        {
+            var sb = new StringBuilder();
+            sb.Append("agent run");
+            sb.Append(" --backend ").Append(QuoteArg(backend ?? "claude"));
+            sb.Append(" --goal ").Append(QuoteArg(goal ?? ""));
+            if (!string.IsNullOrEmpty(model))
+                sb.Append(" --model ").Append(QuoteArg(model));
+            if (!string.IsNullOrEmpty(effort))
+                sb.Append(" --effort ").Append(QuoteArg(effort));
+            if (!string.IsNullOrEmpty(commandTemplate))
+                sb.Append(" --command ").Append(QuoteArg(commandTemplate));
+            if (!string.IsNullOrEmpty(terminalPrefix))
+                sb.Append(" --terminal-prefix ").Append(QuoteArg(terminalPrefix));
+            return sb.ToString();
+        }
+
         // --- security helpers ---
 
         private static readonly HashSet<string> BuiltinAllowedBinaries = new HashSet<string>(StringComparer.OrdinalIgnoreCase)

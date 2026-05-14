@@ -225,7 +225,7 @@ Current built-in agent status.
 
 ### POST /api/agent/start
 
-Start the built-in interactive agent. This gathers fresh colony state via `timberbot.py brain`, generates a merged per-launch instructions file from `agents/timberbot.md` plus live colony state, and launches the selected binary interactively against that generated file.
+Start the built-in interactive agent. The C# launcher shells out to `tbot agent run`, which fetches fresh colony state via `TimberbotClient.brain`, merges `tbot.agent_prompts.timberbot` (or the user's edited copy under `~/.config/timberbot/agent_prompts/`) with that state into a per-launch instructions file, and dispatches to the chosen backend (`claude`, `codex`, `opencode`, or `custom`).
 
 #### Body
 

@@ -406,18 +406,21 @@
   </ItemGroup>
 
   <Target Name="Deploy" AfterTargets="Build">
+    <!-- PR 2 of the mod-distribution rework: the mod ZIP carries only the DLL,
+         manifest, thumbnail, settings.json, and docs. The Python client + agent
+         prompts ship via `pip install tbot` (see python/). Legacy skill/ and
+         script/ directories are cleaned up on deploy for users upgrading from
+         older mod versions. -->
     <MakeDir Directories="$(ModDir)" />
     <Copy SourceFiles="$(OutputPath)Timberbot.dll" DestinationFolder="$(ModDir)" />
     <Copy SourceFiles="manifest.json" DestinationFolder="$(ModDir)" />
     <Copy SourceFiles="thumbnail.png" DestinationFolder="$(ModDir)" Condition="Exists('thumbnail.png')" />
     <Copy SourceFiles="settings.json" DestinationFolder="$(ModDir)" Condition="!Exists('$(ModDir)\settings.json')" />
-    <Copy SourceFiles="..\script\timberbot.py" DestinationFolder="$(ModDir)" />
-    <Delete Files="$(ModDir)\timberbot\skill\SKILL.md" Condition="Exists('$(ModDir)\timberbot\skill\SKILL.md')" />
-    <RemoveDir Directories="$(ModDir)\timberbot\skill" Condition="Exists('$(ModDir)\timberbot\skill')" />
-    <MakeDir Directories="$(ModDir)\skill" />
-    <Copy SourceFiles="..\skill\timberbot.md" DestinationFolder="$(ModDir)\skill" />
+    <Delete Files="$(ModDir)\timberbot.py" Condition="Exists('$(ModDir)\timberbot.py')" />
+    <RemoveDir Directories="$(ModDir)\skill" Condition="Exists('$(ModDir)\skill')" />
+    <RemoveDir Directories="$(ModDir)\agents" Condition="Exists('$(ModDir)\agents')" />
     <RemoveDir Directories="$(ModDir)\hooks" Condition="Exists('$(ModDir)\hooks')" />
-<MakeDir Directories="$(ModDir)\docs" />
+    <MakeDir Directories="$(ModDir)\docs" />
     <Copy SourceFiles="..\..\docs\api-reference.md" DestinationFolder="$(ModDir)\docs" />
     <Copy SourceFiles="..\..\docs\getting-started.md" DestinationFolder="$(ModDir)\docs" />
     <Copy SourceFiles="..\..\docs\features.md" DestinationFolder="$(ModDir)\docs" />

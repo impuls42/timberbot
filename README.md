@@ -71,7 +71,7 @@ curl -X POST http://localhost:8085/api/speed -d '{"speed": 3}'
 - [Timberbot AI](docs/timberbot.md). AI guide for agents playing Timberborn
 - [Architecture](docs/architecture.md). internals, thread model, read/write pipeline
 - [Automation Plan](docs/automation-plan.md). decompiled wiring API and `/api/automation/*` design
-- [Agent Prompts](agents/). drop-in prompts for `timberbot`, `scout`, `wirer`, `auditor`, and `beaver-developer` workflows
+- [Agent Prompts](python/src/tbot/agent_prompts/). drop-in prompts for `timberbot`, `scout`, `wirer`, `auditor`, and `beaver-developer` workflows. Materialize editable copies into your user config dir with `tbot init`.
 - [Repo Guide](AGENTS.md). project layout, build commands, conventions
 - [Developing](docs/developing.md). build from source, add endpoints, Workshop publishing
 
