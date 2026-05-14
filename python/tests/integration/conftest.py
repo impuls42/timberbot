@@ -69,15 +69,29 @@ def live_game(tbot_endpoint: tuple[str | None, int | None]) -> Timberbot:
 
 
 @pytest.fixture(scope="session")
-def strict_bot(tbot_endpoint: tuple[str | None, int | None]) -> Timberbot:
-    """A second `Timberbot` client used by validation_runner to compare TOON vs JSON."""
+def strict_bot(
+    live_game: Timberbot,
+    tbot_endpoint: tuple[str | None, int | None],
+) -> Timberbot:
+    """A second `Timberbot` client used by validation_runner to compare TOON vs JSON.
+
+    Depends on `live_game` so the skip propagates when the mod is unreachable
+    — pytest doesn't need to construct an unused client whose first HTTP call
+    would fail.
+    """
     host, port = tbot_endpoint
     return Timberbot(host=host, port=port, json_mode=True, write_timeout=300)
 
 
 @pytest.fixture(scope="session")
-def toon_bot(tbot_endpoint: tuple[str | None, int | None]) -> Timberbot:
-    """A `Timberbot` client in toon mode for comparison-based tests."""
+def toon_bot(
+    live_game: Timberbot,
+    tbot_endpoint: tuple[str | None, int | None],
+) -> Timberbot:
+    """A `Timberbot` client in toon mode for comparison-based tests.
+
+    Depends on `live_game` for explicit skip propagation (see strict_bot).
+    """
     host, port = tbot_endpoint
     return Timberbot(host=host, port=port, write_timeout=300)
 
@@ -114,7 +128,12 @@ def validation_runner(live_game: Timberbot, strict_bot: Timberbot, toon_bot: Tim
     runner = TestRunner()
     # Override the default Timberbot constructors with our endpoint-resolved instances.
     runner.bot = live_game
-    runner.bot._check = lambda data: data  # tolerate error payloads in checks
+    # Many TestRunner methods inspect error payloads explicitly (e.g. assert that
+    # `{"error": ...}` came back for invalid input). The default `_check` raises
+    # TimberbotError on any error payload, which would short-circuit those
+    # assertions. Suppress here so the runner sees raw dicts. Same pattern is
+    # used by validation_runner.main(); we mirror it for the pytest entry path.
+    runner.bot._check = lambda data: data
     runner.strict_bot = strict_bot
     runner.toon_bot = toon_bot
     # Discover sample IDs once for the whole session.
