@@ -200,20 +200,20 @@ The mod also ships docs for AI play with Claude Code, OpenAI Codex, ChatGPT, or 
 
 The AI docs entrypoints are:
 
-- `skill/timberbot.md` is the Timberbot Skill, the slim runtime prompt used at launch
+- `agents/timberbot.md` is the Timberbot agent, the slim runtime prompt used at launch
 - [timberbot.md](timberbot.md) is the Timberbot Guide, the full operating guide behind that prompt
 - [api-reference.md](api-reference.md) is the endpoint and response source of truth
 
-### Claude Code setup
+### OpenCode setup
 
 ```bash
-# copy the thin skill entrypoint
-mkdir -p ~/.claude/skills/timberbot
-cp skill/timberbot.md ~/.claude/skills/timberbot/SKILL.md
+# copy the agent entrypoint
+mkdir -p ~/.config/opencode/agents
+cp agents/timberbot.md ~/.config/opencode/agents/timberbot.md
 
-# start Claude from the Steam Workshop mod folder root first, or from the Timberbot repo root
+# start OpenCode from the Steam Workshop mod folder root first, or from the Timberbot repo root
 # workshop docs live in Documents/Timberborn/Mods/Timberbot/docs
-/timberbot
+opencode
 ```
 
 ### OpenAI Codex
@@ -251,6 +251,7 @@ All settings persist to `settings.json`, including:
 
 - agent/UI settings such as `Binary`, `Model`, `Effort`, `Goal`, and widget position
 - runtime settings such as `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `writeBudgetMs`, `terminal`, and `pythonCommand`
+- security settings such as `listenAddress` (default `localhost`), `agentAllowlistEnabled` (default `true`), `webhookValidateUrls` (default `true`), and `maxBodyBytes` (default `1048576`)
 
 Editing `settings.json` directly is the advanced/manual path. The normal path is to change settings in-game and let Timberbot save them for you.
 
@@ -279,5 +280,3 @@ Some runtime settings are applied on load, so changing them may require reloadin
 - [Timberbot Guide](timberbot.md). full operating guide for gameplay and AI behavior
 - [Features](features.md). what's implemented vs gaps
 - [Developing](developing.md). build from source
-
-

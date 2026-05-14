@@ -4,13 +4,14 @@ Usage:
     python release.py            build + package ZIP
     python release.py --release  build + package + tag + GitHub release
 """
+
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import zipfile
+from pathlib import Path
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
@@ -20,12 +21,13 @@ MOD_DIR = os.path.join(str(Path.home()), "Documents", "Timberborn", "Mods", "Tim
 MANIFEST = os.path.join(SRC_DIR, "manifest.json")
 DLL_PATH = os.path.join(SRC_DIR, "bin", "Release", "netstandard2.1", "Timberbot.dll")
 SCRIPT = os.path.join(SCRIPT_DIR, "timberbot.py")
-SKILL = os.path.join(ROOT, "timberbot", "skill", "timberbot.md")
+AGENT = os.path.join(ROOT, ".opencode", "agents", "timberbot.md")
 
 
 def run(cmd, **kwargs):
     print(f"  > {cmd}")
     subprocess.check_call(cmd, shell=True, **kwargs)
+
 
 PRESERVE_MOD_FILES = {"workshop_data.json", "autoload.json"}
 
@@ -58,7 +60,6 @@ def clean_mod_dir():
             clean_dir_contents(path)
             continue
         remove_path(path)
-
 
 
 def main():
@@ -106,7 +107,7 @@ def main():
         if os.path.exists(thumb):
             zf.write(thumb, "thumbnail.png")
         zf.write(SCRIPT, "timberbot.py")
-        zf.write(SKILL, "skill/timberbot.md")
+        zf.write(AGENT, "agents/timberbot.md")
         # include docs
         docs_dir = os.path.join(ROOT, "docs")
         for doc in os.listdir(docs_dir):

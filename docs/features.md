@@ -57,10 +57,5 @@
 | [Settlement name](api-reference.md#get-apisettlement) | Save game / settlement name for per-settlement memory folders | Yes |
 | [Remote connection](getting-started.md#remote-connections) | Connect external clients with `--host=` and `--port=` CLI flags or `httpHost` / `httpPort` in `settings.json` | Yes |
 | [Benchmark](api-reference.md#post-apibenchmark) | Per-endpoint performance profiling | Yes |
-
-## By design
-
-| System | Why not in Timberbot API |
-|---|---|
-| Automation | Use Timberborn's built-in HTTP API (port 8080) |
-| Logic gates | In-game only |
+| [Automation wiring](api-reference.md#post-apiautomationlink) | Wire sensors to relays to buildings, configure thresholds and modes | Yes |
+| [Automation config](api-reference.md#post-apiautomationconfigure) | Set sensor thresholds, counter modes, relay logic, lever state | Yes |

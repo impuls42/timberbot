@@ -25,7 +25,7 @@ All endpoints support two output formats via `?format=` query param or `"format"
 All errors return JSON with an `error` field in `"code: detail"` format. Every error is designed to be actionable: it tells you what went wrong, echoes what you sent, and tells you what to do next.
 
 ```json
-{"error": "not_found: no entity with this id. ids are ephemeral, re-query buildings to get current ids", "id": -12345}
+{"error": "not_found: no entity with this id", "id": -12345}
 {"error": "invalid_type: not a floodgate. use buildings name:Floodgate to find floodgates", "id": -12345, "name": "LumberjackFlag"}
 {"error": "invalid_param: speed must be 0-3 (0=pause, 1=normal, 2=fast, 3=fastest)", "got": 5}
 {"error": "insufficient_science: not enough science points to unlock", "building": "LargePowerWheel", "scienceCost": 60, "currentPoints": 10}
@@ -88,14 +88,14 @@ The Python CLI passes `limit=0` by default (AI/scripts typically want all data).
 
 ### Server-side Filtering
 
-List endpoints also support server-side filtering via query params:
+List endpoints also support server-side filtering via query params (also available as CLI params):
 
 | Param | Description |
 |-------|-------------|
 | `name` | Case-insensitive substring match on entity name |
-| `x` | X coordinate for proximity filter |
-| `y` | Y coordinate for proximity filter |
-| `radius` | Manhattan distance radius (requires x and y) |
+| x | X coordinate for proximity filter (requires y) |
+| y | Y coordinate for proximity filter (requires x) |
+| radius | Manhattan distance radius (requires x and y). Default: 30 |
 
 Filters apply BEFORE pagination. The `total` in paginated responses reflects filtered count.
 
@@ -104,6 +104,15 @@ GET /api/buildings?name=Farm                    # all FarmHouses
 GET /api/buildings?x=120&y=140&radius=20        # buildings near (120,140)
 GET /api/trees?name=Pine&limit=10               # first 10 pine trees
 GET /api/beavers?name=Bot&limit=0               # all bots (unlimited)
+```
+
+**CLI equivalent:**
+
+```bash
+timberbot.py buildings name:Farm                # all FarmHouses
+timberbot.py buildings x:120 y:140 radius:20    # buildings near (120,140)
+timberbot.py trees name:Pine limit:10           # first 10 pine trees
+timberbot.py beavers name:Bot                   # all bots (unlimited)
 ```
 
 ---
@@ -216,7 +225,7 @@ Current built-in agent status.
 
 ### POST /api/agent/start
 
-Start the built-in interactive agent. This gathers fresh colony state via `timberbot.py brain`, generates a merged per-launch instructions file from `skill/timberbot.md` plus live colony state, and launches the selected binary interactively against that generated file.
+Start the built-in interactive agent. This gathers fresh colony state via `timberbot.py brain`, generates a merged per-launch instructions file from `agents/timberbot.md` plus live colony state, and launches the selected binary interactively against that generated file.
 
 #### Body
 
@@ -668,9 +677,9 @@ Move adult beavers between districts.
 
 All placed buildings with state.
 
-**CLI:** `timberbot.py buildings` | `timberbot.py --json buildings`
+**CLI:** `timberbot.py buildings` | `timberbot.py --json buildings` | `timberbot.py buildings name:Pump` | `timberbot.py buildings x:120 y:140 radius:20`
 
-Supports server-side pagination (`?limit=10&offset=20`) and filtering (`?name=Farm`). See [Pagination](#pagination) above.
+Supports server-side pagination (`?limit=10&offset=20`) and filtering (`?name=Farm`, `?x=120&y=140&radius=20`). All filters are available as CLI params too. See [Pagination](#pagination) above.
 
 #### Response (format=json)
 
@@ -678,7 +687,7 @@ Each building includes all applicable fields (absent fields mean the component d
 
 | Field | Type | Description |
 |-------|------|-------------|
-| id | int | Unity instance ID (ephemeral per session) |
+| id | int | Deterministic stable hash |
 | name | string | Faction-qualified building name (for example `FarmHouse.IronTeeth`) |
 | x, y, z | int | Origin coordinates |
 | orientation | string | `"south"`, `"west"`, `"north"`, or `"east"` |
@@ -721,6 +730,12 @@ Each building includes all applicable fields (absent fields mean the component d
 | needsNutrients | bool | Breeding pod needs food delivered |
 | nutrients | int | Breeding pod nutrient count |
 | entranceX, entranceY, entranceZ | int | Entrance block on the building |
+| automation | object | (optional) Real-time automation state & config |
+| automation.type | string | Specific sensor/logic component type (e.g. `"Memory"`) |
+| automation.state | string | Current signal: `"On"`, `"Off"`, or `"Error"` |
+| automation.config | object | Thresholds & operational modes specific to the component type |
+| automation.inputs | array | Active incoming logical links: `[{"key": "a", "id": 123, "name": "Sensor"}]` |
+| automation.outputs | array | Active destination targets: `[{"id": 456, "name": "WaterPump"}]` |
 
 ```json
 [
@@ -728,7 +743,7 @@ Each building includes all applicable fields (absent fields mean the component d
     "id": 12340,
     "name": "LumberjackFlag",
     "x": 120, "y": 130, "z": 2,
-    "orientation": 0,
+    "orientation": "south",
     "finished": true,
     "pausable": true,
     "paused": false,
@@ -737,7 +752,17 @@ Each building includes all applicable fields (absent fields mean the component d
     "desiredWorkers": 1,
     "assignedWorkers": 1,
     "reachable": true,
-    "entranceX": 120, "entranceY": 129, "entranceZ": 2
+    "entranceX": 120, "entranceY": 129, "entranceZ": 2,
+    "automation": {
+      "hasAutomator": 1,
+      "isTransmitter": 0,
+      "state": "Off",
+      "isAutomated": 1,
+      "type": "Automatable",
+      "config": {},
+      "inputs": [{"key": "input", "id": 42, "name": "DepthSensor"}],
+      "outputs": []
+    }
   }
 ]
 ```
@@ -1175,7 +1200,7 @@ Pause or unpause a building.
 #### Response (error)
 
 ```json
-{"error": "not_found: no entity with this id. ids are ephemeral, re-query buildings to get current ids", "id": 99999}
+{"error": "not_found: no entity with this id", "id": 99999}
 ```
 
 ```json
@@ -1226,7 +1251,7 @@ Remove a building from the world.
 #### Response (error)
 
 ```json
-{"error": "not_found: no entity with this id, ids are ephemeral so re-query buildings or crops", "id": 99999}
+{"error": "not_found: no entity with this id", "id": 99999}
 ```
 
 ---
@@ -1252,7 +1277,7 @@ Remove a planted crop entity from the world.
 #### Response (error)
 
 ```json
-{"error": "not_found: no entity with this id, ids are ephemeral so re-query buildings or crops", "id": 99999}
+{"error": "not_found: no entity with this id", "id": 99999}
 ```
 
 ---
@@ -1604,6 +1629,125 @@ Set storage mode and/or allowed good on any storage building (piles, warehouses,
 ```json
 {"error": "invalid_param: mode must be accept, obtain, supply, or empty", "got": "badvalue"}
 ```
+
+---
+
+## Automation Actions
+
+### POST /api/automation/link
+
+Wire a sensor, relay, or other transmitter output to an automation input on a building.
+
+**CLI:** `timberbot.py link source_id:42 target_id:44 input:a`
+
+#### Request Body
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| sourceId | int | yes | | Transmitter entity ID |
+| targetId | int | yes | | Target building entity ID |
+| input | string | no | "a" | Which input: "a", "b", or "reset" (for Relay/Memory only) |
+
+```json
+{"sourceId": 42, "targetId": 44, "input": "a"}
+```
+
+#### Response (success)
+
+```json
+{"id": 44, "name": "FlourMill", "input": "a", "sourceId": 42, "sourceName": "DepthSensor", "connected": true}
+```
+
+For Automatable targets (single-input buildings), the `input` field always returns `"a"` regardless of what was passed, since these buildings have only one input.
+
+#### Errors
+
+| Error | Condition |
+|-------|-----------|
+| `invalid_param: input must be a or b for Relay` | Input is not "a" or "b" for a Relay target |
+| `invalid_param: input must be a, b, or reset for Memory` | Input is not valid for a Memory target |
+| `invalid_param: Relay mode X does not use input B` | Linking input B to a Relay in Not or Passthrough mode. Change mode first with `configure_automation property:mode` |
+| `invalid_param: Memory mode X does not use input B` | Linking input B to a Memory in SetReset or Toggle mode. Change mode first with `configure_automation property:mode` |
+| `invalid_type: source is not a transmitter` | Source entity has no Automator or it's not a transmitter |
+| `invalid_type: target cannot accept automation input` | Target has no Automatable, Relay, or Memory component |
+
+---
+
+### POST /api/automation/unlink
+
+Disconnect an automation input on a building.
+
+**CLI:** `timberbot.py unlink id:44 input:a`
+
+#### Request Body
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| id | int | yes | | Target building entity ID |
+| input | string | no | "a" | Which input: "a", "b", or "reset" (for Relay/Memory only) |
+
+```json
+{"id": 44, "input": "a"}
+```
+
+#### Response (success)
+
+```json
+{"id": 44, "name": "FlourMill", "input": "a", "connected": false}
+```
+
+For Automatable targets (single-input buildings), the `input` field always returns `"a"`.
+
+#### Errors
+
+| Error | Condition |
+|-------|-----------|
+| `invalid_param: input must be a or b for Relay` | Input is not "a" or "b" for a Relay target |
+| `invalid_param: input must be a, b, or reset for Memory` | Input is not valid for a Memory target |
+| `invalid_param: Relay mode X does not use input B` | Unlinking input B from a Relay in Not or Passthrough mode |
+| `invalid_param: Memory mode X does not use input B` | Unlinking input B from a Memory in SetReset or Toggle mode |
+| `invalid_type: target has no automation input` | Target has no Automatable, Relay, or Memory component |
+
+---
+
+### POST /api/automation/configure
+
+Configure a property on an automation component (sensor threshold, relay mode, lever state, etc.).
+
+**CLI:** `timberbot.py configure_automation id:42 property:threshold value:50`
+
+#### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| id | int | yes | Automation component entity ID |
+| property | string | yes | Property name to set |
+| value | string | yes | New value |
+
+```json
+{"id": 42, "property": "threshold", "value": "50"}
+```
+
+**Properties by component type:**
+
+| Component | Properties |
+|-----------|------------|
+| DepthSensor / ContaminationSensor / FlowSensor | `threshold` (float), `mode` (Equal/NotEqual/Greater/GreaterOrEqual/Less/LessOrEqual) |
+| ResourceCounter | `goodId` (string), `threshold` (int), `fillRateThreshold` (float), `mode` (StockLevel/FillRate), `comparisonMode` (NumericComparisonMode), `includeInputs` (bool) |
+| PopulationCounter | `threshold` (int), `mode`, `comparisonMode`, `globalMode` (bool), `countBeavers` (bool), `countBots` (bool) |
+| PowerMeter | `mode` (Power/Percent), `comparisonMode`, `intThreshold` (int), `percentThreshold` (float) |
+| Relay | `mode` (Not/And/Or/Xor/Passthrough) |
+| Memory | `mode` (SetReset/Toggle/Latch/FlipFlop) |
+| Chronometer | `startTime` (float), `endTime` (float), `mode` (TimeRange/WorkingHours/NonWorkingHours) |
+| Lever | `springReturn` (bool), `pinned` (bool) |
+
+#### Response (success)
+
+```json
+{"id": 42, "name": "DepthSensor", "property": "threshold", "value": 50, "automationType": "DepthSensor"}
+```
+
+**Note:** The `id` field in the response matches the `id` request parameter.
 
 ---
 
@@ -2051,7 +2195,7 @@ timberbot.py clear_tasks      # remove done tasks
 
 ### IDs and Names
 
-- **Building IDs** are Unity `GameObject.GetInstanceID()`. ephemeral, change every game session. Get current IDs from `GET /api/buildings`.
+- **Building IDs** are deterministic 32-bit hashes of internal game GUIDs. They are persistent and will survive game restarts and colony reloads.
 - **Prefab names** come from `GET /api/prefabs`. Include faction suffix (e.g. `"LumberjackFlag.IronTeeth"`).
 - **Good names** match Timberborn internal names: `Water`, `Log`, `Plank`, `Berries`, `Bread`, etc.
 - **Building names** in responses are cleaned: `(Clone)`, `.IronTeeth`, `.Folktails` suffixes removed.
@@ -2097,5 +2241,3 @@ Coordinates always refer to the bottom-left corner of the footprint regardless o
     `POST /api/building/place` may create ghost buildings on invalid spots. The `Place()` callback fires and creates an entity even when placement is invalid. Python-side validation blocks most cases, but multi-tile overlaps or bad terrain can still ghost.
 
     **Never test placement carelessly**. every failed `Place()` may create a ghost that needs manual cleanup.
-
-

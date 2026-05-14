@@ -15,6 +15,9 @@
 using Timberborn.SingletonSystem;
 using UnityEngine;
 using Newtonsoft.Json.Linq;
+using System.Reflection;
+using Timberborn.NotificationSystem;
+using Timberborn.BaseComponentSystem;
 
 namespace Timberbot
 {
@@ -40,6 +43,7 @@ namespace Timberbot
         // settings (loaded from settings.json in mod folder)
         private bool _debugEnabled = false;       // enable /api/debug endpoint (default: off)
         private int _httpPort = 8085;             // HTTP server port
+        public const int DefaultSearchRadius = 30; // Default radius for proximity searches
         // webhook settings applied to WebhookMgr in Load()
         private bool _webhooksEnabled = true;
         private float _webhookBatchSeconds = 0.2f;
@@ -55,6 +59,8 @@ namespace Timberbot
         private System.Collections.Generic.HashSet<string> _agentAllowedBinaries;
         private bool _webhookValidateUrls = true;
         private int _maxBodyBytes = 1048576;
+        private bool _actionLoggingEnabled = true;
+        private readonly NotificationBus _notificationBus;
         private string _settingsPath;            // full path to settings.json
         private JObject _cachedSettings;         // in-memory settings, flushed on debounce
         private float _settingsDirtyTime = -1f;  // realtimeSinceStartup when last mutated, -1 = clean
@@ -66,7 +72,8 @@ namespace Timberbot
             TimberbotWebhook webhookMgr,
             TimberbotWrite write,
             TimberbotPlacement placement,
-            TimberbotDebug debug)
+            TimberbotDebug debug,
+            NotificationBus notificationBus)
         {
             _eventBus = eventBus;
             Registry = registry;
@@ -75,6 +82,7 @@ namespace Timberbot
             Write = write;
             Placement = placement;
             DebugTool = debug;
+            _notificationBus = notificationBus;
         }
 
         // Called once when a game is loaded. Starts the HTTP server and hooks into
@@ -97,7 +105,8 @@ namespace Timberbot
             WebhookMgr.CircuitBreakerThreshold = _webhookCircuitBreaker;
             WebhookMgr.MaxPendingEvents = _webhookMaxPendingEvents;
             WebhookMgr.ValidateUrls = _webhookValidateUrls;
-            TimberbotLog.Info($"v0.7.0 port={_httpPort} debug={_debugEnabled} webhooks={_webhooksEnabled} batchMs={_webhookBatchSeconds * 1000:F0} listen={_listenAddress} agentAllowlist={_agentAllowlistEnabled} webhookValidate={_webhookValidateUrls} maxBody={_maxBodyBytes}");
+            var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "unknown";
+            TimberbotLog.Info($"v{version} port={_httpPort} debug={_debugEnabled} webhooks={_webhooksEnabled} batchMs={_webhookBatchSeconds * 1000:F0} listen={_listenAddress} agentAllowlist={_agentAllowlistEnabled} webhookValidate={_webhookValidateUrls} maxBody={_maxBodyBytes}");
             Registry.WebhookMgr = WebhookMgr;  // registry pushes webhook events on entity lifecycle
             DebugTool.Service = this;         // debug needs Service reference for endpoint benchmarks
             _eventBus.Register(this);
@@ -175,6 +184,8 @@ namespace Timberbot
                         int mb = json.Value<int>("maxBodyBytes");
                         _maxBodyBytes = mb >= 0 ? mb : 1048576;
                     }
+                    if (json["actionLoggingEnabled"] != null)
+                        _actionLoggingEnabled = json.Value<bool>("actionLoggingEnabled");
                 }
             }
             catch (System.Exception ex)
@@ -266,6 +277,22 @@ namespace Timberbot
             _server?.ProcessWriteJobs(now, _writeBudgetMs);
             WebhookMgr.FlushWebhooks(now);
             FlushSettingsIfNeeded(now);
+        }
+        public void PostNotification(string message, BaseComponent subject = null)
+        {
+            if (!_actionLoggingEnabled || _notificationBus == null) return;
+            _notificationBus.Post(message, subject);
+        }
+
+        public bool ActionLoggingEnabled
+        {
+            get => _actionLoggingEnabled;
+            set
+            {
+                _actionLoggingEnabled = value;
+                if (Write != null) Write.InGameLoggingEnabled = value;
+                SaveBoolSetting("actionLoggingEnabled", value);
+            }
         }
     }
 }

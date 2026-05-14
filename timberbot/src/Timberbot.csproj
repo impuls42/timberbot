@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>Timberbot</AssemblyName>
-    <Version>0.7.1</Version>
+    <Version>0.8.0</Version>
     <LangVersion>9.0</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
@@ -12,7 +12,9 @@
   <PropertyGroup>
     <UserHome Condition="'$(UserHome)' == '' and '$(USERPROFILE)' != ''">$(USERPROFILE)</UserHome>
     <UserHome Condition="'$(UserHome)' == '' and '$(HOME)' != ''">$(HOME)</UserHome>
-    <GameManagedDir Condition="'$(GameManagedDir)' == ''">C:\Games\Steam\steamapps\common\Timberborn\Timberborn_Data\Managed</GameManagedDir>
+    <GameManagedDir Condition="'$(GameManagedDir)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">C:\Games\Steam\steamapps\common\Timberborn\Timberborn_Data\Managed</GameManagedDir>
+    <GameManagedDir Condition="'$(GameManagedDir)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">$(HOME)/Library/Application Support/Steam/steamapps/common/Timberborn/Timberborn.app/Contents/Resources/Data/Managed</GameManagedDir>
+    <GameManagedDir Condition="'$(GameManagedDir)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">$(HOME)/.local/share/Steam/steamapps/common/Timberborn/Timberborn_Data/Managed</GameManagedDir>
     <ModDir Condition="'$(ModDir)' == ''">$(UserHome)/Documents/Timberborn/Mods/Timberbot</ModDir>
   </PropertyGroup>
 
@@ -369,6 +371,9 @@
     <Reference Include="Timberborn.GameSceneLoading" Publicize="true"><Private>false</Private><HintPath>$(GameManagedDir)\Timberborn.GameSceneLoading.dll</HintPath></Reference>
     <Reference Include="Timberborn.PlatformUtilities" Publicize="true"><Private>false</Private><HintPath>$(GameManagedDir)\Timberborn.PlatformUtilities.dll</HintPath></Reference>
     <Reference Include="Timberborn.EntityNaming" Publicize="true"><Private>false</Private><HintPath>$(GameManagedDir)\Timberborn.EntityNaming.dll</HintPath></Reference>
+    <!-- Automation wiring system -->
+    <Reference Include="Timberborn.Automation" Publicize="true"><Private>false</Private><HintPath>$(GameManagedDir)\Timberborn.Automation.dll</HintPath></Reference>
+    <Reference Include="Timberborn.AutomationBuildings" Publicize="true"><Private>false</Private><HintPath>$(GameManagedDir)\Timberborn.AutomationBuildings.dll</HintPath></Reference>
 
     <Reference Include="System.Collections.Immutable">
       <Private>false</Private>

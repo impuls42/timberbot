@@ -7,7 +7,7 @@ version: "0.8.5"
 
 This is the full Timberbot Guide for playing Timberborn through `timberbot.py`.
 
-`skill/timberbot.md` is the Timberbot Skill: the slim runtime prompt injected at launch. This page is the full guide behind that prompt. The split keeps launch tokens low while preserving the deeper operating rules and reference material the agent may need.
+`agents/timberbot.md` is the Timberbot agent: the slim runtime prompt injected at launch. This page is the full guide behind that prompt. The split keeps launch tokens low while preserving the deeper operating rules and reference material the agent may need.
 
 Read this first. Use the other docs only when needed:
 
@@ -62,8 +62,8 @@ Colony state was already gathered and injected into your system prompt before th
 >
 > **day** `<N>` | **speed** `<S>` | **weather** <temperate/drought> `<N>d` remain
 > **pop** `<adults>` adults, `<children>` children | **beds** `<occ>`/`<total>` | **workers** `<assigned>`/`<vacancies>`
-> **supply** food `<F>d` | water `<W>d` | logs `<L>` | planks `<P>`
-> **wellbeing** `<avg>`/77 | `<miserable>` miserable | `<critical>` critical needs
+> **supply** food `<F>d` | water `<W>d` | logs `<L>d` | planks `<P>d` | gears `<G>d`
+> **wellbeing** `<avg>`/77 | `<miserable>` miserable | `<critical>` critical (beavers only)
 > **nearby** `<N>` trees (`<species>`) | `<N>` food (`<species>`)
 > **alerts** `<unstaffed>` unstaffed | `<unpowered>` unpowered | `<unreachable>` unreachable
 >
@@ -71,6 +71,8 @@ Colony state was already gathered and injected into your system prompt before th
 ```
 
 If food or water is `<= 1d`, append `CRITICAL` after the value. If alerts are all zero, show `all clear`.
+
+**Note on stats:** Wellbeing averages, "miserable" counts, "critical" counts, and survival days (food/water/logs/planks/gears) strictly reflect **organic beavers** only. Bots are excluded to ensure statistics represent actual colony survival and health.
 
 If the colony state section is missing from your system prompt, fall back to running `timberbot.py brain goal:"<goal>"` manually.
 
@@ -113,6 +115,8 @@ The DC entrance is on the side matching the DC orientation. For a south-facing D
 
 Use `find_placement` for all building placement. Never manually search tiles, grep for water, or scan the map by eye for final coordinates. It checks terrain, water depth, flooding, orientation, path adjacency, and reachability in one call. Use the `x`, `y`, `z`, and `orientation` it returns.
 
+**Proximity filtering:** When searching for buildings, trees, or placements, the `radius` filter (default: 30) **requires both x and y** coordinates to be provided. Providing only one coordinate will disable the proximity filter to avoid accidental `y=0` defaults.
+
 `brain` returns the DC coords, entrance, z-level, and a 41x41 ANSI map centered on the DC. The saved map file (`memory/map-districtcenter-*.txt`) shows terrain, water, trees, and buildings.
 
 Paths are 1x1 entities that occupy tiles. A path on a tile prevents any building from being placed there.
@@ -154,6 +158,85 @@ A new game starts with only a district center and no roads. Paths cost nothing. 
 | 3 | **Fastest** | 4x speed |
 
 Use speed 0 to plan and queue work without spending resources. Do not unpause without a reason.
+
+## Automation (1.0+)
+
+Timberborn 1.0 introduced a full automation system: sensors detect conditions, relays process logic, and wires connect them to buildings. The API exposes wiring and configuration for AI agents.
+
+> **Vocabulary warning.** Timberborn reuses "high" and "low" across three unrelated systems (automation signals, priorities, physical heights). Mixing them produces hallucinated commands. Read [`automation-states.md`](automation-states.md) for the disambiguation. The short version: automation wires carry only `On`/`Off`, priorities use `VeryLow`..`VeryHigh`, and floodgate heights are floats.
+
+### Automation buildings
+
+| Building | What it does |
+|---|---|
+| Depth Sensor | Triggers when water reaches a threshold |
+| Contamination Sensor | Triggers when badwater contamination reaches a threshold |
+| Flow Sensor | Triggers when water flow reaches a threshold |
+| Resource Counter | Triggers when a good's stock or fill rate meets a threshold |
+| Population Counter | Triggers when beaver/bot population meets a threshold |
+| Power Meter | Triggers when power production or consumption meets a threshold |
+| Relay | Combines two inputs with logic (Not/And/Or/Xor/Passthrough) |
+| Memory | Stores input state; reset via a third input |
+| Timer | Fires on a schedule |
+| Chronometer | Fires between start and end times |
+| Lever | Binary on/off output; can be spring-return or pinned |
+| Gate | Pauses or unpauses flow through a waterway |
+
+### How wiring works
+
+1. A **sensor/relay** has an `Automator` component (it is a transmitter).
+2. A **building** (pump, factory, gate, etc.) has an `Automatable` component (it accepts a wire).
+3. The API `link` call connects the transmitter's output to the building's pause input.
+4. For **relays and memory**, there are two inputs (A and B) and optionally a reset.
+
+### Configuring sensors
+
+Each sensor has a threshold, a comparison mode (Equal, Greater, Less, etc.), and type-specific options:
+
+- **Resource Counter**: also needs `goodId` (e.g., `"Water"`, `"Logs"`, `"Carrot"`) and optionally `fillRateThreshold`
+- **Population Counter**: can count beavers only, bots only, or both; can be global or district-local
+- **Power Meter**: can use absolute (int) or percentage thresholds
+
+### API commands
+
+See `docs/api-reference.md` for the full endpoint reference. The key commands are:
+
+- `timberbot.py link source_id:<id> target_id:<id> [input:a|b]` — wire a sensor/relay to a building or relay input
+- `timberbot.py unlink target_id:<id> [input:a|b|reset]` — remove a wire
+- `timberbot.py configure_automation id:<id> property:<prop> value:<val>` — set threshold, mode, goodId, etc.
+
+### Reading automation state
+
+Buildings with automation have an `automation` block in their JSON response:
+
+```json
+{
+  "id": 42,
+  "name": "ContaminationSensor",
+  "automation": {
+    "type": "ContaminationSensor",
+    "state": "On",
+    "config": { "threshold": 0.5, "comparisonMode": "Greater" },
+    "outputs": [{"id": 44, "name": "Relay #1"}]
+  }
+}
+```
+
+A regular building with a wire looks like:
+
+```json
+{
+  "id": 44,
+  "name": "WaterPump",
+  "automation": {
+    "isAutomated": true,
+    "inputState": "On",
+    "input": {"id": 42, "name": "ContaminationSensor"}
+  }
+}
+```
+
+For full API details, read `docs/api-reference.md` and `docs/automation-plan.md` (which contains the decompiled game API surface).
 
 ## Brain
 

@@ -1,6 +1,6 @@
 {
   "Name": "Timberbot API",
-  "Version": "0.7.1",
+  "Version": "0.8.0",
   "Id": "abix-.Timberbot",
   "MinimumGameVersion": "1.0.0.0",
   "Description": "Play Timberborn with an AI. Full read/write HTTP API with a Python client so Claude, ChatGPT, or your own scripts can partner with you to run a beaver colony."

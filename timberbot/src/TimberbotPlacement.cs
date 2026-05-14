@@ -82,6 +82,9 @@ namespace Timberbot
     public class TimberbotPlacement
     {
         public readonly TimberbotJw Jw = new TimberbotJw(1024);
+        
+        public event System.Action<string> OnActionLog;
+        private void PostLog(string message) => OnActionLog?.Invoke(message);
         private readonly ITerrainService _terrainService;
         private readonly IThreadSafeWaterMap _waterMap;
         private readonly MapIndexService _mapIndexService;
@@ -284,7 +287,7 @@ namespace Timberbot
         {
             var ec = _cache.FindEntity(id);
             if (ec == null)
-                return Jw.Error("not_found: no entity with this id, ids are ephemeral and change on reload. run: timberbot.py buildings or timberbot.py crops to get current ids", ("id", id));
+                return Jw.Error("not_found: no entity with this id.", ("id", id));
 
             var validationError = validateError?.Invoke(ec);
             if (validationError != null)
@@ -292,6 +295,10 @@ namespace Timberbot
 
             var name = TimberbotEntityRegistry.CanonicalName(ec.GameObject.name);
             _entityService.Delete(ec);
+            _readV2.InvalidateBuildings();
+            _readV2.InvalidateNaturalResources();
+            _readV2.InvalidateBeavers();
+            PostLog($"Demolished {name} (ID:{id})");
             return Jw.Result(("id", id), ("name", name), ("demolished", true));
         }
 
@@ -1622,6 +1629,21 @@ namespace Timberbot
                 _maxX = System.Math.Max(_x1, _x2);
                 _minY = System.Math.Min(_y1, _y2);
                 _maxY = System.Math.Max(_y1, _y2);
+
+                if (_minX == 0 && _maxX == 0 && _minY == 0 && _maxY == 0)
+                {
+                    var mapSize = _owner._terrainService.Size;
+                    int cx = mapSize.x / 2, cy = mapSize.y / 2, r = TimberbotService.DefaultSearchRadius;
+                    foreach (var dc in _owner._districtCenterRegistry.FinishedDistrictCenters)
+                    {
+                        var bo = dc.GetComponent<BlockObject>();
+                        if (bo != null) { cx = bo.Coordinates.x; cy = bo.Coordinates.y; break; }
+                    }
+                    _minX = System.Math.Max(0, cx - r);
+                    _maxX = System.Math.Min(mapSize.x - 1, cx + r);
+                    _minY = System.Math.Max(0, cy - r);
+                    _maxY = System.Math.Min(mapSize.y - 1, cy + r);
+                }
                 _tx = _minX;
                 _ty = _minY;
 
@@ -2234,6 +2256,8 @@ namespace Timberbot
             if (placedId == 0)
                 return new PlaceBuildingResult { Error = "operation_failed: placer returned no entity, the game rejected the placement for an unknown reason", X = x, Y = y, Z = z, Prefab = prefabName };
 
+            _readV2.InvalidateBuildings();
+            PostLog($"Placed {placedName} at ({x}, {y}, {z})");
             return new PlaceBuildingResult { Id = placedId, Name = placedName, X = x, Y = y, Z = z, Orientation = OrientNames[orientation] };
         }
 

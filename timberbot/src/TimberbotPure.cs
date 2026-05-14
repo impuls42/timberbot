@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text;
 
 namespace Timberbot
 {
@@ -151,7 +152,7 @@ namespace Timberbot
             try
             {
                 if (value is bool b) { numeric = b ? 1 : 0; return true; }
-                if (value is IConvertible) { numeric = Convert.ToDouble(value); return true; }
+                if (value is IConvertible c) { numeric = Convert.ToDouble(c, CultureInfo.InvariantCulture); return true; }
             }
             catch { }
             return false;
@@ -233,6 +234,110 @@ namespace Timberbot
                 return parsed.ToString(CultureInfo.InvariantCulture);
 
             return fallback.ToString(CultureInfo.InvariantCulture);
+        }
+
+        // --- from TimberbotReadV2 ---
+
+        public static bool PassesFilter(string entityName, int entityX, int entityY,
+            string filterName, int filterX, int filterY, int filterRadius)
+        {
+            if (filterName != null && entityName.IndexOf(filterName, StringComparison.OrdinalIgnoreCase) < 0)
+                return false;
+            if (filterRadius > 0 && (Math.Abs(entityX - filterX) + Math.Abs(entityY - filterY)) > filterRadius)
+                return false;
+            return true;
+        }
+
+        public static string ToToonDict(Dictionary<string, int> dict)
+        {
+            if (dict == null || dict.Count == 0) return "";
+            var sb = new StringBuilder(256);
+            foreach (var kvp in dict)
+            {
+                if (sb.Length > 0) sb.Append('/');
+                sb.Append(kvp.Key).Append(':').Append(kvp.Value);
+            }
+            return sb.ToString();
+        }
+
+        public static string GetBeaverTier(float wellbeing, bool isBot)
+        {
+            if (isBot) return "operational";
+            if (wellbeing >= 16) return "ecstatic";
+            if (wellbeing >= 12) return "happy";
+            if (wellbeing >= 8) return "okay";
+            if (wellbeing >= 4) return "unhappy";
+            return "miserable";
+        }
+
+        // --- from TimberbotWrite ---
+
+        public static string DeterminePriorityToSet(bool finished, bool hasWorkplacePrio, bool hasBuilderPrio)
+        {
+            // Smart auto-detect: prefer workplace if constructed, otherwise construction
+            if (finished && hasWorkplacePrio) return "workplace";
+            if (hasBuilderPrio) return "construction";
+            if (hasWorkplacePrio) return "workplace";
+            return null;
+        }
+
+        public static string DetermineAutomationType(
+            bool hasRelay, bool hasMemory, bool hasLever, bool hasChronometer,
+            bool hasDepthSensor, bool hasContaminationSensor, bool hasFlowSensor,
+            bool hasResourceCounter, bool hasPopulationCounter, bool hasPowerMeter,
+            bool hasAutomatable)
+        {
+            if (hasRelay) return "Relay";
+            if (hasMemory) return "Memory";
+            if (hasLever) return "Lever";
+            if (hasChronometer) return "Chronometer";
+            if (hasDepthSensor) return "DepthSensor";
+            if (hasContaminationSensor) return "ContaminationSensor";
+            if (hasFlowSensor) return "FlowSensor";
+            if (hasResourceCounter) return "ResourceCounter";
+            if (hasPopulationCounter) return "PopulationCounter";
+            if (hasPowerMeter) return "PowerMeter";
+            if (hasAutomatable) return "Automatable";
+            return "";
+        }
+    }
+
+    public sealed class PureCollectionQuery
+    {
+        public string Format;
+        public int? SingleId;
+        public int Limit;
+        public int Offset;
+        public string FilterName;
+        public int FilterX;
+        public int FilterY;
+        public int FilterRadius;
+        public bool HasFilter;
+        public bool Paginated;
+        public bool NeedsFullDetail;
+
+        public static PureCollectionQuery Parse(string format, string detail, int id, int limit, int offset, string filterName, int filterX, int filterY, int filterRadius)
+        {
+            int? singleId = id != 0 ? id : (int?)null;
+            if (!singleId.HasValue && !string.IsNullOrEmpty(detail) && detail.StartsWith("id:", StringComparison.Ordinal))
+            {
+                if (int.TryParse(detail.Substring(3), out int parsed))
+                    singleId = parsed;
+            }
+            return new PureCollectionQuery
+            {
+                Format = format ?? "toon",
+                SingleId = singleId,
+                Limit = limit,
+                Offset = offset,
+                FilterName = filterName,
+                FilterX = filterX,
+                FilterY = filterY,
+                FilterRadius = filterRadius,
+                HasFilter = filterName != null || filterRadius > 0,
+                Paginated = limit > 0 && !singleId.HasValue,
+                NeedsFullDetail = detail == "full" || singleId.HasValue
+            };
         }
     }
 }
