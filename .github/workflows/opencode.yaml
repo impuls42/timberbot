@@ -29,3 +29,5 @@ jobs:
           OPENCODE_AUTH_CONTENT: '{"opencode-go":{"type":"api","key":"${{ secrets.OPENCODE_API_KEY }}"}}'
         with:
           model: opencode-go/glm-5.1
+          share: true
+          
