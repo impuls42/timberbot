@@ -122,11 +122,8 @@ namespace Timberbot
 
         private static readonly Dictionary<string, string> SettingTooltips = new Dictionary<string, string>
         {
-            ["Binary:"] = "Which CLI executable Timberbot launches for the agent session. Select 'custom' to provide your own command template.",
-            ["Command:"] = "Freeform command template for custom CLIs. Placeholders: {skill} = static skill file path, {instructions_file} = merged per-launch instructions file, {prompt} = small startup message, {prompt_file} = startup message written to a temp file, {model} = model value, {effort} = effort value. If model/effort are empty, the flag before the placeholder is stripped too. On macOS, custom binaries should also set Startup -> terminal.",
-            ["Model:"] = "Model name passed to the agent with --model. Preset choices change based on the selected binary, but you can type any model manually.",
-            ["Effort:"] = "Reasoning effort passed to the agent with --effort. Preset choices change based on the selected binary, but you can type any effort value manually.",
-            ["Goal:"] = "Initial task sent to the agent after it prints the boot report. The system prompt also includes the guide and current colony state.",
+            ["Backend:"] = "Which agent backend `tbot agent run` launches. Built-in: claude, codex, opencode. Use 'custom' to invoke a backend defined in ~/.config/timberbot/config.toml.",
+            ["Goal:"] = "Initial task sent to the agent after it prints the boot report. The merged system prompt also includes the guide and current colony state.",
             ["debugEndpointEnabled:"] = "Enables debug and benchmark endpoints such as /api/debug and /api/benchmark. Reload save to apply.",
             ["httpPort:"] = "HTTP server port Timberbot listens on. The Python client reads this by default from settings.json. Reload save to apply.",
             ["webhooksEnabled:"] = "Turns outgoing webhook event delivery on or off. Reload save to apply.",
@@ -134,8 +131,6 @@ namespace Timberbot
             ["webhookCircuitBreaker:"] = "Number of consecutive webhook delivery failures before Timberbot disables webhook sending. Reload save to apply.",
             ["webhookMaxPendingEvents:"] = "Per-webhook cap for queued event payloads while delivery is in flight or failing. Oldest queued events are dropped when the cap is reached. Reload save to apply.",
             ["writeBudgetMs:"] = "Per-frame main-thread time budget for queued write jobs. Higher values process writes faster but use more frame time. Reload save to apply.",
-            ["terminal:"] = "Optional terminal launch template. Supports {cwd} and {command}. If {command} is omitted, Timberbot appends the launch command for backwards compatibility. Leave empty to use the built-in OS default. Reload save to apply.",
-            ["pythonCommand:"] = "Optional Python 3 command used to run timberbot.py for brain/startup work. Leave blank for OS auto-detect (`py -3` on Windows, common python3 locations on macOS). Reload save to apply.",
             ["listenAddress:"] = "Network address the HTTP server binds to. 'localhost' (default) = local only. '+' = all interfaces (LAN access). Reload save to apply.",
             ["corsOrigin:"] = "Allowed CORS origin for browser requests. Empty = auto (localhost only). '*' = any origin (less secure). Reload save to apply.",
             ["webhookValidateUrls:"] = "When true, webhook URLs are validated: must be http/https and must not resolve to private/internal IP addresses. Set false to allow any URL. Reload save to apply.",

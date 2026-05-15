@@ -34,7 +34,13 @@ _warned_keys: set[str] = set()
 
 
 def _strip_deprecated(data: dict[str, Any]) -> dict[str, Any]:
-    """Pop deprecated keys from a parsed settings dict, warning once per key."""
+    """Pop deprecated keys from a parsed settings dict, warning once per key.
+
+    Mutates `data` in place AND returns it. Internal helper — the only
+    caller (`load_mod_settings`) hands in a fresh dict from `json.load`,
+    so in-place mutation is safe. Don't call from public code unless you
+    own the dict.
+    """
     for key in DEPRECATED_KEYS:
         if key in data:
             data.pop(key, None)
@@ -79,7 +85,14 @@ def resolve_endpoint(
     port: int | None = None,
     settings: dict[str, Any] | None = None,
 ) -> tuple[str, int]:
-    """Resolve `(host, port)` from explicit args, then settings.json, then defaults."""
+    """Resolve `(host, port)` from explicit args, then settings.json, then defaults.
+
+    `httpHost` is a client-side override: the C# mod doesn't write this
+    key (it owns the server-bind side via `listenAddress` in settings.json,
+    which is semantically different). Users on a multi-machine setup can
+    hand-edit `settings.json` to add `httpHost: "<remote-ip>"` and the
+    `tbot` CLI will dial that address by default instead of `127.0.0.1`.
+    """
     s = settings if settings is not None else load_mod_settings()
     return (
         host if host is not None else s.get("httpHost", "127.0.0.1"),

@@ -169,6 +169,19 @@ namespace Timberbot
                     }
                     if (json["actionLoggingEnabled"] != null)
                         _actionLoggingEnabled = json.Value<bool>("actionLoggingEnabled");
+
+                    // PR 4: detect deprecated keys and log once. Values stay
+                    // on disk this release so a future PR can strip them
+                    // cleanly. Mirrors timberbot.settings.DEPRECATED_KEYS on
+                    // the Python side.
+                    var deprecated = TimberbotPure.DetectDeprecatedSettings(json);
+                    if (deprecated.Count > 0)
+                    {
+                        TimberbotLog.Info(
+                            "settings.deprecated: ignoring [" +
+                            string.Join(", ", deprecated) +
+                            "]; manage agent settings via ~/.config/timberbot/config.toml");
+                    }
                 }
             }
             catch (System.Exception ex)

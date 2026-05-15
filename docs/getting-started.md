@@ -72,8 +72,11 @@ from timberbot import TimberbotClient
 ### Linux / Steam Deck
 
 `tbot` autodiscovers Timberborn's "Documents" folder, including Proton/Wine
-prefixes under `~/.steam/steam/steamapps/compatdata/<appid>/pfx/...`. To force
-a specific location:
+prefixes under `~/.steam/steam/steamapps/compatdata/<appid>/pfx/...`. The
+scan assumes the standard Proton-managed Windows username `steamuser` — if
+you're running Timberborn under a custom Wine prefix with a different
+username, set `TBOT_DOCUMENTS_DIR` explicitly. To force a specific
+location:
 
 ```bash
 export TBOT_DOCUMENTS_DIR=~/.steam/steam/steamapps/compatdata/1062090/pfx/drive_c/users/steamuser/Documents/Timberborn

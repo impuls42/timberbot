@@ -31,6 +31,7 @@ from pathlib import Path
 _TIMBERBORN_APPID = "1062090"
 
 _documents_dir_override: Path | None = None
+_documents_dir_cached: Path | None = None
 _mod_dir_override: Path | None = None
 
 
@@ -39,9 +40,13 @@ class TimberbotPathError(Exception):
 
 
 def set_documents_dir_override(path: Path | None) -> None:
-    """Pin the value returned by `documents_dir()`. Pass `None` to clear."""
-    global _documents_dir_override
+    """Pin the value returned by `documents_dir()`. Pass `None` to clear.
+
+    Also clears any cached resolver result so the next call re-resolves.
+    """
+    global _documents_dir_override, _documents_dir_cached
     _documents_dir_override = Path(path) if path is not None else None
+    _documents_dir_cached = None
 
 
 def set_mod_dir_override(path: Path | None) -> None:
@@ -51,9 +56,11 @@ def set_mod_dir_override(path: Path | None) -> None:
 
 
 def reset_cache() -> None:
-    """Clear all overrides. Test helper."""
+    """Clear all overrides and cached resolutions. Test helper."""
+    global _documents_dir_cached
     set_documents_dir_override(None)
     set_mod_dir_override(None)
+    _documents_dir_cached = None
 
 
 def _candidate_proton_paths() -> list[Path]:
@@ -61,6 +68,11 @@ def _candidate_proton_paths() -> list[Path]:
 
     Returns the matches sorted with the Timberborn AppID first, so a hand-crafted
     or beta-branch prefix only wins if there is no canonical install.
+
+    Limitation: this scan assumes the standard Proton-managed username
+    (`steamuser`). Custom Wine prefixes with a different Windows username
+    won't be discovered — those setups should set `TBOT_DOCUMENTS_DIR` or
+    pass `--documents-dir` explicitly.
     """
     if sys.platform not in ("linux", "linux2"):
         return []
@@ -99,13 +111,19 @@ def find_documents_dir() -> Path:
 
 
 def documents_dir() -> Path:
-    """Timberborn's per-user data root. Cached after the first call."""
-    global _documents_dir_override
+    """Timberborn's per-user data root.
+
+    Resolution order: explicit override → cached resolver result →
+    `find_documents_dir()`. The resolver is called at most once per process
+    (or until `reset_cache()` clears the cache).
+    """
+    global _documents_dir_cached
     if _documents_dir_override is not None:
         return _documents_dir_override
-    resolved = find_documents_dir()
-    _documents_dir_override = resolved
-    return resolved
+    if _documents_dir_cached is not None:
+        return _documents_dir_cached
+    _documents_dir_cached = find_documents_dir()
+    return _documents_dir_cached
 
 
 def mod_dir() -> Path:
