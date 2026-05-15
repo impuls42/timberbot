@@ -250,7 +250,7 @@ namespace Timberbot
 
                 if (path == "/api/ping")
                 {
-                    Respond(ctx, 200, "{\"status\":\"ok\",\"ready\":true}");
+                    Respond(ctx, 200, "{\"status\":\"ok\",\"ready\":true,\"openapiVersion\":\"" + TimberbotPure.OPENAPI_VERSION + "\"}");
                     continue;
                 }
                 if (path == "/api/settlement")

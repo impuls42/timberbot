@@ -1,0 +1,50 @@
+[
+  {
+    "grown": 1,
+    "species": {
+      "BlueberryBush": 12
+    },
+    "total": 1,
+    "x": 75,
+    "y": 65,
+    "z": 5
+  },
+  {
+    "grown": 1,
+    "species": {
+      "BlueberryBush": 58
+    },
+    "total": 1,
+    "x": 65,
+    "y": 65,
+    "z": 5
+  },
+  {
+    "grown": 1,
+    "species": {
+      "BlueberryBush": 8
+    },
+    "total": 1,
+    "x": 55,
+    "y": 65,
+    "z": 5
+  },
+  {
+    "grown": 1,
+    "species": {
+      "BlueberryBush": 1
+    },
+    "total": 1,
+    "x": 75,
+    "y": 55,
+    "z": 5
+  },
+  {
+    "grown": 0,
+    "species": {},
+    "total": 0,
+    "x": 75,
+    "y": 45,
+    "z": 5
+  }
+]

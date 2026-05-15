@@ -1,0 +1,247 @@
+{
+  "beavers": 13,
+  "categories": [
+    {
+      "current": 1.0,
+      "group": "Nutrition",
+      "max": 16.0,
+      "needs": [
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Berries",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Carrots",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "SunflowerSeeds",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 2.0,
+          "id": "GrilledPotatoes",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 2.0,
+          "id": "GrilledChestnuts",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 2.0,
+          "id": "GrilledSpadderdock",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 2.0,
+          "id": "Bread",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 2.0,
+          "id": "CattailCracker",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 3.0,
+          "id": "MaplePastry",
+          "unfavorableWellbeing": 0.0
+        }
+      ]
+    },
+    {
+      "current": 0.0,
+      "group": "SocialLife",
+      "max": 11.0,
+      "needs": [
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Campfire",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "RooftopTerrace",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "ContemplationSpot",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 3.0,
+          "id": "Agora",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 5.0,
+          "id": "DanceHall",
+          "unfavorableWellbeing": 0.0
+        }
+      ]
+    },
+    {
+      "current": 0.0,
+      "group": "Fun",
+      "max": 11.0,
+      "needs": [
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Detailer",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Lido",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 3.0,
+          "id": "Carousel",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 3.0,
+          "id": "MudPit",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 3.0,
+          "id": "Books",
+          "unfavorableWellbeing": 0.0
+        }
+      ]
+    },
+    {
+      "current": 0.0,
+      "group": "Awe",
+      "max": 26.0,
+      "needs": [
+        {
+          "favorableWellbeing": 3.0,
+          "id": "FarmerMonument",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 5.0,
+          "id": "BrazierOfBonding",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 8.0,
+          "id": "FountainOfJoy",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 10.0,
+          "id": "EarthRecultivator",
+          "unfavorableWellbeing": 0.0
+        }
+      ]
+    },
+    {
+      "current": -11.0,
+      "group": "BasicNeeds",
+      "max": 5.0,
+      "needs": [
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Hunger",
+          "unfavorableWellbeing": -10.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Thirst",
+          "unfavorableWellbeing": -10.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Sleep",
+          "unfavorableWellbeing": -1.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Shelter",
+          "unfavorableWellbeing": -3.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "WetFur",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 0.0,
+          "id": "BeeSting",
+          "unfavorableWellbeing": -1.0
+        },
+        {
+          "favorableWellbeing": 0.0,
+          "id": "ChippedTeeth",
+          "unfavorableWellbeing": -1.0
+        },
+        {
+          "favorableWellbeing": 0.0,
+          "id": "Antidote",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 0.0,
+          "id": "Injury",
+          "unfavorableWellbeing": -2.0
+        },
+        {
+          "favorableWellbeing": 0.0,
+          "id": "BadwaterContamination",
+          "unfavorableWellbeing": -10.0
+        }
+      ]
+    },
+    {
+      "current": 0.0,
+      "group": "Aesthetics",
+      "max": 9.0,
+      "needs": [
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Shrub",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Lantern",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Roof",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Scarecrow",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 1.0,
+          "id": "Weathervane",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 2.0,
+          "id": "BeaverStatue",
+          "unfavorableWellbeing": 0.0
+        },
+        {
+          "favorableWellbeing": 2.0,
+          "id": "BulletinPole",
+          "unfavorableWellbeing": 0.0
+        }
+      ]
+    }
+  ]
+}

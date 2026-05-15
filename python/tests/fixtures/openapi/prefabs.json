@@ -1,0 +1,3116 @@
+[
+  {
+    "cost": [
+      {
+        "amount": 8,
+        "good": "Plank"
+      },
+      {
+        "amount": 6,
+        "good": "Gear"
+      }
+    ],
+    "name": "Chronometer.Folktails",
+    "scienceCost": 150,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 8,
+        "good": "Gear"
+      },
+      {
+        "amount": 8,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "ContaminationSensor.Folktails",
+    "scienceCost": 400,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 4,
+        "good": "Gear"
+      },
+      {
+        "amount": 8,
+        "good": "ScrapMetal"
+      }
+    ],
+    "name": "DepthSensor.Folktails",
+    "scienceCost": 200,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "MetalBlock"
+      },
+      {
+        "amount": 1,
+        "good": "Explosives"
+      },
+      {
+        "amount": 1,
+        "good": "Extract"
+      }
+    ],
+    "name": "Detonator.Folktails",
+    "scienceCost": 1400,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "Gear"
+      },
+      {
+        "amount": 2,
+        "good": "TreatedPlank"
+      }
+    ],
+    "name": "FireworkLauncher.Folktails",
+    "scienceCost": 700,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 6,
+        "good": "Plank"
+      },
+      {
+        "amount": 4,
+        "good": "Gear"
+      }
+    ],
+    "name": "FlowSensor.Folktails",
+    "scienceCost": 100,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 6,
+        "good": "Plank"
+      },
+      {
+        "amount": 4,
+        "good": "Gear"
+      },
+      {
+        "amount": 4,
+        "good": "ScrapMetal"
+      }
+    ],
+    "name": "Gate.Folktails",
+    "scienceCost": 200,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 2,
+        "good": "Gear"
+      },
+      {
+        "amount": 4,
+        "good": "ScrapMetal"
+      }
+    ],
+    "name": "HttpAdapter.Folktails",
+    "scienceCost": 7500,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": true
+  },
+  {
+    "cost": [
+      {
+        "amount": 2,
+        "good": "Gear"
+      },
+      {
+        "amount": 2,
+        "good": "ScrapMetal"
+      }
+    ],
+    "name": "HttpLever.Folktails",
+    "scienceCost": 5000,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": true
+  },
+  {
+    "cost": [
+      {
+        "amount": 2,
+        "good": "ScrapMetal"
+      },
+      {
+        "amount": 1,
+        "good": "PineResin"
+      }
+    ],
+    "name": "Indicator.Folktails",
+    "scienceCost": 400,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "Plank"
+      },
+      {
+        "amount": 2,
+        "good": "Gear"
+      }
+    ],
+    "name": "Lever.Folktails",
+    "scienceCost": 50,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "MetalBlock"
+      },
+      {
+        "amount": 1,
+        "good": "Extract"
+      }
+    ],
+    "name": "Memory.Folktails",
+    "scienceCost": 1000,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 2,
+        "good": "Plank"
+      },
+      {
+        "amount": 2,
+        "good": "Gear"
+      },
+      {
+        "amount": 1,
+        "good": "Paper"
+      }
+    ],
+    "name": "PopulationCounter.Folktails",
+    "scienceCost": 200,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Gear"
+      },
+      {
+        "amount": 6,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "PowerMeter.Folktails",
+    "scienceCost": 600,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "Plank"
+      },
+      {
+        "amount": 1,
+        "good": "Gear"
+      }
+    ],
+    "name": "Relay.Folktails",
+    "scienceCost": 80,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 4,
+        "good": "Plank"
+      },
+      {
+        "amount": 4,
+        "good": "Gear"
+      },
+      {
+        "amount": 1,
+        "good": "Paper"
+      }
+    ],
+    "name": "ResourceCounter.Folktails",
+    "scienceCost": 250,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 6,
+        "good": "Gear"
+      },
+      {
+        "amount": 4,
+        "good": "ScrapMetal"
+      },
+      {
+        "amount": 6,
+        "good": "Paper"
+      }
+    ],
+    "name": "ScienceCounter.Folktails",
+    "scienceCost": 300,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 4,
+        "good": "Plank"
+      },
+      {
+        "amount": 2,
+        "good": "Gear"
+      },
+      {
+        "amount": 4,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Speaker.Folktails",
+    "scienceCost": 500,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 1,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Timer.Folktails",
+    "scienceCost": 600,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Gear"
+      },
+      {
+        "amount": 8,
+        "good": "TreatedPlank"
+      }
+    ],
+    "name": "WeatherStation.Folktails",
+    "scienceCost": 300,
+    "sizeX": 3,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 50,
+        "good": "Log"
+      },
+      {
+        "amount": 10,
+        "good": "Plank"
+      }
+    ],
+    "name": "BeaverStatue.Folktails",
+    "scienceCost": 500,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 6,
+        "good": "Log"
+      },
+      {
+        "amount": 2,
+        "good": "Plank"
+      }
+    ],
+    "name": "Bench.Folktails",
+    "scienceCost": 80,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Plank"
+      },
+      {
+        "amount": 2,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "BulletinPole.Folktails",
+    "scienceCost": 600,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 2,
+        "good": "Log"
+      },
+      {
+        "amount": 2,
+        "good": "Plank"
+      }
+    ],
+    "name": "Hammock.Folktails",
+    "scienceCost": 120,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 3,
+        "good": "Log"
+      }
+    ],
+    "name": "Hedge.Folktails",
+    "scienceCost": 150,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 2,
+        "good": "Log"
+      },
+      {
+        "amount": 4,
+        "good": "Plank"
+      }
+    ],
+    "name": "Lantern.Folktails",
+    "scienceCost": 100,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 4,
+        "good": "Log"
+      },
+      {
+        "amount": 4,
+        "good": "Plank"
+      },
+      {
+        "amount": 1,
+        "good": "Extract"
+      }
+    ],
+    "name": "PoleBanner.Folktails",
+    "scienceCost": 700,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 2,
+        "good": "Log"
+      },
+      {
+        "amount": 1,
+        "good": "Plank"
+      }
+    ],
+    "name": "Roof1x1.Folktails",
+    "scienceCost": 60,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 4,
+        "good": "Log"
+      },
+      {
+        "amount": 2,
+        "good": "Plank"
+      }
+    ],
+    "name": "Roof1x2.Folktails",
+    "scienceCost": 80,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 4,
+        "good": "Log"
+      },
+      {
+        "amount": 2,
+        "good": "Plank"
+      }
+    ],
+    "name": "Roof2x2.Folktails",
+    "scienceCost": 120,
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 6,
+        "good": "Log"
+      },
+      {
+        "amount": 3,
+        "good": "Plank"
+      }
+    ],
+    "name": "Roof2x3.Folktails",
+    "scienceCost": 150,
+    "sizeX": 2,
+    "sizeY": 3,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 6,
+        "good": "Log"
+      },
+      {
+        "amount": 3,
+        "good": "Plank"
+      }
+    ],
+    "name": "Roof3x2.Folktails",
+    "scienceCost": 150,
+    "sizeX": 3,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 5,
+        "good": "Log"
+      },
+      {
+        "amount": 10,
+        "good": "Paper"
+      }
+    ],
+    "name": "Scarecrow.Folktails",
+    "scienceCost": 200,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 12,
+        "good": "Log"
+      }
+    ],
+    "name": "Shrub.Folktails",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2
+  },
+  {
+    "cost": [
+      {
+        "amount": 2,
+        "good": "Log"
+      },
+      {
+        "amount": 4,
+        "good": "Plank"
+      }
+    ],
+    "name": "StreamGauge.Folktails",
+    "scienceCost": 150,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 2,
+        "good": "Log"
+      },
+      {
+        "amount": 4,
+        "good": "Plank"
+      },
+      {
+        "amount": 1,
+        "good": "Extract"
+      }
+    ],
+    "name": "SquareBanner.Folktails",
+    "scienceCost": 700,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 5,
+        "good": "Log"
+      },
+      {
+        "amount": 1,
+        "good": "Plank"
+      }
+    ],
+    "name": "Weathervane.Folktails",
+    "scienceCost": 250,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 3,
+        "good": "Plank"
+      }
+    ],
+    "name": "WoodFence.Folktails",
+    "scienceCost": 150,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      },
+      {
+        "amount": 10,
+        "good": "Plank"
+      }
+    ],
+    "name": "BuildersHut.Folktails",
+    "scienceCost": 100,
+    "sizeX": 3,
+    "sizeY": 2,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "name": "DistrictCenter.Folktails",
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 5
+  },
+  {
+    "cost": [
+      {
+        "amount": 30,
+        "good": "Log"
+      },
+      {
+        "amount": 15,
+        "good": "Plank"
+      }
+    ],
+    "name": "DistrictCrossing.Folktails",
+    "scienceCost": 600,
+    "sizeX": 3,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      },
+      {
+        "amount": 10,
+        "good": "Plank"
+      }
+    ],
+    "name": "HaulingPost.Folktails",
+    "sizeX": 3,
+    "sizeY": 2,
+    "sizeZ": 3
+  },
+  {
+    "cost": [
+      {
+        "amount": 30,
+        "good": "Log"
+      },
+      {
+        "amount": 10,
+        "good": "Plank"
+      }
+    ],
+    "name": "AquaticFarmhouse.Folktails",
+    "scienceCost": 150,
+    "sizeX": 3,
+    "sizeY": 2,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 15,
+        "good": "Log"
+      },
+      {
+        "amount": 15,
+        "good": "Plank"
+      },
+      {
+        "amount": 10,
+        "good": "Gear"
+      }
+    ],
+    "name": "Bakery.Folktails",
+    "scienceCost": 160,
+    "sizeX": 2,
+    "sizeY": 3,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Log"
+      },
+      {
+        "amount": 15,
+        "good": "Plank"
+      },
+      {
+        "amount": 20,
+        "good": "Paper"
+      }
+    ],
+    "name": "Beehive.Folktails",
+    "scienceCost": 400,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 25,
+        "good": "Log"
+      }
+    ],
+    "name": "EfficientFarmHouse.Folktails",
+    "sizeX": 2,
+    "sizeY": 3,
+    "sizeZ": 2
+  },
+  {
+    "name": "GathererFlag.Folktails",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2
+  },
+  {
+    "cost": [
+      {
+        "amount": 25,
+        "good": "Log"
+      }
+    ],
+    "name": "Grill.Folktails",
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 3
+  },
+  {
+    "cost": [
+      {
+        "amount": 40,
+        "good": "Log"
+      },
+      {
+        "amount": 20,
+        "good": "Plank"
+      },
+      {
+        "amount": 20,
+        "good": "Gear"
+      }
+    ],
+    "name": "Gristmill.Folktails",
+    "scienceCost": 180,
+    "sizeX": 3,
+    "sizeY": 2,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      }
+    ],
+    "name": "DoubleLodge.Folktails",
+    "scienceCost": 150,
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 12,
+        "good": "Log"
+      }
+    ],
+    "name": "Lodge.Folktails",
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 5,
+        "good": "Log"
+      }
+    ],
+    "name": "MiniLodge.Folktails",
+    "scienceCost": 50,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 35,
+        "good": "Log"
+      }
+    ],
+    "name": "TripleLodge.Folktails",
+    "scienceCost": 250,
+    "sizeX": 3,
+    "sizeY": 2,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 5,
+        "good": "Plank"
+      },
+      {
+        "amount": 1,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "ContaminationBarrier.Folktails",
+    "scienceCost": 400,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      }
+    ],
+    "name": "Dam.Folktails",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 100,
+        "good": "Gear"
+      },
+      {
+        "amount": 100,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 50,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "DirtExcavator.Folktails",
+    "scienceCost": 2000,
+    "sizeX": 5,
+    "sizeY": 6,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "Explosives"
+      },
+      {
+        "amount": 1,
+        "good": "Extract"
+      }
+    ],
+    "name": "DoubleDynamite.Folktails",
+    "scienceCost": 900,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      },
+      {
+        "amount": 10,
+        "good": "Plank"
+      }
+    ],
+    "name": "DoubleFloodgate.Folktails",
+    "scienceCost": 250,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "Explosives"
+      }
+    ],
+    "name": "Dynamite.Folktails",
+    "scienceCost": 600,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 30,
+        "good": "Plank"
+      },
+      {
+        "amount": 30,
+        "good": "Gear"
+      },
+      {
+        "amount": 30,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "ExplosivesFactory.Folktails",
+    "scienceCost": 400,
+    "sizeX": 2,
+    "sizeY": 4,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Log"
+      },
+      {
+        "amount": 5,
+        "good": "Plank"
+      }
+    ],
+    "name": "Floodgate.Folktails",
+    "scienceCost": 150,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "ImpermeableFloor.Folktails",
+    "scienceCost": 200,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 12,
+        "good": "Log"
+      }
+    ],
+    "name": "Levee.Folktails",
+    "scienceCost": 120,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 5,
+        "good": "Plank"
+      },
+      {
+        "amount": 5,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Sluice.Folktails",
+    "scienceCost": 400,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 4,
+        "good": "Dirt"
+      }
+    ],
+    "name": "TerrainBlock.Folktails",
+    "scienceCost": 1000,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "Explosives"
+      },
+      {
+        "amount": 2,
+        "good": "Extract"
+      }
+    ],
+    "name": "TripleDynamite.Folktails",
+    "scienceCost": 1200,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 30,
+        "good": "Log"
+      },
+      {
+        "amount": 15,
+        "good": "Plank"
+      }
+    ],
+    "name": "TripleFloodgate.Folktails",
+    "scienceCost": 500,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 5,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "Explosives"
+      },
+      {
+        "amount": 1,
+        "good": "Extract"
+      },
+      {
+        "amount": 6,
+        "good": "Plank"
+      }
+    ],
+    "name": "Tunnel.Folktails",
+    "scienceCost": 2000,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 5,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 5,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Valve.Folktails",
+    "scienceCost": 500,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 5,
+        "good": "Plank"
+      },
+      {
+        "amount": 5,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "FillValve.Folktails",
+    "scienceCost": 300,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 250,
+        "good": "Log"
+      },
+      {
+        "amount": 350,
+        "good": "Gear"
+      },
+      {
+        "amount": 200,
+        "good": "TreatedPlank"
+      }
+    ],
+    "name": "Mine.Folktails",
+    "scienceCost": 4000,
+    "sizeX": 5,
+    "sizeY": 5,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "name": "ScavengerFlag.Folktails",
+    "scienceCost": 250,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 50,
+        "good": "Plank"
+      },
+      {
+        "amount": 20,
+        "good": "Gear"
+      },
+      {
+        "amount": 30,
+        "good": "ScrapMetal"
+      }
+    ],
+    "name": "Smelter.Folktails",
+    "scienceCost": 300,
+    "sizeX": 2,
+    "sizeY": 4,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 400,
+        "good": "Plank"
+      }
+    ],
+    "name": "BrazierOfBonding.Folktails",
+    "scienceCost": 3000,
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 5,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 2000,
+        "good": "Gear"
+      },
+      {
+        "amount": 2000,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 1500,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "EarthRecultivator.Folktails",
+    "scienceCost": 20000,
+    "sizeX": 7,
+    "sizeY": 7,
+    "sizeZ": 8,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 200,
+        "good": "Log"
+      }
+    ],
+    "name": "FarmerMonument.Folktails",
+    "scienceCost": 1000,
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 400,
+        "good": "Plank"
+      },
+      {
+        "amount": 100,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 300,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "FountainOfJoy.Folktails",
+    "scienceCost": 12000,
+    "sizeX": 5,
+    "sizeY": 5,
+    "sizeZ": 5,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 8,
+        "good": "Plank"
+      }
+    ],
+    "name": "DoublePlatform.Folktails",
+    "scienceCost": 150,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 30,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "MetalPlatform3x3.Folktails",
+    "scienceCost": 1000,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 90,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "MetalPlatform5x5.Folktails",
+    "scienceCost": 2000,
+    "sizeX": 5,
+    "sizeY": 5,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Log"
+      },
+      {
+        "amount": 10,
+        "good": "Plank"
+      },
+      {
+        "amount": 4,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Overhang2x1.Folktails",
+    "scienceCost": 350,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 15,
+        "good": "Log"
+      },
+      {
+        "amount": 15,
+        "good": "Plank"
+      },
+      {
+        "amount": 6,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Overhang3x1.Folktails",
+    "scienceCost": 550,
+    "sizeX": 1,
+    "sizeY": 3,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      },
+      {
+        "amount": 20,
+        "good": "Plank"
+      },
+      {
+        "amount": 8,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Overhang4x1.Folktails",
+    "scienceCost": 1000,
+    "sizeX": 1,
+    "sizeY": 4,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 30,
+        "good": "Log"
+      },
+      {
+        "amount": 30,
+        "good": "Plank"
+      },
+      {
+        "amount": 10,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Overhang5x1.Folktails",
+    "scienceCost": 1800,
+    "sizeX": 1,
+    "sizeY": 5,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 36,
+        "good": "Log"
+      },
+      {
+        "amount": 36,
+        "good": "Plank"
+      },
+      {
+        "amount": 12,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Overhang6x1.Folktails",
+    "scienceCost": 3000,
+    "sizeX": 1,
+    "sizeY": 6,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 6,
+        "good": "Plank"
+      }
+    ],
+    "name": "Platform.Folktails",
+    "scienceCost": 100,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "Log"
+      },
+      {
+        "amount": 4,
+        "good": "TreatedPlank"
+      }
+    ],
+    "name": "SpiralStairs.Folktails",
+    "scienceCost": 350,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "Log"
+      },
+      {
+        "amount": 4,
+        "good": "Plank"
+      }
+    ],
+    "name": "Stairs.Folktails",
+    "scienceCost": 70,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 4,
+        "good": "Log"
+      },
+      {
+        "amount": 4,
+        "good": "Plank"
+      }
+    ],
+    "name": "SuspensionBridge1x1.Folktails",
+    "scienceCost": 150,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 8,
+        "good": "Log"
+      },
+      {
+        "amount": 8,
+        "good": "Plank"
+      }
+    ],
+    "name": "SuspensionBridge2x1.Folktails",
+    "scienceCost": 250,
+    "sizeX": 1,
+    "sizeY": 3,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 12,
+        "good": "Log"
+      },
+      {
+        "amount": 12,
+        "good": "Plank"
+      }
+    ],
+    "name": "SuspensionBridge3x1.Folktails",
+    "scienceCost": 400,
+    "sizeX": 1,
+    "sizeY": 4,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 16,
+        "good": "Log"
+      },
+      {
+        "amount": 16,
+        "good": "Plank"
+      }
+    ],
+    "name": "SuspensionBridge4x1.Folktails",
+    "scienceCost": 600,
+    "sizeX": 1,
+    "sizeY": 5,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      },
+      {
+        "amount": 20,
+        "good": "Plank"
+      }
+    ],
+    "name": "SuspensionBridge5x1.Folktails",
+    "scienceCost": 1000,
+    "sizeX": 1,
+    "sizeY": 6,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 24,
+        "good": "Log"
+      },
+      {
+        "amount": 24,
+        "good": "Plank"
+      }
+    ],
+    "name": "SuspensionBridge6x1.Folktails",
+    "scienceCost": 1800,
+    "sizeX": 1,
+    "sizeY": 7,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Plank"
+      }
+    ],
+    "name": "TriplePlatform.Folktails",
+    "scienceCost": 200,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Plank"
+      },
+      {
+        "amount": 10,
+        "good": "Gear"
+      },
+      {
+        "amount": 10,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "ZiplineBeam.Folktails",
+    "scienceCost": 600,
+    "sizeX": 1,
+    "sizeY": 3,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Plank"
+      },
+      {
+        "amount": 10,
+        "good": "Gear"
+      },
+      {
+        "amount": 10,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "ZiplinePylon.Folktails",
+    "scienceCost": 500,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      },
+      {
+        "amount": 40,
+        "good": "Plank"
+      },
+      {
+        "amount": 20,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "ZiplineStation.Folktails",
+    "scienceCost": 700,
+    "sizeX": 3,
+    "sizeY": 2,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 2,
+        "good": "Gear"
+      },
+      {
+        "amount": 6,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Clutch.Folktails",
+    "scienceCost": 400,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "name": "DevPowerGenerator",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2
+  },
+  {
+    "cost": [
+      {
+        "amount": 50,
+        "good": "Log"
+      },
+      {
+        "amount": 30,
+        "good": "Plank"
+      }
+    ],
+    "name": "GeothermalEngine.Folktails",
+    "scienceCost": 160,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 40,
+        "good": "Plank"
+      },
+      {
+        "amount": 40,
+        "good": "Gear"
+      },
+      {
+        "amount": 10,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "GravityBattery.Folktails",
+    "scienceCost": 400,
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 40,
+        "good": "Plank"
+      },
+      {
+        "amount": 20,
+        "good": "Gear"
+      },
+      {
+        "amount": 30,
+        "good": "Paper"
+      }
+    ],
+    "name": "LargeWindTurbine.Folktails",
+    "scienceCost": 1400,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 5,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 1,
+        "good": "Log"
+      }
+    ],
+    "name": "PowerShaft.Folktails",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      }
+    ],
+    "name": "PowerWheel.Folktails",
+    "sizeX": 3,
+    "sizeY": 1,
+    "sizeZ": 2
+  },
+  {
+    "cost": [
+      {
+        "amount": 2,
+        "good": "Log"
+      },
+      {
+        "amount": 2,
+        "good": "Plank"
+      },
+      {
+        "amount": 1,
+        "good": "Gear"
+      }
+    ],
+    "name": "VerticalPowerShaft.Folktails",
+    "scienceCost": 40,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 50,
+        "good": "Log"
+      }
+    ],
+    "name": "WaterWheel.Folktails",
+    "sizeX": 3,
+    "sizeY": 2,
+    "sizeZ": 3
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      },
+      {
+        "amount": 20,
+        "good": "Plank"
+      }
+    ],
+    "name": "WindTurbine.Folktails",
+    "scienceCost": 120,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 100,
+        "good": "Plank"
+      },
+      {
+        "amount": 50,
+        "good": "Gear"
+      },
+      {
+        "amount": 50,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "BotAssembler.Folktails",
+    "scienceCost": 750,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 50,
+        "good": "Plank"
+      },
+      {
+        "amount": 25,
+        "good": "Gear"
+      },
+      {
+        "amount": 15,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "BotPartFactory.Folktails",
+    "scienceCost": 500,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 12,
+        "good": "Log"
+      }
+    ],
+    "name": "Inventor.Folktails",
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 3
+  },
+  {
+    "cost": [
+      {
+        "amount": 80,
+        "good": "Plank"
+      },
+      {
+        "amount": 30,
+        "good": "Gear"
+      },
+      {
+        "amount": 10,
+        "good": "PineResin"
+      }
+    ],
+    "name": "Observatory.Folktails",
+    "scienceCost": 1000,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 5,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 30,
+        "good": "Plank"
+      },
+      {
+        "amount": 10,
+        "good": "Gear"
+      },
+      {
+        "amount": 10,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Refinery.Folktails",
+    "scienceCost": 400,
+    "sizeX": 3,
+    "sizeY": 2,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 6,
+        "good": "Log"
+      }
+    ],
+    "name": "LargePile.Folktails",
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 80,
+        "good": "Plank"
+      },
+      {
+        "amount": 60,
+        "good": "Gear"
+      },
+      {
+        "amount": 30,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "LargeTank.Folktails",
+    "scienceCost": 600,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 60,
+        "good": "Log"
+      },
+      {
+        "amount": 80,
+        "good": "Plank"
+      }
+    ],
+    "name": "LargeWarehouse.Folktails",
+    "scienceCost": 250,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 30,
+        "good": "Plank"
+      },
+      {
+        "amount": 20,
+        "good": "Gear"
+      }
+    ],
+    "name": "MediumTank.Folktails",
+    "scienceCost": 120,
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 15,
+        "good": "Log"
+      }
+    ],
+    "name": "MediumWarehouse.Folktails",
+    "sizeX": 3,
+    "sizeY": 2,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 2,
+        "good": "Log"
+      }
+    ],
+    "name": "SmallPile.Folktails",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 15,
+        "good": "Log"
+      }
+    ],
+    "name": "SmallTank.Folktails",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2
+  },
+  {
+    "cost": [
+      {
+        "amount": 3,
+        "good": "Log"
+      }
+    ],
+    "name": "SmallWarehouse.Folktails",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      },
+      {
+        "amount": 40,
+        "good": "Plank"
+      },
+      {
+        "amount": 20,
+        "good": "Gear"
+      }
+    ],
+    "name": "UndergroundPile.Folktails",
+    "scienceCost": 1000,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 40,
+        "good": "Plank"
+      },
+      {
+        "amount": 25,
+        "good": "Gear"
+      },
+      {
+        "amount": 15,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "AquiferDrill.Folktails",
+    "scienceCost": 400,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 100,
+        "good": "Plank"
+      },
+      {
+        "amount": 200,
+        "good": "Gear"
+      },
+      {
+        "amount": 100,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "BadwaterDome.Folktails",
+    "scienceCost": 2000,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      },
+      {
+        "amount": 10,
+        "good": "Gear"
+      },
+      {
+        "amount": 5,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "BadwaterPump.Folktails",
+    "scienceCost": 250,
+    "sizeX": 2,
+    "sizeY": 3,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 400,
+        "good": "Gear"
+      },
+      {
+        "amount": 200,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 150,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "BadwaterRig.Folktails",
+    "scienceCost": 4000,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 60,
+        "good": "Plank"
+      },
+      {
+        "amount": 40,
+        "good": "Gear"
+      },
+      {
+        "amount": 30,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Centrifuge.Folktails",
+    "scienceCost": 600,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Log"
+      },
+      {
+        "amount": 10,
+        "good": "Plank"
+      }
+    ],
+    "name": "FluidDump.Folktails",
+    "scienceCost": 250,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      },
+      {
+        "amount": 5,
+        "good": "Gear"
+      },
+      {
+        "amount": 10,
+        "good": "TreatedPlank"
+      }
+    ],
+    "name": "LargeWaterPump.Folktails",
+    "scienceCost": 400,
+    "sizeX": 3,
+    "sizeY": 4,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 50,
+        "good": "Gear"
+      },
+      {
+        "amount": 25,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 25,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "MechanicalFluidPump.Folktails",
+    "scienceCost": 2500,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 12,
+        "good": "Log"
+      }
+    ],
+    "name": "WaterPump.Folktails",
+    "sizeX": 2,
+    "sizeY": 3,
+    "sizeZ": 3
+  },
+  {
+    "cost": [
+      {
+        "amount": 150,
+        "good": "Log"
+      },
+      {
+        "amount": 60,
+        "good": "Plank"
+      }
+    ],
+    "name": "Agora.Folktails",
+    "scienceCost": 400,
+    "sizeX": 5,
+    "sizeY": 5,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 15,
+        "good": "Log"
+      }
+    ],
+    "name": "Campfire.Folktails",
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 50,
+        "good": "Plank"
+      },
+      {
+        "amount": 50,
+        "good": "Gear"
+      },
+      {
+        "amount": 40,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Carousel.Folktails",
+    "scienceCost": 700,
+    "sizeX": 5,
+    "sizeY": 5,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Log"
+      }
+    ],
+    "name": "ContemplationSpot.Folktails",
+    "scienceCost": 100,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 100,
+        "good": "Log"
+      },
+      {
+        "amount": 50,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 20,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "DanceHall.Folktails",
+    "scienceCost": 1200,
+    "sizeX": 5,
+    "sizeY": 5,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 15,
+        "good": "Gear"
+      },
+      {
+        "amount": 5,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 10,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "Detailer.Folktails",
+    "scienceCost": 1000,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Plank"
+      },
+      {
+        "amount": 20,
+        "good": "Gear"
+      }
+    ],
+    "name": "Herbalist.Folktails",
+    "scienceCost": 300,
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 40,
+        "good": "Log"
+      },
+      {
+        "amount": 30,
+        "good": "Plank"
+      }
+    ],
+    "name": "Lido.Folktails",
+    "scienceCost": 250,
+    "sizeX": 4,
+    "sizeY": 3,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 5,
+        "good": "Log"
+      },
+      {
+        "amount": 1,
+        "good": "Plank"
+      }
+    ],
+    "name": "MedicalBed.Folktails",
+    "scienceCost": 80,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 60,
+        "good": "Log"
+      },
+      {
+        "amount": 40,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 20,
+        "good": "Wheat"
+      }
+    ],
+    "name": "MudPit.Folktails",
+    "scienceCost": 1800,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 15,
+        "good": "Log"
+      }
+    ],
+    "name": "RooftopTerrace.Folktails",
+    "sizeX": 3,
+    "sizeY": 2,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Log"
+      },
+      {
+        "amount": 1,
+        "good": "Plank"
+      }
+    ],
+    "name": "Shower.Folktails",
+    "scienceCost": 50,
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 5,
+        "good": "Log"
+      }
+    ],
+    "name": "TeethGrindstone.Folktails",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Log"
+      },
+      {
+        "amount": 7,
+        "good": "Plank"
+      }
+    ],
+    "name": "Forester.Folktails",
+    "scienceCost": 30,
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 15,
+        "good": "Log"
+      },
+      {
+        "amount": 25,
+        "good": "Plank"
+      }
+    ],
+    "name": "GearWorkshop.Folktails",
+    "scienceCost": 100,
+    "sizeX": 2,
+    "sizeY": 3,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 15,
+        "good": "Log"
+      }
+    ],
+    "name": "LumberMill.Folktails",
+    "sizeX": 2,
+    "sizeY": 3,
+    "sizeZ": 3
+  },
+  {
+    "name": "LumberjackFlag.Folktails",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2
+  },
+  {
+    "cost": [
+      {
+        "amount": 40,
+        "good": "Log"
+      },
+      {
+        "amount": 40,
+        "good": "Plank"
+      },
+      {
+        "amount": 15,
+        "good": "Gear"
+      }
+    ],
+    "name": "PaperMill.Folktails",
+    "scienceCost": 250,
+    "sizeX": 3,
+    "sizeY": 2,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 50,
+        "good": "Plank"
+      },
+      {
+        "amount": 30,
+        "good": "Gear"
+      },
+      {
+        "amount": 30,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "PrintingPress.Folktails",
+    "scienceCost": 400,
+    "sizeX": 2,
+    "sizeY": 4,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      },
+      {
+        "amount": 20,
+        "good": "Plank"
+      },
+      {
+        "amount": 10,
+        "good": "Gear"
+      }
+    ],
+    "name": "TappersShack.Folktails",
+    "scienceCost": 500,
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Log"
+      },
+      {
+        "amount": 40,
+        "good": "Plank"
+      },
+      {
+        "amount": 40,
+        "good": "Gear"
+      }
+    ],
+    "name": "WoodWorkshop.Folktails",
+    "scienceCost": 800,
+    "sizeX": 2,
+    "sizeY": 4,
+    "sizeZ": 4,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Log"
+      }
+    ],
+    "name": "PitpileFT",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Log"
+      }
+    ],
+    "name": "PitwarehouseFT",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2
+  },
+  {
+    "cost": [
+      {
+        "amount": 12,
+        "good": "Log"
+      }
+    ],
+    "name": "SCoveredtankFT",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 8,
+        "good": "Log"
+      }
+    ],
+    "name": "LongWarehouseFT",
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 6,
+        "good": "Log"
+      }
+    ],
+    "name": "2x2pileRightFT",
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 6,
+        "good": "Log"
+      }
+    ],
+    "name": "LongpileFT",
+    "sizeX": 1,
+    "sizeY": 2,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 28,
+        "good": "Log"
+      }
+    ],
+    "name": "PitTankFT",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 2
+  },
+  {
+    "cost": [
+      {
+        "amount": 200,
+        "good": "Log"
+      },
+      {
+        "amount": 100,
+        "good": "Plank"
+      }
+    ],
+    "name": "GigargantuanWarehouseFT",
+    "scienceCost": 500,
+    "sizeX": 7,
+    "sizeY": 7,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 200,
+        "good": "Log"
+      },
+      {
+        "amount": 100,
+        "good": "Plank"
+      }
+    ],
+    "name": "GigargantuanPileFT",
+    "scienceCost": 500,
+    "sizeX": 7,
+    "sizeY": 7,
+    "sizeZ": 2,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Log"
+      },
+      {
+        "amount": 8,
+        "good": "Gear"
+      }
+    ],
+    "name": "SmallFlywheel.Folktails",
+    "scienceCost": 300,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Plank"
+      },
+      {
+        "amount": 12,
+        "good": "Gear"
+      }
+    ],
+    "name": "SmallVerticalFramedFlywheel.Folktails",
+    "scienceCost": 800,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Plank"
+      },
+      {
+        "amount": 12,
+        "good": "Gear"
+      }
+    ],
+    "name": "SmallHorizontalFramedFlywheel.Folktails",
+    "scienceCost": 800,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 40,
+        "good": "Plank"
+      },
+      {
+        "amount": 10,
+        "good": "Gear"
+      },
+      {
+        "amount": 30,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "MediumFlywheel.Folktails",
+    "scienceCost": 1000,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 40,
+        "good": "Plank"
+      },
+      {
+        "amount": 20,
+        "good": "Gear"
+      },
+      {
+        "amount": 40,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "MediumVerticalFramedFlywheel.Folktails",
+    "scienceCost": 2500,
+    "sizeX": 3,
+    "sizeY": 1,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 40,
+        "good": "Plank"
+      },
+      {
+        "amount": 20,
+        "good": "Gear"
+      },
+      {
+        "amount": 40,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "MediumHorizontalFramedFlywheel.Folktails",
+    "scienceCost": 2500,
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Log"
+      },
+      {
+        "amount": 80,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 80,
+        "good": "Gear"
+      },
+      {
+        "amount": 80,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "LargeFlywheel.Folktails",
+    "scienceCost": 5000,
+    "sizeX": 5,
+    "sizeY": 5,
+    "sizeZ": 5,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 80,
+        "good": "Log"
+      },
+      {
+        "amount": 120,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 60,
+        "good": "Gear"
+      },
+      {
+        "amount": 120,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "LargeVerticalFramedFlywheel.Folktails",
+    "scienceCost": 10000,
+    "sizeX": 5,
+    "sizeY": 3,
+    "sizeZ": 5,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 80,
+        "good": "Log"
+      },
+      {
+        "amount": 120,
+        "good": "TreatedPlank"
+      },
+      {
+        "amount": 60,
+        "good": "Gear"
+      },
+      {
+        "amount": 120,
+        "good": "MetalBlock"
+      }
+    ],
+    "name": "LargeHorizontalFramedFlywheel.Folktails",
+    "scienceCost": 10000,
+    "sizeX": 5,
+    "sizeY": 5,
+    "sizeZ": 3,
+    "unlocked": false
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "Plank"
+      },
+      {
+        "amount": 15,
+        "good": "Gear"
+      }
+    ],
+    "name": "MediumHorizontalJunction.Folktails",
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 20,
+        "good": "Plank"
+      },
+      {
+        "amount": 10,
+        "good": "MetalBlock"
+      },
+      {
+        "amount": 30,
+        "good": "Gear"
+      }
+    ],
+    "name": "LargeHorizontalJunction.Folktails",
+    "sizeX": 5,
+    "sizeY": 5,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 4,
+        "good": "Log"
+      },
+      {
+        "amount": 6,
+        "good": "Plank"
+      }
+    ],
+    "name": "Ladder",
+    "scienceCost": 250,
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1,
+    "unlocked": false
+  },
+  {
+    "name": "Path",
+    "sizeX": 1,
+    "sizeY": 1,
+    "sizeZ": 1
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "ScrapMetal"
+      }
+    ],
+    "name": "ReservePile",
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 2
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "ScrapMetal"
+      }
+    ],
+    "name": "ReserveTank",
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 3
+  },
+  {
+    "cost": [
+      {
+        "amount": 10,
+        "good": "ScrapMetal"
+      }
+    ],
+    "name": "ReserveWarehouse",
+    "sizeX": 2,
+    "sizeY": 2,
+    "sizeZ": 1
+  },
+  {
+    "name": "AncientAquiferDrill",
+    "sizeX": 3,
+    "sizeY": 3,
+    "sizeZ": 5
+  }
+]

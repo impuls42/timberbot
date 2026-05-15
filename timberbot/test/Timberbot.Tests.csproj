@@ -13,12 +13,29 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="YamlDotNet" Version="15.1.2" />
   </ItemGroup>
 
   <!-- Share source files that have no Unity/Timberborn dependencies -->
   <ItemGroup>
     <Compile Include="..\src\TimberbotJw.cs" Link="Shared\TimberbotJw.cs" />
     <Compile Include="..\src\TimberbotPure.cs" Link="Shared\TimberbotPure.cs" />
+  </ItemGroup>
+
+  <!-- Ship openapi.yaml + TimberbotHttpServer.cs source next to the test assembly so
+       OpenApiContractTests can read both at runtime. The .cs file is treated as
+       raw content (NOT compiled - it depends on Unity/Bindito). -->
+  <ItemGroup>
+    <None Include="..\..\openapi.yaml" Link="openapi.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\src\TimberbotHttpServer.cs" Link="TimberbotHttpServer.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\python\tests\fixtures\openapi\*.json"
+          Link="fixtures\openapi\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <!-- Stub out the Newtonsoft dependency used by TimberbotJw.Prop(string, object) -->

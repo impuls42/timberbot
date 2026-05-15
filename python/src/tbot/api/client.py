@@ -1,8 +1,11 @@
 """HTTP client for the Timberbot mod (port 8085 by default).
 
-All data processing happens server-side in the C# mod. This client sends a
-`format` query parameter (`toon` or `json`) and passes the response straight
-through. There is no client-side transformation of API data.
+The wire format is always JSON. The mod still understands `format=toon` for
+human/LLM-facing consumers, but the typed client is the contract layer and
+sticks to JSON so requests parse cleanly through the OpenAPI-derived Pydantic
+models. The CLI handles TOON for display (default) via
+`tbot.cli.main._format_output`; that's an output-rendering concern, not a
+wire-format concern.
 
 The class also exposes per-settlement persistent memory helpers (brain.toon,
 locations, tasks). Those methods delegate to a lazily-constructed
@@ -10,11 +13,38 @@ locations, tasks). Those methods delegate to a lazily-constructed
 """
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 import requests
 
 from tbot.api.exceptions import TimberbotError
+from tbot.api.models._generated import (
+    Alerts,
+    BeaverList,
+    BuildingList,
+    CropList,
+    Distribution,
+    DistrictList,
+    FoodClusters,
+    GatherableList,
+    Notifications,
+    Population,
+    PowerNetworks,
+    Prefabs,
+    Resources,
+    Science,
+    SettlementName,
+    Speed,
+    Summary,
+    Tiles,
+    Time,
+    TreeClusters,
+    TreeList,
+    Weather,
+    WebhookList,
+    WellbeingReport,
+    WorkHours,
+)
 from tbot.settings import resolve_endpoint
 from tbot.state import SettlementContext, compact_locations, compact_summary
 
@@ -30,11 +60,15 @@ class TimberbotClient:
         write_timeout: int = 60,
         settlement_context: SettlementContext | None = None,
     ) -> None:
+        """Construct a client. `json_mode` is accepted for backwards
+        compatibility but ignored — the wire is always JSON. CLI display
+        format (TOON vs JSON) is handled in `tbot.cli.main._format_output`.
+        """
+        del json_mode  # see docstring
         host, port = resolve_endpoint(host, port)
         self.host = host
         self.port = port
         self.url = f"http://{host}:{port}"
-        self._format = "json" if json_mode else "toon"
         self._write_timeout = write_timeout
         self.s = requests.Session()
         self.s.headers["Accept"] = "application/json"
@@ -50,7 +84,7 @@ class TimberbotClient:
         return data
 
     def _get(self, path: str, params: dict[str, int | str] | None = None) -> dict[str, Any]:
-        p: dict[str, int | str] = {"format": self._format}
+        p: dict[str, int | str] = {"format": "json"}
         if params:
             p.update(params)
         r = self.s.get(f"{self.url}{path}", params=p, timeout=5)
@@ -58,24 +92,14 @@ class TimberbotClient:
         return self._check(r.json())
 
     def _post(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
-        data["format"] = self._format
-        r = self.s.post(f"{self.url}{path}", json=data, timeout=self._write_timeout)
-        return self._check(r.json())
-
-    def _post_json(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
-        """Force JSON format for internal programmatic use."""
         data["format"] = "json"
         r = self.s.post(f"{self.url}{path}", json=data, timeout=self._write_timeout)
         return self._check(r.json())
 
-    def _get_json(self, path: str, params: dict[str, int | str] | None = None) -> dict[str, Any]:
-        """Force JSON format for internal programmatic use."""
-        p: dict[str, int | str] = {"format": "json"}
-        if params:
-            p.update(params)
-        r = self.s.get(f"{self.url}{path}", params=p, timeout=5)
-        r.raise_for_status()
-        return self._check(r.json())
+    # Back-compat aliases: kept so external callers (integration tests, etc.)
+    # keep working. New code should call `_get` / `_post` directly.
+    _get_json = _get
+    _post_json = _post
 
     # ------------------------------------------------------------------
     # Connection
@@ -84,9 +108,13 @@ class TimberbotClient:
     def ping(self) -> bool:
         """True if the Timberbot mod is reachable."""
         try:
-            return self._get("/api/ping").get("ready", False)
+            return bool(self._get_json("/api/ping").get("ready", False))
         except (requests.ConnectionError, requests.Timeout):
             return False
+
+    def settlement(self) -> SettlementName:
+        """The current settlement's metadata (`{name: ...}`)."""
+        return SettlementName.model_validate(self._get_json("/api/settlement"))
 
     # ------------------------------------------------------------------
     # Webhooks
@@ -108,37 +136,37 @@ class TimberbotClient:
         """Unregister a webhook by ID."""
         return self._post("/api/webhooks/delete", {"id": id})
 
-    def list_webhooks(self) -> dict[str, Any]:
+    def list_webhooks(self) -> WebhookList:
         """List all registered webhooks."""
-        return self._get("/api/webhooks")
+        return WebhookList.model_validate(self._get_json("/api/webhooks"))
 
     # ------------------------------------------------------------------
     # Read state
     # ------------------------------------------------------------------
 
-    def summary(self) -> dict[str, Any]:
+    def summary(self) -> Summary:
         """Full snapshot: time + weather + districts with resources and population."""
-        return self._get("/api/summary")
+        return Summary.model_validate(self._get_json("/api/summary"))
 
-    def time(self) -> dict[str, Any]:
+    def time(self) -> Time:
         """Game time: {dayNumber, dayProgress, partialDayNumber}."""
-        return self._get("/api/time")
+        return Time.model_validate(self._get_json("/api/time"))
 
-    def weather(self) -> dict[str, Any]:
+    def weather(self) -> Weather:
         """Weather: {cycle, cycleDay, isHazardous, temperateWeatherDuration, hazardousWeatherDuration}."""
-        return self._get("/api/weather")
+        return Weather.model_validate(self._get_json("/api/weather"))
 
-    def population(self) -> list[dict[str, Any]] | dict[str, Any]:
+    def population(self) -> Population:
         """Beaver counts: [{district, adults, children, bots}]."""
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/population"))
+        return Population.model_validate(self._get_json("/api/population"))
 
-    def resources(self) -> dict[str, Any]:
+    def resources(self) -> Resources:
         """Resource stocks: {districtName: {goodName: {available, all}}}."""
-        return self._get("/api/resources")
+        return Resources.model_validate(self._get_json("/api/resources"))
 
-    def districts(self) -> list[dict[str, Any]] | dict[str, Any]:
+    def districts(self) -> DistrictList:
         """Districts: [{name, population: {adults, children, bots}, resources: {...}}]."""
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/districts"))
+        return DistrictList.model_validate(self._get_json("/api/districts"))
 
     def buildings(
         self,
@@ -150,7 +178,7 @@ class TimberbotClient:
         x: int = 0,
         y: int = 0,
         radius: int = 0,
-    ) -> list[dict[str, Any]] | dict[str, Any]:
+    ) -> BuildingList:
         """All buildings. detail: basic|full. id: single building. name: substring filter. x/y/radius: proximity filter."""
         params: dict[str, int | str] = {"limit": limit, "offset": offset}
         if id:
@@ -164,7 +192,7 @@ class TimberbotClient:
             params["y"] = y
             if radius:
                 params["radius"] = radius
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/buildings", params=params))
+        return BuildingList.model_validate(self._get_json("/api/buildings", params=params))
 
     def buildings_v2(
         self,
@@ -176,7 +204,7 @@ class TimberbotClient:
         x: int = 0,
         y: int = 0,
         radius: int = 0,
-    ) -> list[dict[str, Any]] | dict[str, Any]:
+    ) -> BuildingList:
         """Compatibility alias for buildings()."""
         return self.buildings(
             limit=limit, offset=offset, detail=detail, id=id,
@@ -186,7 +214,7 @@ class TimberbotClient:
     def trees(
         self, limit: int = 0, offset: int = 0, name: str = "",
         x: int = 0, y: int = 0, radius: int = 0,
-    ) -> list[dict[str, Any]] | dict[str, Any]:
+    ) -> TreeList:
         """Trees: [{id, name, x, y, z, marked, alive, grown, growth}]. name: species filter. x/y/radius: proximity."""
         params: dict[str, int | str] = {"limit": limit, "offset": offset}
         if name:
@@ -196,12 +224,12 @@ class TimberbotClient:
             params["y"] = y
             if radius:
                 params["radius"] = radius
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/trees", params=params))
+        return TreeList.model_validate(self._get_json("/api/trees", params=params))
 
     def crops(
         self, limit: int = 0, offset: int = 0, name: str = "",
         x: int = 0, y: int = 0, radius: int = 0,
-    ) -> list[dict[str, Any]] | dict[str, Any]:
+    ) -> CropList:
         """Crops in the ground: [{id, name, x, y, z, marked, alive, grown, growth}]. name: crop filter. x/y/radius: proximity."""
         params: dict[str, int | str] = {"limit": limit, "offset": offset}
         if name:
@@ -211,12 +239,12 @@ class TimberbotClient:
             params["y"] = y
             if radius:
                 params["radius"] = radius
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/crops", params=params))
+        return CropList.model_validate(self._get_json("/api/crops", params=params))
 
     def gatherables(
         self, limit: int = 0, offset: int = 0, name: str = "",
         x: int = 0, y: int = 0, radius: int = 0,
-    ) -> list[dict[str, Any]] | dict[str, Any]:
+    ) -> GatherableList:
         """All gatherable resources (berry bushes etc): [{id, name, x, y, z, alive}]. name/x/y/radius: filters."""
         params: dict[str, int | str] = {"limit": limit, "offset": offset}
         if name:
@@ -226,12 +254,12 @@ class TimberbotClient:
             params["y"] = y
             if radius:
                 params["radius"] = radius
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/gatherables", params=params))
+        return GatherableList.model_validate(self._get_json("/api/gatherables", params=params))
 
     def beavers(
         self, limit: int = 0, offset: int = 0, detail: str = "basic", id: int = 0,
         name: str = "", x: int = 0, y: int = 0, radius: int = 0,
-    ) -> list[dict[str, Any]] | dict[str, Any]:
+    ) -> BeaverList:
         """All beavers with wellbeing and needs. detail:full for all needs. name/x/y/radius: filters."""
         params: dict[str, int | str] = {"limit": limit, "offset": offset}
         if id:
@@ -245,11 +273,11 @@ class TimberbotClient:
             params["y"] = y
             if radius:
                 params["radius"] = radius
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/beavers", params=params))
+        return BeaverList.model_validate(self._get_json("/api/beavers", params=params))
 
-    def workhours(self) -> dict[str, Any]:
+    def workhours(self) -> WorkHours:
         """Work schedule: {endHours, areWorkingHours, hoursPassedToday}."""
-        return self._get("/api/workhours")
+        return WorkHours.model_validate(self._get_json("/api/workhours"))
 
     def migrate(self, from_district: str, to_district: str, count: int = 1) -> dict[str, Any]:
         """Move beavers between districts."""
@@ -261,29 +289,29 @@ class TimberbotClient:
         """Set when work ends (1-24). Beavers work from dawn until endHours."""
         return self._post("/api/workhours", {"endHours": end_hours})
 
-    def science(self) -> dict[str, Any]:
+    def science(self) -> Science:
         """Science points and unlockable buildings: {points, unlockables: [{name, cost, unlocked}]}."""
-        return self._get("/api/science")
+        return Science.model_validate(self._get_json("/api/science"))
 
-    def wellbeing(self) -> dict[str, Any]:
+    def wellbeing(self) -> WellbeingReport:
         """Population wellbeing breakdown by category: {beavers, categories: [{group, current, max, needs}]}."""
-        return self._get("/api/wellbeing")
+        return WellbeingReport.model_validate(self._get_json("/api/wellbeing"))
 
     def unlock_building(self, building: str) -> dict[str, Any]:
         """Unlock a building using science points."""
         return self._post("/api/science/unlock", {"building": building})
 
-    def notifications(self) -> list[dict[str, Any]] | dict[str, Any]:
+    def notifications(self) -> Notifications:
         """Game notification history: [{subject, description, entityId, cycle, cycleDay}]."""
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/notifications"))
+        return Notifications.model_validate(self._get_json("/api/notifications"))
 
-    def alerts(self) -> list[dict[str, Any]] | dict[str, Any]:
+    def alerts(self) -> Alerts:
         """Alerts: unstaffed, unpowered, unreachable, status issues."""
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/alerts"))
+        return Alerts.model_validate(self._get_json("/api/alerts"))
 
-    def distribution(self) -> list[dict[str, Any]] | dict[str, Any]:
+    def distribution(self) -> Distribution:
         """Distribution settings per district: [{district, goods: [{good, importOption, exportThreshold}]}]."""
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/distribution"))
+        return Distribution.model_validate(self._get_json("/api/distribution"))
 
     def set_distribution(
         self, district: str, good: str, import_option: str = "", export_threshold: int = -1,
@@ -294,21 +322,21 @@ class TimberbotClient:
             "import": import_option, "exportThreshold": export_threshold,
         })
 
-    def prefabs(self) -> list[dict[str, Any]] | dict[str, Any]:
+    def prefabs(self) -> Prefabs:
         """Available building templates: [{name, sizeX, sizeY, sizeZ}]."""
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/prefabs"))
+        return Prefabs.model_validate(self._get_json("/api/prefabs"))
 
-    def power(self) -> list[dict[str, Any]] | dict[str, Any]:
+    def power(self) -> PowerNetworks:
         """Power networks: [{id, supply, demand, buildings}]."""
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/power"))
+        return PowerNetworks.model_validate(self._get_json("/api/power"))
 
-    def speed(self) -> dict[str, Any]:
+    def speed(self) -> Speed:
         """Current game speed: {speed: 0-3}."""
-        return self._get("/api/speed")
+        return Speed.model_validate(self._get_json("/api/speed"))
 
-    def tiles(self, x1: int = 0, y1: int = 0, x2: int = 0, y2: int = 0) -> dict[str, Any]:
+    def tiles(self, x1: int = 0, y1: int = 0, x2: int = 0, y2: int = 0) -> Tiles:
         """Tile data for a region: terrain, water, occupants, moisture, contamination. No args = map size only."""
-        return self._get("/api/tiles", {"x1": x1, "y1": y1, "x2": x2, "y2": y2})
+        return Tiles.model_validate(self._get_json("/api/tiles", {"x1": x1, "y1": y1, "x2": x2, "y2": y2}))
 
     # ------------------------------------------------------------------
     # Write actions
@@ -363,6 +391,12 @@ class TimberbotClient:
         body = {"target": target}
         body.update(kwargs)
         return self._post("/api/debug", body)
+
+    def benchmark(self, iterations: int = 100, **kwargs: Any) -> dict[str, Any]:
+        """Run the debug benchmark loop. Gated by `debugEndpointEnabled` in settings.json."""
+        body: dict[str, Any] = {"iterations": iterations}
+        body.update(kwargs)
+        return self._post("/api/benchmark", body)
 
     def find_placement(
         self, prefab: str, x1: int = 0, y1: int = 0, x2: int = 0, y2: int = 0,
@@ -480,13 +514,13 @@ class TimberbotClient:
     # Helpers (static, server-aggregated)
     # ------------------------------------------------------------------
 
-    def tree_clusters(self) -> list[dict[str, Any]] | dict[str, Any]:
+    def tree_clusters(self) -> TreeClusters:
         """Find clusters of grown trees. Returns top clusters by grown count."""
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/tree_clusters"))
+        return TreeClusters.model_validate(self._get_json("/api/tree_clusters"))
 
-    def food_clusters(self) -> list[dict[str, Any]] | dict[str, Any]:
+    def food_clusters(self) -> FoodClusters:
         """Find clusters of gatherable food (berries, bushes). Returns top clusters by grown count."""
-        return cast(list[dict[str, Any]] | dict[str, Any], self._get("/api/food_clusters"))
+        return FoodClusters.model_validate(self._get_json("/api/food_clusters"))
 
     @staticmethod
     def near(items: list[dict[str, Any]], x: int, y: int, radius: int = 20) -> list[dict[str, Any]]:

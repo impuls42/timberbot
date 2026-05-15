@@ -61,9 +61,9 @@ def _wait_for_api(timeout: int, settlement: str) -> int:
         try:
             s = bot.summary()
             name = ""
-            for d in s.get("districts", []):
-                if d.get("name"):
-                    name = d["name"]
+            for d in s.districts:
+                if d.name:
+                    name = d.name
                     break
             print(f"  {BGRN}ready{RST}  settlement: {name or settlement}")
             return 0

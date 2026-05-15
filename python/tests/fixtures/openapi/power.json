@@ -1,0 +1,16 @@
+[
+  {
+    "buildings": [
+      {
+        "id": 1169730739,
+        "isGenerator": 0,
+        "name": "DistrictCenter.Folktails",
+        "nominalInput": 0,
+        "nominalOutput": 0
+      }
+    ],
+    "demand": 0,
+    "id": 999981332,
+    "supply": 0
+  }
+]
