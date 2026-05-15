@@ -21,6 +21,16 @@ info:
     Golden JSON fixtures in `python/tests/fixtures/openapi/` are validated
     against the spec by both Python (`test_openapi_responses.py`) and C#
     (`OpenApiResponseShapeTests.cs`) contract tests.
+
+    ## Ready gate (HTTP 409)
+
+    The mod ships with a Launch / Stop gate. Until the player presses
+    Launch in the in-game widget (or a client toggles `POST /api/ready`
+    with `{"ready": true}`), **every `/api/*` route returns HTTP 409**
+    with the `GameNotReady` body documented in `components/responses`,
+    except the carve-out: `/api/agent/*`, `/api/ready`, `/api/tbot/*`,
+    and `/api/ping`. Operations in this spec do not enumerate the 409
+    individually — it is a uniform gate. Webhook delivery is unaffected.
   version: 1.0.0
   contact:
     name: Timberbot
@@ -48,6 +58,10 @@ tags:
     description: Outbound HTTP push for game events.
   - name: debug
     description: Reflection inspector + benchmark (gated by `debugEndpointEnabled`).
+  - name: agent
+    description: Widget-facing agent state, configuration, and request gate.
+  - name: connector
+    description: Endpoints consumed by the `tbot watch` connector (register/heartbeat).
 
 components:
   parameters:
@@ -764,6 +778,73 @@ components:
       type: object
       additionalProperties: true
 
+    # --- Agent / connector state (mod ↔ connector rework) ---
+    AgentMode:
+      type: string
+      enum: [autonomous, request]
+      description: |
+        `autonomous` lets the connector decide cadence; `request` waits for
+        the player to type a prompt and press Launch. Default = `request`.
+    PendingRequest:
+      description: Single-slot prompt waiting to be picked up by the connector.
+      type: object
+      required: [id, prompt]
+      properties:
+        id: { type: integer, minimum: 1, description: 'Monotonic request id. Connectors ack with `acked_request_id` >= this value.' }
+        prompt: { type: string }
+      additionalProperties: false
+    AgentState:
+      description: |
+        Full widget/connector state snapshot returned by `/api/agent/state`
+        and `/api/tbot/heartbeat`.
+      type: object
+      required: [mode, goal, ready, pendingRequest, agentStatus, lastError]
+      properties:
+        mode: { $ref: '#/components/schemas/AgentMode' }
+        goal: { type: string, description: 'Free-form objective text.' }
+        ready: { type: boolean, description: 'Launch gate. False until the player presses Launch in the widget.' }
+        pendingRequest:
+          oneOf:
+            - { $ref: '#/components/schemas/PendingRequest' }
+            - { type: 'null' }
+        agentStatus: { type: string, description: 'Connector-reported status string (free-form).' }
+        lastError:
+          description: Most recent fatal error reported by the connector. `null` if no error has been reported in this session.
+          oneOf:
+            - { type: string }
+            - { type: 'null' }
+      additionalProperties: true
+    AgentRequestAck:
+      type: object
+      required: [pendingRequest]
+      properties:
+        pendingRequest: { $ref: '#/components/schemas/PendingRequest' }
+      additionalProperties: true
+    ReadyAck:
+      type: object
+      required: [ready]
+      properties:
+        ready: { type: boolean }
+      additionalProperties: true
+    TbotRegisterAck:
+      type: object
+      required: [registered, webhook_url]
+      properties:
+        registered: { type: boolean }
+        webhook_url: { type: string, format: uri }
+      additionalProperties: true
+    GameNotReady:
+      description: |
+        Returned with HTTP 409 from any non-whitelisted `/api/*` route while
+        `ready=false`. The whitelist is `/api/agent/*`, `/api/ready`,
+        `/api/tbot/*`, and `/api/ping`.
+      type: object
+      required: [error, hint]
+      properties:
+        error: { type: string, enum: [game_not_ready] }
+        hint: { type: string }
+      additionalProperties: false
+
   responses:
     BadRequest:
       description: Malformed body or invalid parameters.
@@ -777,6 +858,11 @@ components:
     BodyTooLarge:
       description: Request body exceeded `maxBodyBytes` from settings.json.
       content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
+    GameNotReady:
+      description: |
+        Player has not pressed Launch yet. All non-whitelisted `/api/*`
+        routes (reads and writes) return this until `ready=true`.
+      content: { application/json: { schema: { $ref: '#/components/schemas/GameNotReady' } } }
 
 paths:
   # ---------------------------------------------------------------------------
@@ -801,6 +887,152 @@ paths:
         '200':
           description: Settlement identity.
           content: { application/json: { schema: { $ref: '#/components/schemas/SettlementName' } } }
+
+  # ---------------------------------------------------------------------------
+  # agent / connector surface (gate-exempt)
+  # ---------------------------------------------------------------------------
+  /api/agent/state:
+    get:
+      operationId: agent_state
+      summary: Widget-facing agent state snapshot.
+      description: |
+        Always live (gate-exempt). Mirrors the heartbeat response so the widget
+        and the connector can share parsers.
+      tags: [agent]
+      responses:
+        '200':
+          description: Current agent state.
+          content: { application/json: { schema: { $ref: '#/components/schemas/AgentState' } } }
+
+  /api/agent/config:
+    post:
+      operationId: agent_config
+      summary: Update persisted agent configuration (mode and/or goal).
+      description: |
+        Widget save (debounced). Either or both fields may be omitted to
+        leave the corresponding value untouched.
+      tags: [agent]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { $ref: '#/components/schemas/AgentMode' }
+                goal: { type: string }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Updated agent state.
+          content: { application/json: { schema: { $ref: '#/components/schemas/AgentState' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/agent/request:
+    post:
+      operationId: agent_request
+      summary: Submit a new prompt to the single pending-request slot.
+      description: |
+        Launch trigger in request mode. Records the prompt in the pending
+        slot and, if a `tbot watch` connector has registered a push URL via
+        `/api/tbot/register`, fires a webhook so the connector picks the
+        request up immediately (fast path). Polling `/api/agent/state` is
+        the slow-path fallback.
+      tags: [agent]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt: { type: string, minLength: 1 }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Pending request slot updated.
+          content: { application/json: { schema: { $ref: '#/components/schemas/AgentRequestAck' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/ready:
+    post:
+      operationId: ready
+      summary: Toggle the Launch / Stop ready gate.
+      description: |
+        Setting `ready=false` causes every non-whitelisted `/api/*` route
+        (reads AND writes) to return 409 `game_not_ready` until the player
+        re-Launches in the widget. `ready` is intentionally not persisted —
+        the gate is closed on every game load.
+      tags: [agent]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ready]
+              properties:
+                ready: { type: boolean }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Acknowledged.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ReadyAck' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/tbot/register:
+    post:
+      operationId: tbot_register
+      summary: Register the `tbot watch` connector's push URL.
+      description: |
+        The mod fires a webhook to this URL whenever `/api/agent/request`
+        records a new prompt. The URL is cleared automatically if no
+        heartbeat arrives within the connector timeout (6 seconds).
+      tags: [connector]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [webhook_url]
+              properties:
+                webhook_url: { type: string, format: uri }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Push URL registered.
+          content: { application/json: { schema: { $ref: '#/components/schemas/TbotRegisterAck' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/tbot/heartbeat:
+    post:
+      operationId: tbot_heartbeat
+      summary: Connector heartbeat. Returns the full state snapshot.
+      description: |
+        Connectors call this on a 1-2s cadence. Side effects:
+        keeps the connector's registered push URL alive (no lapse), records
+        the connector-reported `agent_status`, and (when
+        `acked_request_id >= pendingRequest.id`) clears the pending slot.
+      tags: [connector]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent_status, acked_request_id]
+              properties:
+                version: { type: string, description: 'Connector version string. Optional today; reserved for future compatibility checks.' }
+                agent_status: { type: string, description: 'Free-form connector-reported status.' }
+                acked_request_id: { type: integer, minimum: 0, description: 'Highest pending-request id the connector has handled.' }
+              additionalProperties: false
+      responses:
+        '200':
+          description: Current agent state.
+          content: { application/json: { schema: { $ref: '#/components/schemas/AgentState' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
 
   # ---------------------------------------------------------------------------
   # read state (scalars / aggregates)

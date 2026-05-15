@@ -37,8 +37,17 @@ namespace Timberbot
         public readonly TimberbotWrite Write;
         public readonly TimberbotPlacement Placement;
         public readonly TimberbotDebug DebugTool;
+        // Widget/connector state container. Persisted fields live in
+        // state.json (loaded in Load(), flushed by FlushAgentState).
+        public readonly TimberbotAgentState AgentState = new TimberbotAgentState();
         public TimberbotAgent Agent;
         private TimberbotHttpServer _server;
+        private string _agentStatePath;
+        private float _agentStateDirtyTime = -1f;
+        // Watchdog tick: clear a stale tbot push URL if the connector hasn't
+        // heartbeated within TimberbotAgentState.HeartbeatTimeout. Sentinel
+        // value lets the first frame run unconditionally.
+        private float _lastWebhookExpiryCheck = float.MinValue;
 
         // settings (loaded from settings.json in mod folder)
         private bool _debugEnabled = false;       // enable /api/debug endpoint (default: off)
@@ -98,6 +107,7 @@ namespace Timberbot
         public void Load()
         {
             LoadSettings();
+            LoadAgentState();
             var modDir = TimberbotPaths.ModDir;
             TimberbotLog.Init(modDir);
             WebhookMgr.Enabled = _webhooksEnabled;
@@ -256,6 +266,7 @@ namespace Timberbot
         public void Unload()
         {
             FlushSettings();
+            FlushAgentState();
             ReadV2.Unregister();
             Registry.Unregister();
             WebhookMgr.Unregister();
@@ -264,6 +275,69 @@ namespace Timberbot
             _server?.Stop();
             _server = null;
             TimberbotLog.Info("HTTP server stopped");
+        }
+
+        // Called by HTTP handlers when a persisted field on AgentState
+        // changed. Writes are debounced (~1s after last change) just like
+        // settings.json so a fast widget-driven sequence doesn't flush per
+        // keystroke.
+        public void MarkAgentStateDirty()
+        {
+            _agentStateDirtyTime = Time.realtimeSinceStartup;
+        }
+
+        private void LoadAgentState()
+        {
+            try
+            {
+                _agentStatePath = TimberbotPaths.StatePath;
+                if (System.IO.File.Exists(_agentStatePath))
+                {
+                    var json = System.IO.File.ReadAllText(_agentStatePath);
+                    if (!AgentState.LoadJson(json))
+                        AgentState.ResetEphemerals();
+                }
+                else
+                {
+                    AgentState.ResetEphemerals();
+                }
+            }
+            catch (System.Exception ex)
+            {
+                TimberbotLog.Error("state.json load failed, using defaults", ex);
+                AgentState.ResetEphemerals();
+            }
+        }
+
+        private void FlushAgentStateIfNeeded(float now)
+        {
+            if (_agentStateDirtyTime < 0f) return;
+            if (now - _agentStateDirtyTime < 1f) return;
+            FlushAgentState();
+        }
+
+        private void FlushAgentState()
+        {
+            if (_agentStatePath == null) return;
+            _agentStateDirtyTime = -1f;
+            try
+            {
+                System.IO.File.WriteAllText(_agentStatePath, AgentState.ToJson());
+            }
+            catch (System.Exception ex)
+            {
+                TimberbotLog.Error("state.json flush failed", ex);
+            }
+        }
+
+        private void ExpireStaleTbotWebhook(float now)
+        {
+            // Watchdog runs at most once per second to keep DateTime.UtcNow
+            // cost negligible.
+            if (now - _lastWebhookExpiryCheck < 1f) return;
+            _lastWebhookExpiryCheck = now;
+            if (AgentState.ExpireWebhookIfStale(System.DateTime.UtcNow))
+                TimberbotLog.Info("tbot webhook url cleared after heartbeat timeout");
         }
 
         // Called every frame by Unity. This is the mod's main loop.
@@ -276,6 +350,8 @@ namespace Timberbot
             _server?.ProcessWriteJobs(now, _writeBudgetMs);
             WebhookMgr.FlushWebhooks(now);
             FlushSettingsIfNeeded(now);
+            FlushAgentStateIfNeeded(now);
+            ExpireStaleTbotWebhook(now);
         }
         public void PostNotification(string message, BaseComponent subject = null)
         {

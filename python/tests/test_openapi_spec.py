@@ -136,3 +136,46 @@ def test_every_operation_has_a_200_response(spec):
         if "200" not in responses:
             missing.append(f"{method.upper()} {path}")
     assert not missing, "Operations missing 200 response:\n  " + "\n  ".join(missing)
+
+
+# Endpoints added in the mod ↔ connector architecture rework (issue #13).
+# These are the gate-exempt widget/connector surface. The test below pins both
+# the spec path *and* the corresponding `TimberbotClient` method so a future
+# rename doesn't silently break the connector.
+AGENT_CONNECTOR_OPS: dict[str, tuple[str, str]] = {
+    # operationId -> (spec path, client method name)
+    "agent_state": ("/api/agent/state", "agent_state"),
+    "agent_config": ("/api/agent/config", "agent_config"),
+    "agent_request": ("/api/agent/request", "agent_request"),
+    "ready": ("/api/ready", "ready"),
+    "tbot_register": ("/api/tbot/register", "tbot_register"),
+    "tbot_heartbeat": ("/api/tbot/heartbeat", "tbot_heartbeat"),
+}
+
+
+def test_agent_connector_operation_ids_present_in_spec(spec):
+    """The six widget/connector ops from issue #13 must be in the spec."""
+    found_ops: dict[str, str] = {}
+    for path, _method, op in _all_operations(spec):
+        op_id = op.get("operationId")
+        if op_id in AGENT_CONNECTOR_OPS:
+            found_ops[op_id] = path
+    missing = [op for op in AGENT_CONNECTOR_OPS if op not in found_ops]
+    assert not missing, f"Missing agent/connector operationIds in spec: {missing}"
+    for op_id, (expected_path, _) in AGENT_CONNECTOR_OPS.items():
+        assert found_ops[op_id] == expected_path, (
+            f"{op_id!r}: spec path is {found_ops[op_id]!r}, expected {expected_path!r}"
+        )
+
+
+def test_agent_connector_operation_ids_have_client_methods():
+    """Each new operationId must map to a public TimberbotClient method."""
+    missing: list[str] = []
+    for op_id, (_, method_name) in AGENT_CONNECTOR_OPS.items():
+        method = getattr(TimberbotClient, method_name, None)
+        if not callable(method):
+            missing.append(f"{op_id} -> {method_name}")
+    assert not missing, (
+        "Missing TimberbotClient methods for agent/connector ops:\n  "
+        + "\n  ".join(missing)
+    )

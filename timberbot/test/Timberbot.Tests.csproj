@@ -20,6 +20,7 @@
   <ItemGroup>
     <Compile Include="..\src\TimberbotJw.cs" Link="Shared\TimberbotJw.cs" />
     <Compile Include="..\src\TimberbotPure.cs" Link="Shared\TimberbotPure.cs" />
+    <Compile Include="..\src\TimberbotAgentState.cs" Link="Shared\TimberbotAgentState.cs" />
   </ItemGroup>
 
   <!-- Ship openapi.yaml + TimberbotHttpServer.cs source next to the test assembly so

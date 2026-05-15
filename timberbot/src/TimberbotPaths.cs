@@ -17,5 +17,11 @@ namespace Timberbot
 
         public static string SettingsPath =>
             Path.Combine(ModDir, "settings.json");
+
+        // Persisted widget/connector state introduced in the mod ↔ connector
+        // architecture rework. Holds mode, goal, lastError between sessions.
+        // See TimberbotAgentState for the on-disk schema.
+        public static string StatePath =>
+            Path.Combine(ModDir, "state.json");
     }
 }

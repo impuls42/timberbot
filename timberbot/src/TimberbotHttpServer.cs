@@ -248,6 +248,18 @@ namespace Timberbot
                     continue;
                 }
 
+                // Ready-gate middleware. Refuses all /api/* reads AND writes
+                // while ready=false except the carve-out whitelist
+                // (/api/ping, /api/ready, /api/agent/*, /api/tbot/*).
+                // Webhook delivery is unaffected (outbound, separate channel).
+                if (path.StartsWith("/api/", StringComparison.Ordinal)
+                    && !TimberbotAgentState.IsGateExempt(path)
+                    && !_service.AgentState.Ready)
+                {
+                    Respond(ctx, 409, TimberbotAgentState.GameNotReadyJson);
+                    continue;
+                }
+
                 if (path == "/api/ping")
                 {
                     Respond(ctx, 200, "{\"status\":\"ok\",\"ready\":true,\"openapiVersion\":\"" + TimberbotPure.OPENAPI_VERSION + "\"}");
@@ -256,6 +268,13 @@ namespace Timberbot
                 if (path == "/api/settlement")
                 {
                     Respond(ctx, 200, "{\"name\":\"" + _service.ReadV2.GetSettlementName().Replace("\"", "\\\"") + "\"}");
+                    continue;
+                }
+                // GET /api/agent/state -- inline (listener thread). Only
+                // touches the thread-safe AgentState container.
+                if (method == "GET" && path == "/api/agent/state")
+                {
+                    Respond(ctx, 200, _service.AgentState.ToStateResponseJson());
                     continue;
                 }
 
@@ -523,12 +542,128 @@ namespace Timberbot
                 Queued("/api/automation/unlink", req => new LambdaWriteJob(req.Route, () => _service.Write.UnlinkAutomation(req.Body?.Value<int>("id") ?? 0, req.Body?.Value<string>("input") ?? "a"))),
                 Queued("/api/automation/configure", req => new LambdaWriteJob(req.Route, () => _service.Write.ConfigureAutomation(req.Body?.Value<int>("id") ?? 0, req.Body?.Value<string>("property") ?? "", req.Body?.Value<string>("value") ?? ""))),
                 Queued("/api/automation/rename", req => new LambdaWriteJob(req.Route, () => _service.Write.RenameEntity(req.Body?.Value<int>("id") ?? 0, req.Body?.Value<string>("name") ?? ""))),
+
+                // --- Widget / connector surface (mod ↔ connector rework) ---
+                // These lambdas only touch the thread-safe AgentState. The
+                // queue indirection costs a frame of latency, which is
+                // negligible compared with the 1-2s connector heartbeat
+                // cadence and keeps the existing route dispatcher uniform.
+                Queued("/api/agent/config", req => new LambdaWriteJob(req.Route, () => HandleAgentConfig(req))),
+                Queued("/api/agent/request", req => new LambdaWriteJob(req.Route, () => HandleAgentRequest(req))),
+                Queued("/api/ready", req => new LambdaWriteJob(req.Route, () => HandleReady(req))),
+                Queued("/api/tbot/register", req => new LambdaWriteJob(req.Route, () => HandleTbotRegister(req))),
+                Queued("/api/tbot/heartbeat", req => new LambdaWriteJob(req.Route, () => HandleTbotHeartbeat(req))),
             };
 
             var result = new Dictionary<string, PostRouteDescriptor>(System.StringComparer.Ordinal);
             for (int i = 0; i < routes.Length; i++)
                 result[routes[i].Path] = routes[i];
             return result;
+        }
+
+        // --- Agent / connector handlers ---------------------------------
+        // Bodies are bound during BuildPostRoutes() and executed by
+        // ProcessWriteJobs on the main thread (see the agent/connector
+        // routes registered at the bottom of the table). Each returns the
+        // response body (string JSON or anonymous object).
+
+        private object HandleAgentConfig(PendingRequest req)
+        {
+            var state = _service.AgentState;
+            bool modeProvided = req.Body?["mode"] != null;
+            bool goalProvided = req.Body?["goal"] != null;
+            string newMode = modeProvided ? req.Body.Value<string>("mode") : null;
+            string newGoal = goalProvided ? req.Body.Value<string>("goal") : null;
+
+            if (modeProvided && !state.SetMode(newMode))
+                return _jw.Error("invalid_mode: must be 'autonomous' or 'request'");
+
+            if (goalProvided)
+                state.SetGoal(newGoal);
+
+            if (modeProvided || goalProvided)
+                _service.MarkAgentStateDirty();
+
+            return state.ToStateResponseJson();
+        }
+
+        private object HandleAgentRequest(PendingRequest req)
+        {
+            var prompt = req.Body?.Value<string>("prompt") ?? "";
+            if (string.IsNullOrEmpty(prompt))
+                return _jw.Error("invalid_prompt: prompt is required");
+
+            var state = _service.AgentState;
+            int id = state.EnqueueRequest(prompt);
+            string pushUrl = state.TbotWebhookUrl;
+            if (!string.IsNullOrEmpty(pushUrl))
+                FireTbotRequestWebhook(pushUrl, id, prompt);
+
+            return _jw.Reset().OpenObj()
+                .Key("pendingRequest").OpenObj().Prop("id", id).Prop("prompt", prompt).CloseObj()
+                .CloseObj().ToString();
+        }
+
+        private object HandleReady(PendingRequest req)
+        {
+            var readyToken = req.Body?["ready"];
+            if (readyToken == null)
+                return _jw.Error("invalid_ready: 'ready' boolean is required");
+            bool ready = req.Body.Value<bool>("ready");
+            _service.AgentState.SetReady(ready);
+            return _jw.Reset().OpenObj().Prop("ready", ready).CloseObj().ToString();
+        }
+
+        private object HandleTbotRegister(PendingRequest req)
+        {
+            var url = req.Body?.Value<string>("webhook_url");
+            if (string.IsNullOrWhiteSpace(url))
+                return _jw.Error("invalid_webhook_url: 'webhook_url' is required");
+            _service.AgentState.RegisterTbotWebhook(url, System.DateTime.UtcNow);
+            return _jw.Reset().OpenObj().Prop("registered", true).Prop("webhook_url", url).CloseObj().ToString();
+        }
+
+        private object HandleTbotHeartbeat(PendingRequest req)
+        {
+            // `version` is part of the spec body for forward-compat checks but
+            // intentionally ignored today.
+            var agentStatus = req.Body?.Value<string>("agent_status") ?? "";
+            long acked = req.Body?.Value<long?>("acked_request_id") ?? 0;
+            _service.AgentState.Heartbeat(agentStatus, acked, System.DateTime.UtcNow);
+            return _service.AgentState.ToStateResponseJson();
+        }
+
+        // Async fire-and-forget POST to the connector's registered push URL.
+        // Errors are logged but don't fail the originating /api/agent/request.
+        // Body shape mirrors the heartbeat response so the connector can reuse
+        // its parser.
+        private static readonly System.Net.Http.HttpClient _tbotPushClient =
+            new System.Net.Http.HttpClient { Timeout = System.TimeSpan.FromSeconds(5) };
+
+        private void FireTbotRequestWebhook(string url, int requestId, string prompt)
+        {
+            // Build through JObject so future fields (auth headers, etc.) can
+            // be added without growing a fragile string-interpolation block.
+            var payload = new JObject
+            {
+                ["event"] = "agent.request",
+                ["id"] = requestId,
+                ["prompt"] = prompt ?? "",
+            }.ToString(Newtonsoft.Json.Formatting.None);
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    using var content = new System.Net.Http.StringContent(payload, Encoding.UTF8, "application/json");
+                    using var resp = _tbotPushClient.PostAsync(url, content).GetAwaiter().GetResult();
+                    if (!resp.IsSuccessStatusCode)
+                        TimberbotLog.Info($"tbot.push.fail url={url} status={(int)resp.StatusCode}");
+                }
+                catch (Exception ex)
+                {
+                    TimberbotLog.Info($"tbot.push.err url={url} ex={ex.GetType().Name}:{ex.Message}");
+                }
+            });
         }
 
         private void FailOutstanding(string error)

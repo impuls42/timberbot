@@ -58,6 +58,7 @@ RESPONSE_MAP: dict[str, tuple[type, str]] = {
     "crops": (models.CropList, "/api/crops"),
     "gatherables": (models.GatherableList, "/api/gatherables"),
     "list_webhooks": (models.WebhookList, "/api/webhooks"),
+    "agent_state": (models.AgentState, "/api/agent/state"),
 }
 
 
