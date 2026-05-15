@@ -32,6 +32,32 @@ Omit `events` to receive all events.
 
 Each POST contains an array of events that accumulated during the batch window. Single events arrive as a 1-element array.
 
+## Local listener (quickstart)
+
+`tbot listen` ships a reference webhook receiver so you can see events without writing any code. It accepts the batched payload above at `POST /` and `POST /events`.
+
+```bash
+# Watch events on stdout (raw JSON, one event per line):
+tbot listen --port 9000
+
+# Human-friendly output instead of raw JSON:
+tbot listen --port 9000 --pretty
+
+# Tee every event into a JSON-lines file:
+tbot listen --port 9000 --forward-to file://./events.jsonl
+
+# Quietly forward batches to a downstream HTTP collector:
+tbot listen --port 9000 --quiet --forward-to https://collector.example/sink
+```
+
+Then register the listener with the mod (the URL must be reachable from the game process):
+
+```bash
+tbot register_webhook url:http://127.0.0.1:9000/events events:drought.start,drought.end
+```
+
+`--forward-to` accepts either a file path (with or without the `file://` prefix — events are appended as JSON lines) or an `http(s)://` URL (the original batch array is POSTed downstream). `--quiet` suppresses stdout entirely; combine it with `--forward-to` to use `tbot listen` as a headless relay.
+
 ## Management
 
 ```bash
