@@ -1,3 +1,19 @@
+## v2 architecture cutover
+
+Hard cutover — no fallback path. The widget no longer spawns the agent; the connector does.
+
+- [feature] **`tbot watch` connector.** Long-running Python process: reconnects with exponential backoff, heartbeats every 2 s, registers a webhook URL for push triggers, dispatches `tbot agent run` (or attaches to `opencode serve`) per cycle.
+- [feature] **Launch / Stop ready gate.** The widget button replaces Start/Stop. Until the player presses Launch, the mod returns `409 game_not_ready` on **every `/api/*` read and write** except `/api/agent/*`, `/api/ready`, `/api/tbot/*`, `/api/ping`. Webhooks keep firing.
+- [feature] **Mode dropdown.** Request (default) vs Autonomous. Request mode has a per-launch prompt textarea; autonomous mode persists `goal` to `state.json` and lets the connector pick cadence.
+- [feature] **Six new endpoints.** `GET /api/agent/state`, `POST /api/agent/config`, `POST /api/agent/request`, `POST /api/ready`, `POST /api/tbot/register`, `POST /api/tbot/heartbeat`.
+- [feature] **Bearer-token auth.** `authToken` in `settings.json` requires `Authorization: Bearer <token>` on every `/api/*` route (constant-time compare). The mod refuses to start with a non-localhost `listenAddress` and empty `authToken`. Client side adds `[client].auth_token`, `TBOT_AUTH_TOKEN`, and `TimberbotClient(auth_token=…)`.
+- [feature] **`tbot listen` reference receiver.** Standalone aiohttp server for webhook delivery; `--pretty` for human rendering, `--forward-to FILE|URL` for piping.
+- [feature] **opencode `--attach`.** `[backends.opencode].attach_url` (or `--attach-url`) makes `tbot agent run` target a long-running `opencode serve` instead of spawning a fresh process.
+- [feature] **`state.json`.** New file alongside `settings.json` for agent-shaped state. Persists `mode`, `goal`, `lastError`. Ephemeral state (`ready`, `pendingRequest`, `tbotWebhookUrl`, `lastAckedRequestId`) resets on save load.
+- [removed] `TimberbotAgent` subprocess spawn. The mod is a pure HTTP server.
+- [removed] Settings keys: `agentBinary`, `agentGoal`, `agentModel`, `agentEffort`, `agentCommandTemplate`, `agentAllowlistEnabled`, `agentAllowedBinaries`, `tbotCommand`. Backend choice lives in `~/.config/timberbot/config.toml`; the connector runs `tbot`, not the mod.
+- [docs] [getting-started.md](getting-started.md), [timberbot.md](timberbot.md), [webhooks.md](webhooks.md), and [architecture.md](architecture.md) rewritten around the new flow.
+
 ## Error messages
 
 Every API error response is now rich and actionable. The AI gets enough context to correct the next call without guessing.

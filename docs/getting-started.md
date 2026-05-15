@@ -1,5 +1,7 @@
 # Timberbot API
 
+> **v0.9 — architecture rework, in flight.** The session-launch flow described here is the v0.9 shape (`tbot watch` connector + Launch button). Behavior on `master` may briefly lag while the rework lands.
+
 **Full read/write HTTP API for controlling Timberborn with AI.**
 
 Timberbot API gives Claude, Codex, ChatGPT, or your own scripts complete access to your beaver colony over HTTP. read game state, place buildings, manage workers, plant crops, and keep your beavers alive.
@@ -51,7 +53,7 @@ Start a game (or load a save). Open a browser to:
 http://localhost:8085/api/ping
 ```
 
-You should see `{"status": "ok", "ready": true}`. The API is only active while a game is loaded. it won't respond from the main menu.
+You should see `{"status": "ok"}`. The API is only active while a game is loaded; it won't respond from the main menu. Note that `/api/ping` and `/api/agent/*` answer regardless of the ready gate, but every other `/api/*` endpoint returns `409 game_not_ready` until you press **Launch** in the in-game widget (see [Start a session](#start-a-session) below).
 
 ## Install the Timberbot CLI
 
@@ -85,23 +87,39 @@ tbot --documents-dir=/path/to/Timberborn summary
 tbot --mod-dir=/path/to/Mods/Timberbot summary
 ```
 
-## Preferred AI workflow: in-game Timberbot UI
+## Start a session
 
-The preferred way to use Timberbot with Claude, Codex, or opencode is the
-in-game Timberbot widget.
+The widget no longer spawns the agent. Instead, the player runs `tbot watch` on their machine (the **agent connector**), and the widget's Launch button toggles the ready gate that lets the connector through.
 
-1. Start a game or load a save.
-2. Look for the green `Timberbot API` widget in the bottom-right corner.
-3. Click `Settings`.
-4. Pick a **Backend** (claude / codex / opencode / custom) and enter a **Goal**.
-5. Click `Start`.
+The first-run flow is:
 
-The mod shells out to `tbot agent run --backend <name> --goal "<goal>"`. The
-Python CLI loads the merged instructions file, talks to the running mod over
-HTTP to gather colony state, and spawns the selected agent CLI. Per-backend
-defaults (model, effort, custom command template) live in
-`~/.config/timberbot/config.toml` — the in-game panel only chooses goal +
-backend.
+1. **Install the mod** (Steam Workshop or manual — see above).
+2. **Install the CLI** via `pipx install timberbot` and run `tbot init` once.
+3. **Configure a backend** in `~/.config/timberbot/config.toml` (`claude`, `codex`, `opencode`, or `custom`).
+4. **Start the connector**: in a terminal, run `tbot watch`. Leave it running.
+5. **Launch the game and load a save.** The Timberbot widget appears bottom-right.
+6. **Press Launch.** The widget's state pill flips from `Not Ready` to `Idle`, and the connector dispatches the agent.
+
+```bash
+tbot watch                              # autonomous + request mode, no local listener
+tbot watch --listen-port 9000           # also host a webhook listener for the fast path
+tbot watch --attach-url http://127.0.0.1:4096   # talk to a long-running opencode serve
+```
+
+`tbot watch` reconnects with exponential backoff (1 s → 30 s cap), so you can start it before the game or restart the game without restarting the connector. While disconnected it logs every retry; once connected it heartbeats every 2 s and surfaces the current state in the terminal.
+
+### Modes
+
+The widget exposes two modes via a dropdown.
+
+- **Request** *(default).* You type a prompt in the widget's textarea, press **Launch**, and the connector dispatches a single agent run for that prompt. Use this for "set up a plank chain", "place 3 farms near the river", or any discrete ask. Launching with an empty prompt is a no-op.
+- **Autonomous.** The widget's textarea binds to a persistent `goal` (saved in `state.json`). Press Launch and the connector keeps dispatching agent runs at its configured cadence until you press **Stop**. Use this for "reach 50 beavers with 77 well-being" — the long-running objective.
+
+Switching modes is instant and doesn't restart the connector. Stop is always one click away: it posts `{"ready": false}` to the mod, which **closes the gate** to every endpoint except `/api/agent/*`, `/api/ready`, `/api/tbot/*`, and `/api/ping`. The connector keeps heartbeating but won't drive any reads or writes until you Launch again.
+
+### Per-backend defaults
+
+The widget doesn't let you pick a model or effort — those live in `~/.config/timberbot/config.toml` (see [`config.toml`](#configtoml) below). The widget only owns mode + prompt/goal + Launch state.
 
 ## Output formats
 
@@ -191,31 +209,27 @@ curl -X POST -H "Authorization: Bearer $TBOT_AUTH_TOKEN" \
 
 ## Let AI play your colony
 
-The mod also ships docs for AI play with Claude Code, OpenAI Codex, ChatGPT, or any AI agent that can make HTTP calls. This is optional if you prefer the in-game UI workflow.
-
-The AI docs entrypoints are:
+`tbot watch` is the normal entrypoint. It owns the agent process; the mod just owns the game state. The AI docs entrypoints are:
 
 - the Timberbot agent prompt ships inside the `timberbot` Python package (`timberbot.agent_prompts.timberbot`); `tbot init` writes editable copies under your config dir
 - [timberbot.md](timberbot.md) is the Timberbot Guide, the full operating guide behind that prompt
 - [api-reference.md](api-reference.md) is the endpoint and response source of truth
 
-### Launch via `tbot agent run`
+### One-shot agent run
+
+`tbot agent run` exists for one-shot dispatches without a long-running connector — handy for scripted tests or a single AI nudge:
 
 ```bash
-pipx install timberbot                               # console script: tbot
-tbot init                                            # materialize prompts into your user config dir
-tbot agent run --backend opencode --goal "reach 50 beavers"
+tbot agent run --backend opencode --prompt "place 3 farms near the river"
+tbot agent run --backend claude --goal "reach 50 beavers"      # autonomous-shaped prompt
+tbot agent run --backend opencode --attach-url http://127.0.0.1:4096
 ```
 
-`tbot agent run` builds the merged instructions file, talks to the running mod over HTTP to gather colony state, and spawns the agent CLI (`claude`, `codex`, `opencode`, or a custom template). Run `tbot agent list-backends` for the full list and `tbot agent prompts` to see installed prompts.
+`tbot agent run` builds the merged instructions file, talks to the running mod over HTTP to gather colony state, and spawns the agent CLI (or attaches to a long-running `opencode serve` via `--attach-url`). It does **not** open the ready gate — you still need to have pressed Launch in the widget, or `/api/*` reads will return `409 game_not_ready`.
 
-### OpenAI Codex
+### OpenAI Codex / other LLMs
 
-Point Codex at the mod folder (or repo root). It can call the HTTP API directly on port 8085. The docs in `docs/` give it everything it needs.
-
-### Other LLMs
-
-Paste the contents of `docs/timberbot.md` as the system prompt. Keep `docs/api-reference.md` available for exact command and error details. The Steam Workshop install ships the same docs under `Documents/Timberborn/Mods/Timberbot/docs`, and the GitHub repo mirrors the same content if users need another copy.
+Point Codex (or any other LLM with shell + HTTP) at the mod folder or repo root and at port 8085. After the player presses Launch, the agent has full read/write access. Paste `docs/timberbot.md` as the system prompt for non-Codex LLMs.
 
 ## Remote connections
 
@@ -237,11 +251,10 @@ For a persistent default, drop a `config.toml` under your user config dir:
 [client]
 host = "192.168.1.50"
 port = 8085
+auth_token = "..."          # required if the mod exposes a non-localhost listenAddress
 ```
 
-For a multi-machine setup where the *mod itself* needs to accept non-localhost
-clients, also flip `listenAddress` in the mod's `settings.json` to bind a
-reachable interface — see the [Settings](#settings-and-configuration) section.
+For a multi-machine setup where the *mod itself* needs to accept non-localhost clients, flip `listenAddress` in the mod's `settings.json` to bind a reachable interface AND set `authToken` to a shared secret — the mod refuses to start with a non-localhost `listenAddress` and an empty `authToken`. Pass the same token to the client via `auth_token` in `config.toml`, the `TBOT_AUTH_TOKEN` env var, or `tbot --auth-token=…`. See [Settings and configuration](#settings-and-configuration-server-mod) for the full list.
 
 ## Configuration sources
 
@@ -257,14 +270,13 @@ Timberbot reads settings from three places, in this order (first match wins):
 
 ### `config.toml`
 
-The `tbot` CLI looks for a TOML file at your platform's user-config directory.
-Two sections matter today:
+The `tbot` CLI looks for a TOML file at your platform's user-config directory. Three sections matter today:
 
 ```toml
 [client]
 host = "127.0.0.1"        # default target host for the CLI
 port = 8085               # default target port
-auth_token = ""           # bearer token; only needed when the mod sets `authToken`
+auth_token = ""           # bearer token; required when the mod sets `authToken` (mandatory for non-localhost listenAddress)
 
 [backends.claude]
 model = "claude-opus-4-7"
@@ -272,39 +284,40 @@ effort = "high"
 
 [backends.opencode]
 model = "glm-4.6"
+attach_url = "http://127.0.0.1:4096"   # attach to a long-running `opencode serve`
 
 [backends.custom]
 command = "aider --system-prompt-file {skill} {prompt}"   # template
 ```
 
-Per-backend keys (`model`, `effort`, `command`, `binary`, `terminal_prefix`)
-are fed into the same `tbot agent run` arguments — explicit CLI flags still
-win.
+Per-backend keys (`model`, `effort`, `command`, `binary`, `terminal_prefix`, `attach_url`) are fed into the `tbot agent run` argv — explicit CLI flags still win.
 
 ### Settings and configuration (server / mod)
 
 The in-game `Settings` modal is the primary way to configure mod-side runtime.
 
-All mod-side settings persist to `settings.json`, including:
+All mod-side settings persist to `settings.json`:
 
-- agent UI settings: `agentBinary` (backend choice) and `agentGoal`; plus widget position
-- runtime settings: `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `writeBudgetMs`
-- security settings: `listenAddress` (default `127.0.0.1`), `webhookValidateUrls` (default `true`), `maxBodyBytes` (default `1048576`)
-- optional: `tbotCommand` — explicit path to the `tbot` console script when it
-  isn't on the in-game user's `PATH` (e.g. pipx into a sandboxed environment).
+- runtime: `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `writeBudgetMs`
+- security: `listenAddress` (default `127.0.0.1`), `authToken` (required when `listenAddress` is non-localhost), `webhookValidateUrls` (default `true`), `maxBodyBytes` (default `1048576`)
+- widget position: `widgetLeft`, `widgetTop`
 
-Editing `settings.json` directly is the advanced/manual path. The normal path
-is to change settings in-game and let Timberbot save them for you.
+Agent-shaped state lives in **`state.json`** alongside `settings.json`:
 
-Some runtime settings are applied on load, so changing them may require
-reloading the save or mod to fully apply.
+```json
+{
+  "mode": "request",
+  "goal": "reach 50 beavers with 77 well-being",
+  "lastError": null
+}
+```
+
+The widget mutates `state.json` directly via `POST /api/agent/config`; you rarely edit it by hand. `ready`, `pendingRequest`, and the connector's registered webhook URL are in-memory only and reset on every save load.
+
+Some runtime settings are applied on load, so changing them may require reloading the save or mod to fully apply.
 
 !!! note "Deprecated settings keys"
-    `terminal`, `pythonCommand`, `agentModel`, `agentEffort`,
-    `agentCommandTemplate`, `agentAllowlistEnabled`, and `agentAllowedBinaries`
-    are no longer read by the mod. They are logged as ignored on load. Manage
-    per-backend model/effort/command defaults via the user `config.toml`
-    described above.
+    `terminal`, `pythonCommand`, `agentBinary`, `agentGoal`, `agentModel`, `agentEffort`, `agentCommandTemplate`, `agentAllowlistEnabled`, `agentAllowedBinaries`, and `tbotCommand` are no longer read by the mod. They are logged as ignored on load. Manage backend choice, per-backend model/effort/command defaults, and the path to the `tbot` console script via the user `config.toml` described above — the connector is the one that runs `tbot`, not the mod.
 
 ## macOS launch helper
 
@@ -315,7 +328,13 @@ reloading the save or mod to fully apply.
 !!! warning "Connection refused / no response on port 8085"
     - The API only runs while a game is loaded. It won't respond from the main menu or loading screen.
     - Check that the mod is enabled in the Mod Manager.
-    - Windows Firewall may block the port. The mod tries `http://+:8085/` first (all interfaces), then falls back to `http://localhost:8085/` if that fails.
+    - Windows Firewall may block the port. The mod binds the address from `listenAddress` (default `127.0.0.1`); set it to `+`/`0.0.0.0` only with an `authToken` in place.
+
+!!! warning "`409 game_not_ready` on every endpoint"
+    The player has not pressed Launch yet. The ready gate refuses **all `/api/*` reads and writes** except `/api/agent/*`, `/api/ready`, `/api/tbot/*`, and `/api/ping` while `ready=false`. Open the in-game widget and press Launch.
+
+!!! warning "`401 unauthorized`"
+    The mod has `authToken` set in `settings.json` but the client isn't sending `Authorization: Bearer <token>`. Set `auth_token` in `~/.config/timberbot/config.toml`, export `TBOT_AUTH_TOKEN`, or pass `tbot --auth-token=…`.
 
 !!! warning "No module named 'requests' / 'toons'"
     `pipx install timberbot` pulls these in automatically. If you installed via

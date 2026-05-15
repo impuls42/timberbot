@@ -16,7 +16,7 @@ Implemented:
 
 - canonical `/api/*` GET routing
 - `TimberbotReadV2` as the single v2 read service
-- generic collection, value, paging, and snapshot helpers folded into [`TimberbotReadV2.cs`](../timberbot/src/TimberbotReadV2.cs)
+- generic collection, value, paging, and snapshot helpers folded into `TimberbotReadV2.cs`
 - removal of the temporary top-level helper files:
   - `TimberbotCollectionEndpoint.cs`
   - `TimberbotCollectionQuery.cs`
@@ -27,7 +27,7 @@ Implemented:
 - fresh-on-request projection-backed reads for buildings, beavers, and natural-resource entity collections
 - native v2 value and derived endpoints for summary, districts, resources, population, alerts, power, wellbeing, notifications, science, distribution, time, weather, speed, workhours, tree clusters, and food clusters
 - staged refresh inside `TimberbotReadV2`: main-thread capture plus background finalize/publish
-- a dedicated v2 experiment harness at [`python/tests/integration/v2_runner.py`](../python/tests/integration/v2_runner.py)
+- a dedicated v2 experiment harness at `python/tests/integration/v2_runner.py`
 
 Important implementation note:
 
