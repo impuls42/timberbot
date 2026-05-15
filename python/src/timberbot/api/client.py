@@ -19,7 +19,7 @@ from typing import Any
 import requests
 
 from timberbot.__about__ import OPENAPI_VERSION
-from timberbot.api.exceptions import TimberbotError
+from timberbot.api.exceptions import AuthenticationError, TimberbotError
 from timberbot.api.models._generated import (
     AgentRequestAck,
     AgentState,
@@ -100,17 +100,37 @@ class TimberbotClient:
             raise TimberbotError(data)
         return data
 
+    def _check_auth(self, r: requests.Response) -> None:
+        """Promote 401 responses to a typed `AuthenticationError` before
+        `raise_for_status()` would otherwise surface a raw `requests.HTTPError`.
+
+        Callers that want to programmatically distinguish "wrong/missing
+        bearer token" from any other HTTP failure should catch
+        `AuthenticationError` (or its parent `TimberbotError`).
+        """
+        if r.status_code != 401:
+            return
+        try:
+            body = r.json()
+        except ValueError:
+            body = {}
+        if not isinstance(body, dict) or "error" not in body:
+            body = {"error": f"unauthorized: {r.text or 'authentication required'}"}
+        raise AuthenticationError(body)
+
     def _get(self, path: str, params: dict[str, int | str] | None = None) -> dict[str, Any]:
         p: dict[str, int | str] = {"format": "json"}
         if params:
             p.update(params)
         r = self.s.get(f"{self.url}{path}", params=p, timeout=5)
+        self._check_auth(r)
         r.raise_for_status()
         return self._check(r.json())
 
     def _post(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
         data["format"] = "json"
         r = self.s.post(f"{self.url}{path}", json=data, timeout=self._write_timeout)
+        self._check_auth(r)
         return self._check(r.json())
 
     # Back-compat aliases: kept so external callers (integration tests, etc.)

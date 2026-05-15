@@ -6,6 +6,7 @@ import pytest
 pytest.importorskip("pytest_httpserver")
 
 from timberbot.api.client import TimberbotClient  # noqa: E402
+from timberbot.api.exceptions import AuthenticationError, TimberbotError  # noqa: E402
 from timberbot.settings import resolve_auth_token  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -154,3 +155,48 @@ def test_client_threads_header_on_post(httpserver, monkeypatch):
     )
     result = client.set_speed(2)
     assert result == {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# 401 handling: 401 must surface as AuthenticationError (subclass of
+# TimberbotError), never as a raw requests.HTTPError. Callers can catch
+# TimberbotError to handle all API failures uniformly.
+# ---------------------------------------------------------------------------
+
+
+def test_client_401_get_raises_authentication_error(httpserver, monkeypatch):
+    monkeypatch.delenv("TBOT_AUTH_TOKEN", raising=False)
+    httpserver.expect_request("/api/summary").respond_with_json(
+        {"error": "unauthorized: missing or invalid bearer token"},
+        status=401,
+    )
+    client = TimberbotClient(host=httpserver.host, port=httpserver.port)
+    with pytest.raises(AuthenticationError) as exc_info:
+        client.summary()
+    assert exc_info.value.code == "unauthorized"
+    assert "missing or invalid bearer token" in exc_info.value.error
+    # AuthenticationError is a TimberbotError subclass — generic handlers still work.
+    assert isinstance(exc_info.value, TimberbotError)
+
+
+def test_client_401_post_raises_authentication_error(httpserver, monkeypatch):
+    monkeypatch.delenv("TBOT_AUTH_TOKEN", raising=False)
+    httpserver.expect_request("/api/speed", method="POST").respond_with_json(
+        {"error": "unauthorized: missing or invalid bearer token"},
+        status=401,
+    )
+    client = TimberbotClient(host=httpserver.host, port=httpserver.port)
+    with pytest.raises(AuthenticationError):
+        client.set_speed(2)
+
+
+def test_client_401_with_unparseable_body_synthesises_error(httpserver, monkeypatch):
+    """If the server returns a non-JSON 401 body we still raise AuthenticationError."""
+    monkeypatch.delenv("TBOT_AUTH_TOKEN", raising=False)
+    httpserver.expect_request("/api/summary").respond_with_data(
+        "Unauthorized", status=401, content_type="text/plain",
+    )
+    client = TimberbotClient(host=httpserver.host, port=httpserver.port)
+    with pytest.raises(AuthenticationError) as exc_info:
+        client.summary()
+    assert exc_info.value.code == "unauthorized"

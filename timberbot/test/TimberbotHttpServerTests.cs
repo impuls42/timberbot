@@ -97,15 +97,17 @@ namespace Timberbot.Tests
             Assert.Contains("AgentState.Ready", src);
             Assert.Contains("GameNotReadyJson", src);
 
-            // The gate must run before the inline /api/ping shortcut so a
+            // The gate must run before the inline /api/ping handler so a
             // non-whitelisted POST that arrives while ready=false can't slip
-            // through into the queue.
+            // through into the queue. (Note: auth-check carves /api/ping out
+            // earlier in the loop with `path != "/api/ping"`; we look for the
+            // equality form to find the actual handler dispatch.)
             int gateIdx = src.IndexOf("TimberbotAgentState.IsGateExempt", StringComparison.Ordinal);
-            int pingIdx = src.IndexOf("\"/api/ping\"", StringComparison.Ordinal);
+            int pingHandlerIdx = src.IndexOf("path == \"/api/ping\"", StringComparison.Ordinal);
             Assert.InRange(gateIdx, 0, int.MaxValue);
-            Assert.InRange(pingIdx, 0, int.MaxValue);
-            Assert.True(gateIdx < pingIdx,
-                "Ready-gate middleware must run before the inline /api/ping shortcut.");
+            Assert.InRange(pingHandlerIdx, 0, int.MaxValue);
+            Assert.True(gateIdx < pingHandlerIdx,
+                "Ready-gate middleware must run before the inline /api/ping handler.");
         }
 
         [Fact]
