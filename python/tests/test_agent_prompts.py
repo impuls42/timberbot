@@ -13,7 +13,8 @@ def test_packaged_prompts_present():
     # beaver-developer is a repo-local dev-agent (under `agents/` at the
     # repo root), not a shipped prompt — it targets this codebase, not
     # gameplay, so it doesn't get packaged with the `timberbot` wheel.
-    assert names == {"timberbot", "wirer", "auditor", "scout"}
+    # `connector-mode` is the mode-aware preamble prepended by `tbot watch`.
+    assert names == {"timberbot", "wirer", "auditor", "scout", "connector-mode"}
 
 
 def test_load_packaged_prompt_with_and_without_md_suffix():

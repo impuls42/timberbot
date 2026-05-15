@@ -114,18 +114,27 @@ def run_agent(
     terminal_prefix: str | None = None,
     attach_url: str | None = None,
     prompt_name: str = "timberbot",
+    extra_prompt_names: list[str] | None = None,
     client: TimberbotClient | None = None,
     user_config_dir: Path | None = None,
     log: Callable[[str], None] | None = None,
+    check_connection: bool = True,
 ) -> int:
     """End-to-end agent launch. Returns the agent process exit code.
 
     1. Resolve the backend (merging `[backends.<name>]` defaults from
        `~/.config/timberbot/config.toml` under any explicit args).
     2. Fetch live colony state via `TimberbotClient.brain(goal)`.
-    3. Load the prompt (user config dir wins over packaged).
+    3. Load the prompt (user config dir wins over packaged), optionally
+       prepending any `extra_prompt_names` (e.g. mode-aware fragments from
+       `tbot watch`).
     4. Write merged `agent-instructions.md` to the config dir.
     5. Dispatch to backend.run().
+
+    `check_connection`: when True (the default, used by `tbot agent run`),
+    issue a one-shot `client.ping()` and return code 2 if the mod is not
+    reachable. The `tbot watch` connector owns its own reconnect loop and
+    sets this False since it has already verified the connection.
     """
     if log is None:
         log = _default_log
@@ -157,12 +166,17 @@ def run_agent(
     )
 
     client = client or TimberbotClient(json_mode=True)
-    if not client.ping():
+    if check_connection and not client.ping():
         log("error: cannot reach Timberbot HTTP API. is Timberborn running with the mod?")
         return 2
 
     colony_state = render_colony_state(client, goal=goal)
     prompt_text = load_prompt(prompt_name, config_dir=cd)
+    if extra_prompt_names:
+        # Prepend each extra fragment ahead of the main prompt. They share the
+        # `{config_dir}/agent_prompts/{name}.md` lookup path so user edits win.
+        fragments = [load_prompt(n, config_dir=cd) for n in extra_prompt_names]
+        prompt_text = "\n\n".join([*[f.rstrip() for f in fragments], prompt_text])
     instructions_file = build_merged_instructions(
         prompt_text=prompt_text,
         colony_state=colony_state,
