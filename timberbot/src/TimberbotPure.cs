@@ -146,55 +146,12 @@ namespace Timberbot
             return "'" + value.Replace("'", "'\"'\"'") + "'";
         }
 
-        // Build the argv list passed to `tbot agent run`. The C# launcher shells
-        // out to the Python `tbot` CLI for all agent orchestration; this is the
-        // one argv-building step left on the C# side. Returns an argv list so
-        // callers can pass it to ProcessStartInfo.ArgumentList directly
-        // (UseShellExecute=false) and avoid OS-shell quoting hazards.
-        public static List<string> BuildTbotAgentRunArgv(
-            string backend,
-            string goal,
-            string model,
-            string effort,
-            string commandTemplate)
-        {
-            var args = new List<string> { "agent", "run", "--backend", backend ?? "claude", "--goal", goal ?? "" };
-            if (!string.IsNullOrEmpty(model))
-            {
-                args.Add("--model");
-                args.Add(model);
-            }
-            if (!string.IsNullOrEmpty(effort))
-            {
-                args.Add("--effort");
-                args.Add(effort);
-            }
-            if (!string.IsNullOrEmpty(commandTemplate))
-            {
-                args.Add("--command");
-                args.Add(commandTemplate);
-            }
-            return args;
-        }
-
-        // Human-readable rendering of `BuildTbotAgentRunArgv` for log lines and
-        // the in-game panel's `currentCmd` field. Quoting is best-effort and
-        // only used for display — the launched argv goes through ArgumentList.
-        public static string FormatArgvForDisplay(IReadOnlyList<string> argv)
-        {
-            if (argv == null || argv.Count == 0) return "";
-            var sb = new StringBuilder();
-            for (int i = 0; i < argv.Count; i++)
-            {
-                if (i > 0) sb.Append(' ');
-                var a = argv[i] ?? "";
-                if (a.Length == 0 || a.IndexOfAny(new[] { ' ', '"', '\\' }) >= 0)
-                    sb.Append(QuoteArg(a));
-                else
-                    sb.Append(a);
-            }
-            return sb.ToString();
-        }
+        // BuildTbotAgentRunArgv / FormatArgvForDisplay used to live here. The
+        // mod no longer spawns `tbot agent run` from C#: the new architecture
+        // (see #12) inverts the relationship — the Python `tbot watch`
+        // connector polls the mod, and the player drives the agent via the
+        // in-game widget's Launch button (POST /api/ready). With the spawn
+        // path gone, the argv builder and its display formatter went with it.
 
         public static bool ValidateWebhookUrlFormat(string url, out string error)
         {

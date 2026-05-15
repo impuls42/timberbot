@@ -40,7 +40,6 @@ namespace Timberbot
         // Widget/connector state container. Persisted fields live in
         // state.json (loaded in Load(), flushed by FlushAgentState).
         public readonly TimberbotAgentState AgentState = new TimberbotAgentState();
-        public TimberbotAgent Agent;
         private TimberbotHttpServer _server;
         private string _agentStatePath;
         private float _agentStateDirtyTime = -1f;
@@ -48,6 +47,13 @@ namespace Timberbot
         // heartbeated within TimberbotAgentState.HeartbeatTimeout. Sentinel
         // value lets the first frame run unconditionally.
         private float _lastWebhookExpiryCheck = float.MinValue;
+
+        // Exposed so TimberbotPanel can build a localhost client URL to call the
+        // new /api/agent/* + /api/ready endpoints owned by the state container
+        // (Unit 1). The widget hits its own HTTP surface like any other client,
+        // which keeps the gate semantics symmetrical with external connectors.
+        public int HttpPort => _httpPort;
+        public string ListenAddress => _listenAddress;
 
         // settings (loaded from settings.json in mod folder)
         private bool _debugEnabled = false;       // enable /api/debug endpoint (default: off)
@@ -59,7 +65,6 @@ namespace Timberbot
         private int _webhookCircuitBreaker = 30;
         private int _webhookMaxPendingEvents = 1000;
         private double _writeBudgetMs = 1.0;
-        private string _tbotCommand = "";        // optional override for the `tbot` console-script path
         // security settings
         // IPv4 literal — avoids the `localhost` AAAA/A resolution split, which
         // can have HttpListener bind to ::1 on some platforms while clients
@@ -143,7 +148,6 @@ namespace Timberbot
             Placement.DetectFaction();          // detect faction suffix. must run before BuildAllIndexes
             Registry.BuildAllIndexes();        // populate indexes from existing entities
             ReadV2.BuildAll();          // populate v2 building trackers from existing entities
-            Agent = new TimberbotAgent(_tbotCommand);
             _server = new TimberbotHttpServer(_httpPort, this, _debugEnabled, _listenAddress, _corsOrigin, _maxBodyBytes, _authToken);
             TimberbotLog.Info($"HTTP server started on port {_httpPort}");
         }
@@ -183,8 +187,6 @@ namespace Timberbot
                         double budget = json.Value<double>("writeBudgetMs");
                         _writeBudgetMs = budget > 0 ? budget : 1.0;
                     }
-                    if (json["tbotCommand"] != null)
-                        _tbotCommand = json.Value<string>("tbotCommand") ?? "";
                     // security settings
                     if (json["listenAddress"] != null)
                         _listenAddress = json.Value<string>("listenAddress") ?? "127.0.0.1";
@@ -289,7 +291,6 @@ namespace Timberbot
             ReadV2.Unregister();
             Registry.Unregister();
             WebhookMgr.Unregister();
-            Agent?.Stop();
             _eventBus.Unregister(this);
             _server?.Stop();
             _server = null;
