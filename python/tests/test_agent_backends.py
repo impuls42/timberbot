@@ -56,8 +56,11 @@ def test_opencode_argv_starts_with_run(tmp_path):
     argv = b.build_argv(_ctx(tmp_path))
     assert argv[0] == "opencode"
     assert argv[1] == "run"
-    assert "--prompt-file" in argv
+    # opencode `run` has no --prompt-file flag, so the merged instructions are
+    # baked into the positional message. With no instructions file written the
+    # message is just the bare goal.
     assert argv[-1] == "reach 50 beavers"
+    assert "--attach" not in argv
 
 
 def test_custom_template_substitutes_placeholders(tmp_path):

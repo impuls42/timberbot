@@ -30,6 +30,11 @@ class AgentContext:
     effort: str | None = None
     binary_override: str | None = None
     terminal_prefix: str | None = None
+    # Optional URL of a long-running backend server to attach to instead of
+    # spawning a fresh process. Currently consumed only by the opencode
+    # backend (`opencode run --attach <url> ...`), but lives here so the
+    # AgentContext stays a single bag-of-options surface.
+    attach_url: str | None = None
     extra_env: dict[str, str] = field(default_factory=dict)
 
 

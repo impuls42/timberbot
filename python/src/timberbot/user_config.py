@@ -20,6 +20,10 @@ Schema::
 
     [backends.opencode]
     model = "glm-4.6"
+    # Optional: attach to a long-running `opencode serve` instance instead of
+    # spawning a fresh process per cycle (matches the Steam Deck / phone-driven
+    # workflow). Overridden by `tbot agent run --attach-url <url>`.
+    attach_url = "http://127.0.0.1:4096"
 
 Missing file or parse errors are non-fatal: the loader returns an empty
 mapping and the rest of the resolution chain fills in defaults. Each load

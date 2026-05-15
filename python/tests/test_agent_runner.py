@@ -108,7 +108,7 @@ def test_resolve_backend_defaults_explicit_wins(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     monkeypatch.setenv("TBOT_CONFIG_DIR", str(tmp_path))
-    model, effort, cmd, binary, prefix = runner._resolve_backend_defaults(
+    model, effort, cmd, binary, prefix, attach_url = runner._resolve_backend_defaults(
         "claude",
         model="from-cli",
         effort=None,
@@ -121,6 +121,7 @@ def test_resolve_backend_defaults_explicit_wins(tmp_path, monkeypatch):
     assert cmd is None
     assert binary is None
     assert prefix is None
+    assert attach_url is None
 
 
 def test_resolve_backend_defaults_unknown_backend_returns_passthrough(tmp_path, monkeypatch):
@@ -134,7 +135,7 @@ def test_resolve_backend_defaults_unknown_backend_returns_passthrough(tmp_path, 
         binary=None,
         terminal_prefix=None,
     )
-    assert out == ("cli-model", "cli-effort", None, None, None)
+    assert out == ("cli-model", "cli-effort", None, None, None, None)
 
 
 def test_run_agent_uses_config_toml_model(monkeypatch, tmp_path, httpserver):
