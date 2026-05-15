@@ -17,7 +17,7 @@ _USAGE = (
     "usage: tbot agent {run|list-backends|prompts} [...]\n"
     "  tbot agent run --goal STR --backend NAME [--model M] [--effort E] \\\n"
     "                 [--binary PATH] [--command TEMPLATE] [--terminal-prefix STR] \\\n"
-    "                 [--prompt NAME]\n"
+    "                 [--attach-url URL] [--prompt NAME]\n"
     "  tbot agent list-backends\n"
     "  tbot agent prompts\n"
 )
@@ -38,6 +38,11 @@ def _parse_run(args: list[str]) -> argparse.Namespace:
                    help='Required for --backend custom: argv template with {skill}/{instructions_file}/{prompt}/{prompt_file}/{model}/{effort} placeholders.')
     p.add_argument("--terminal-prefix", default=None,
                    help='Optional command prefix used to wrap the agent invocation. Supports {cwd}. Example: "wt -d {cwd} --".')
+    p.add_argument("--attach-url", dest="attach_url", default=None,
+                   help='Optional URL of a long-running backend server to attach to '
+                        '(currently only the opencode backend supports this, via '
+                        '`opencode run --attach <url>`). Overrides config.toml '
+                        '`[backends.<name>].attach_url`. Pass "" to clear a config default.')
     p.add_argument("--prompt", dest="prompt_name", default="timberbot",
                    help="Name of the system prompt to load (default: timberbot).")
     return p.parse_args(args)
@@ -54,6 +59,7 @@ def _cmd_run(args: list[str]) -> int:
             binary=ns.binary,
             command_template=ns.command_template,
             terminal_prefix=ns.terminal_prefix,
+            attach_url=ns.attach_url,
             prompt_name=ns.prompt_name,
         )
     except ValueError as e:
