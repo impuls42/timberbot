@@ -12,7 +12,7 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-from timberbot.paths import settings_path
+from timberbot.paths import TimberbotPathError, settings_path
 
 # Settings keys that PR 4 retires. Older user-managed settings.json files
 # still contain them; load_mod_settings() pops them and warns once per key
@@ -50,8 +50,20 @@ def _strip_deprecated(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_mod_settings(path: Path | None = None) -> dict[str, Any]:
-    """Read `settings.json`. Returns an empty dict if missing or unparseable."""
-    target = path or settings_path()
+    """Read `settings.json`. Returns an empty dict if missing or unparseable.
+
+    On machines without a Timberborn install, the resolver can't find a
+    Documents directory; we treat that as "no settings" (defaults apply)
+    rather than letting `TimberbotPathError` bubble up through every code
+    path that builds a `TimberbotClient`.
+    """
+    if path is None:
+        try:
+            target = settings_path()
+        except TimberbotPathError:
+            return {}
+    else:
+        target = path
     try:
         with open(target) as f:
             data = json.load(f)

@@ -81,7 +81,7 @@ curl -X POST http://localhost:8085/api/speed -d '{"speed": 3}'
 - [Timberbot AI](docs/timberbot.md). AI guide for agents playing Timberborn
 - [Architecture](docs/architecture.md). internals, thread model, read/write pipeline
 - [Automation Plan](docs/automation-plan.md). decompiled wiring API and `/api/automation/*` design
-- [Agent Prompts](python/src/timberbot/agent_prompts/). drop-in prompts for `timberbot`, `scout`, `wirer`, `auditor`, and `beaver-developer` workflows. Materialize editable copies into your user config dir with `tbot init`.
+- [Agent Prompts](python/src/timberbot/agent_prompts/). drop-in gameplay prompts (`timberbot`, `scout`, `wirer`, `auditor`). Materialize editable copies into your user config dir with `tbot init`. The development-agent prompt for working on this codebase lives separately at [`agents/beaver-developer.md`](agents/beaver-developer.md).
 - [Repo Guide](AGENTS.md). project layout, build commands, conventions
 - [Developing](docs/developing.md). build from source, add endpoints, Workshop publishing
 

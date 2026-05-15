@@ -179,7 +179,16 @@ Decompiled sources are not checked into the repo — generate them on demand fro
 
 ## Optional: OpenCode (for AI-assisted development)
 
-The repo ships drop-in prompts under `agents/` (`timberbot`, `scout`, `wirer`, `auditor`, `beaver-developer`) that work with OpenCode, Claude Code, or any agent runner that loads a markdown system prompt.
+Two prompt sets ship with this repo:
+
+- Gameplay prompts (`timberbot`, `scout`, `wirer`, `auditor`) live inside the
+  `timberbot` Python package at `python/src/timberbot/agent_prompts/` and are
+  exposed via `tbot init` / `tbot agent prompts`.
+- The development-agent prompt (`beaver-developer.md`) lives at repo root
+  under `agents/`. It targets *this codebase* (mod + CLI development), so it
+  doesn't ship inside the `timberbot` wheel.
+
+Both work with OpenCode, Claude Code, or any agent runner that loads a markdown system prompt.
 
 ### Install
 
@@ -190,7 +199,11 @@ curl -fsSL https://opencode.ai/install | bash
 
 ### Configure
 
-Point your agent runner at the relevant file in `python/src/tbot/agent_prompts/` (or at the editable copies created by `tbot init` in your user config dir). The Beaver Developer prompt (`beaver-developer.md`) is tuned for working on this codebase itself; the others target gameplay roles.
+Point your agent runner at the relevant file:
+
+- gameplay roles: `python/src/timberbot/agent_prompts/<role>.md`, or the
+  editable copies created by `tbot init` in your user config dir.
+- mod/CLI development: `agents/beaver-developer.md` at the repo root.
 
 ---
 

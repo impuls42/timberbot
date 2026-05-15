@@ -18,12 +18,28 @@ from timberbot.paths import memory_base, sanitize_name
 
 
 class SettlementContext:
-    """Disk-backed memory for one settlement."""
+    """Disk-backed memory for one settlement.
+
+    The base directory is resolved lazily so that constructing a
+    SettlementContext on a machine without Timberborn installed (e.g. CI)
+    doesn't raise just because the resolver can't find a Documents dir.
+    Operations that actually read/write disk will surface the underlying
+    `TimberbotPathError` if a base was never supplied.
+    """
 
     def __init__(self, settlement: str, base: Path | None = None) -> None:
         self.settlement = sanitize_name(settlement)
-        self.base = base or memory_base()
-        self.memory_dir = self.base / self.settlement
+        self._base_override = base
+
+    @property
+    def base(self) -> Path:
+        if self._base_override is not None:
+            return self._base_override
+        return memory_base()
+
+    @property
+    def memory_dir(self) -> Path:
+        return self.base / self.settlement
 
     @property
     def brain_path(self) -> Path:
