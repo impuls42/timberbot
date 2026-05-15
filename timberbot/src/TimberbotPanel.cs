@@ -1,7 +1,26 @@
-// TimberbotPanel.cs. In-game UI for agent start/stop/status.
+// TimberbotPanel.cs. In-game UI: connection-state pill + Launch/Stop gate + mode-aware agent tab.
+//
+// The widget no longer spawns a subprocess. Instead it is a thin client over
+// the mod's own HTTP surface (Unit 1 in the rework — issue #13):
+//
+//   GET  /api/agent/state    -> {mode, goal, ready, pendingRequest, agentStatus, lastError}
+//   POST /api/agent/config   {mode?, goal?}      -> persist widget edits
+//   POST /api/agent/request  {prompt}            -> queue a one-shot request in request-mode
+//   POST /api/ready          {ready: bool}       -> Launch / Stop ready gate
+//
+// The widget polls /api/agent/state every ~500ms from a background ThreadPool
+// task (HttpClient.SendAsync) and stashes the latest parsed snapshot in
+// _latestState. UpdateSingleton runs on the Unity main thread and reads that
+// snapshot to drive UI labels and the connection-state pill colour.
 
+using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Net.Http;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using Timberborn.CoreUI;
 using Timberborn.SingletonSystem;
 using Timberborn.UILayoutSystem;
@@ -17,8 +36,10 @@ namespace Timberbot
         private readonly VisualElementInitializer _veInit;
 
         private VisualElement _widget;
+        private Label _statusPill;
         private Label _statusBarLabel;
-        private NineSliceButton _widgetStartBtn;
+        private Label _widgetBanner;
+        private NineSliceButton _widgetLaunchBtn;
         private NineSliceButton _widgetStopBtn;
         private NineSliceButton _widgetEditBtn;
         private NineSliceButton _widgetMinimizeBtn;
@@ -36,9 +57,22 @@ namespace Timberbot
         private NineSliceButton _startupTabBtn;
         private NineSliceButton _securityTabBtn;
 
-        private TextField _binaryField;
-        private NineSliceButton _binaryPresetBtn;
-        private TextField _goalField;
+        // Agent tab — Unit 6 layout. The Backend / Model / Effort knobs moved to
+        // ~/.config/timberbot/config.toml in PR 4; the in-game tab now exposes
+        // the runtime state the player can change: mode + the mode-bound text
+        // buffer (Goal in autonomous mode, request prompt in request mode).
+        private TextField _modeField;
+        private NineSliceButton _modePresetBtn;
+        private TextField _textareaField;
+        private NineSliceButton _modalLaunchBtn;
+        private string _lastTextareaSavedValue;
+        private float _goalDirtyTime = -1f;
+        private string _currentMode = ModeAutonomous;
+        // Request-mode draft survives a mode flip-flop. Cleared only on
+        // Launch (the prompt has been sent) so the player never loses a
+        // typed prompt by accidentally toggling the dropdown.
+        private string _requestDraft = "";
+
         private TextField _debugEndpointField;
         private NineSliceButton _debugEndpointPresetBtn;
         private TextField _httpPortField;
@@ -89,15 +123,27 @@ namespace Timberbot
         private float _lastUpdate;
         private string _activeSettingsTab = "agent";
 
-        // Backend list mirrors the names registered in the Python `tbot agent`
-        // CLI. Model/effort defaults now live on each backend in Python; the
-        // in-game panel only chooses which backend to launch.
-        private static readonly string[][] BinaryChoices = new[]
+        // State-polling machinery. UpdateSingleton kicks off a /api/agent/state
+        // fetch every ~500ms on a background ThreadPool task and stashes the
+        // result for the next UI tick to render. _pollInFlight prevents
+        // overlapping polls if the server stalls.
+        private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(500);
+        private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+        private string _baseUrl;
+        private DateTime _lastPollAt = DateTime.MinValue;
+        private volatile int _pollInFlight;
+        private volatile JObject _latestState;
+        private volatile bool _lastPollOk;
+
+        // Agent mode values land in /api/agent/config {mode: ...} verbatim
+        // and must match the openapi.yaml enum on the server side.
+        private const string ModeAutonomous = "autonomous";
+        private const string ModeRequest = "request";
+
+        private static readonly string[][] ModeChoices = new[]
         {
-            new[] { "claude", "claude" },
-            new[] { "codex", "codex" },
-            new[] { "opencode", "opencode" },
-            new[] { "custom", "custom" },
+            new[] { "Autonomous", ModeAutonomous },
+            new[] { "Request",    ModeRequest },
         };
 
         private static readonly string[][] BoolChoices = new[]
@@ -118,12 +164,21 @@ namespace Timberbot
             new[] { "* (any origin)", "*" },
         };
 
-        private const string DefaultBinary = "claude";
+        private const string DefaultGoal = "reach 50 beavers with 77 well-being";
+
+        // Connection-state pill colours. Hex chosen to match the four other
+        // game-text-* swatches so the pill reads as a status bar element, not
+        // a foreign UI bolt-on.
+        private static readonly Color PillColorDisconnected = new Color(0.85f, 0.30f, 0.30f); // red
+        private static readonly Color PillColorNotReady     = new Color(0.95f, 0.80f, 0.25f); // yellow
+        private static readonly Color PillColorIdle         = new Color(0.40f, 0.80f, 0.45f); // green
+        private static readonly Color PillColorRunning      = new Color(0.40f, 0.65f, 0.95f); // blue
+        private static readonly Color PillColorError        = new Color(0.95f, 0.55f, 0.20f); // orange
 
         private static readonly Dictionary<string, string> SettingTooltips = new Dictionary<string, string>
         {
-            ["Backend:"] = "Which agent backend `tbot agent run` launches. Built-in: claude, codex, opencode. Use 'custom' to invoke a backend defined in ~/.config/timberbot/config.toml.",
-            ["Goal:"] = "Initial task sent to the agent after it prints the boot report. The merged system prompt also includes the guide and current colony state.",
+            ["Mode:"] = "Autonomous: the agent works toward Goal continuously. Request: the agent stays idle until you click Launch to dispatch a one-shot prompt.",
+            ["Goal / Prompt:"] = "Autonomous mode: long-running objective. Request mode: the next one-shot prompt — cleared after Launch sends it.",
             ["actionLoggingEnabled:"] = "Logs agent write/placement actions to the in-game console panel. Takes effect immediately.",
             ["debugEndpointEnabled:"] = "Enables debug and benchmark endpoints such as /api/debug and /api/benchmark. Reload save to apply.",
             ["httpPort:"] = "HTTP server port Timberbot listens on. The Python client reads this by default from settings.json. Reload save to apply.",
@@ -148,6 +203,12 @@ namespace Timberbot
 
         public void Load()
         {
+            // Always target the loopback interface — the widget runs in-process
+            // with the HttpListener, and the default settings.json bind is
+            // 127.0.0.1, so even when listenAddress is set to "+"/"0.0.0.0" the
+            // loopback path still works and avoids LAN round-trips.
+            _baseUrl = $"http://127.0.0.1:{_service.HttpPort}";
+
             BuildWidget();
             BuildModal();
             BuildConsole();
@@ -177,23 +238,143 @@ namespace Timberbot
             if (_widget == null)
                 return;
 
+            MaybeKickStatePoll();
+            FlushPendingGoalSave();
+            RefreshConnectionUi();
+        }
+
+        // Fires off a /api/agent/state fetch every PollInterval. The fetch runs
+        // on a ThreadPool task so the Unity main thread keeps ticking even if
+        // the listener stalls (the listener itself answers GETs off the main
+        // thread, but the timeout-budget guarantee is still nice to have).
+        private void MaybeKickStatePoll()
+        {
+            var now = DateTime.UtcNow;
+            if (now - _lastPollAt < PollInterval) return;
+            if (Interlocked.CompareExchange(ref _pollInFlight, 1, 0) != 0) return;
+            _lastPollAt = now;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var resp = await _http.GetAsync(_baseUrl + "/api/agent/state").ConfigureAwait(false);
+                    var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    if (!resp.IsSuccessStatusCode)
+                    {
+                        _lastPollOk = false;
+                        return;
+                    }
+                    _latestState = JObject.Parse(body);
+                    _lastPollOk = true;
+                }
+                catch (Exception)
+                {
+                    // Connector likely not registered yet, or the listener
+                    // is mid-restart. The pill drops to Disconnected; we
+                    // don't spam the log because poll failure is the steady
+                    // state when no game session is bound.
+                    _lastPollOk = false;
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _pollInFlight, 0);
+                }
+            });
+        }
+
+        // Autonomous-mode goal: debounced save. The textarea triggers a value
+        // event every keystroke; we mark the time and only push to the server
+        // after 1s of quiet — matches the runtime-settings debounce cadence.
+        private void FlushPendingGoalSave()
+        {
+            if (_goalDirtyTime < 0f) return;
+            if (Time.realtimeSinceStartup - _goalDirtyTime < 1f) return;
+            _goalDirtyTime = -1f;
+            if (_currentMode != ModeAutonomous) return;
+
+            var goal = _textareaField?.value ?? "";
+            if (goal == _lastTextareaSavedValue) return;
+            _lastTextareaSavedValue = goal;
+            _service.SaveUISetting("agentGoal", goal);  // local mirror for the next session boot
+            PostJsonAsync("/api/agent/config", new JObject { ["goal"] = goal });
+        }
+
+        private void RefreshConnectionUi()
+        {
             float now = Time.realtimeSinceStartup;
-            if (now - _lastUpdate < 0.5f)
+            if (now - _lastUpdate < 0.25f)
                 return;
             _lastUpdate = now;
 
-            var agent = _service.Agent;
-            if (agent == null)
-                return;
+            var state = _latestState;
+            var pollOk = _lastPollOk;
+            var (pill, gateOn) = TimberbotPure.ClassifyConnection(pollOk, state);
 
-            var status = agent.CurrentStatus;
-            var statusText = FormatStatus(agent);
-            var running = status == AgentStatus.GatheringState || status == AgentStatus.Interactive;
+            if (_statusPill != null)
+            {
+                _statusPill.text = PillText(pill);
+                _statusPill.style.backgroundColor = PillColor(pill);
+            }
+            if (_statusBarLabel != null)
+                _statusBarLabel.text = "Timberbot API";
+            if (_widgetBanner != null)
+            {
+                bool showBanner = pollOk && !gateOn;
+                _widgetBanner.ToggleDisplayStyle(showBanner);
+            }
+            if (_widgetLaunchBtn != null)
+                _widgetLaunchBtn.SetEnabled(pollOk && !gateOn);
+            if (_widgetStopBtn != null)
+                _widgetStopBtn.SetEnabled(pollOk && gateOn);
 
-            _statusBarLabel.text = "Timberbot API - " + statusText;
+            // Mirror the server-side mode + goal into the modal fields when the
+            // tab is open and the user isn't actively typing. The dirty-time
+            // gate prevents the poll-loop from clobbering uncommitted edits.
+            if (state != null && _modeField != null && _goalDirtyTime < 0f)
+            {
+                var serverMode = state.Value<string>("mode") ?? ModeAutonomous;
+                if (serverMode != _modeField.value)
+                {
+                    _modeField.SetValueWithoutNotify(serverMode);
+                    SyncTextareaForMode(serverMode, state);
+                }
+                if (serverMode == ModeAutonomous)
+                {
+                    var serverGoal = state.Value<string>("goal") ?? "";
+                    if (_textareaField != null && _textareaField.value != serverGoal)
+                    {
+                        _textareaField.SetValueWithoutNotify(serverGoal);
+                        _lastTextareaSavedValue = serverGoal;
+                    }
+                }
+            }
+        }
 
-            _widgetStartBtn.SetEnabled(!running);
-            _widgetStopBtn.SetEnabled(running);
+        private static string PillText(TimberbotPure.ConnectionPillState pill)
+        {
+            switch (pill)
+            {
+                case TimberbotPure.ConnectionPillState.Disconnected: return "Disconnected";
+                case TimberbotPure.ConnectionPillState.NotReady:     return "Not Ready";
+                case TimberbotPure.ConnectionPillState.Idle:         return "Idle";
+                case TimberbotPure.ConnectionPillState.Running:      return "Running";
+                case TimberbotPure.ConnectionPillState.Error:        return "Error";
+                default:                                             return "Disconnected";
+            }
+        }
+
+        private static Color PillColor(TimberbotPure.ConnectionPillState pill)
+        {
+            switch (pill)
+            {
+                case TimberbotPure.ConnectionPillState.Disconnected: return PillColorDisconnected;
+                case TimberbotPure.ConnectionPillState.NotReady:     return PillColorNotReady;
+                case TimberbotPure.ConnectionPillState.Idle:         return PillColorIdle;
+                case TimberbotPure.ConnectionPillState.Running:      return PillColorRunning;
+                case TimberbotPure.ConnectionPillState.Error:        return PillColorError;
+                default:                                             return PillColorDisconnected;
+            }
         }
 
         private void BuildWidget()
@@ -223,7 +404,23 @@ namespace Timberbot
             headerRow.style.flexDirection = FlexDirection.Row;
             headerRow.style.alignItems = Align.Center;
 
-            _statusBarLabel = new NineSliceLabel { text = "Timberbot API - Idle" };
+            _statusPill = new Label("Disconnected");
+            _statusPill.AddToClassList("game-text-normal");
+            _statusPill.AddToClassList("text--bold");
+            _statusPill.style.color = Color.white;
+            _statusPill.style.backgroundColor = PillColorDisconnected;
+            _statusPill.style.paddingLeft = 8;
+            _statusPill.style.paddingRight = 8;
+            _statusPill.style.paddingTop = 2;
+            _statusPill.style.paddingBottom = 2;
+            _statusPill.style.marginRight = 6;
+            _statusPill.style.borderTopLeftRadius = 6;
+            _statusPill.style.borderTopRightRadius = 6;
+            _statusPill.style.borderBottomLeftRadius = 6;
+            _statusPill.style.borderBottomRightRadius = 6;
+            headerRow.Add(_statusPill);
+
+            _statusBarLabel = new NineSliceLabel { text = "Timberbot API" };
             _statusBarLabel.AddToClassList("text--yellow");
             _statusBarLabel.AddToClassList("game-text-normal");
             _statusBarLabel.style.flexGrow = 1;
@@ -241,6 +438,18 @@ namespace Timberbot
 
             _widget.Add(headerRow);
 
+            // Banner shown when the connector is talking to us but the gate is
+            // off — tells the player the connector is alive and waiting for
+            // them to flip Launch.
+            _widgetBanner = new NineSliceLabel { text = "Connected to game session — waiting for player to Launch." };
+            _widgetBanner.AddToClassList("text--green");
+            _widgetBanner.AddToClassList("game-text-normal");
+            _widgetBanner.style.whiteSpace = WhiteSpace.Normal;
+            _widgetBanner.style.maxWidth = 260;
+            _widgetBanner.style.marginTop = 4;
+            _widgetBanner.style.display = DisplayStyle.None;
+            _widget.Add(_widgetBanner);
+
             _widgetButtonRow = new VisualElement();
             _widgetButtonRow.style.flexDirection = FlexDirection.Row;
             _widgetButtonRow.style.justifyContent = Justify.Center;
@@ -248,10 +457,10 @@ namespace Timberbot
             _widgetButtonRow.style.marginTop = 4;
             _widgetButtonRow.style.display = _widgetMinimized ? DisplayStyle.None : DisplayStyle.Flex;
 
-            _widgetStartBtn = MakeGameButton("Start", OnStartClicked);
-            _widgetStartBtn.style.width = 58;
-            _widgetStartBtn.style.marginRight = 4;
-            _widgetButtonRow.Add(_widgetStartBtn);
+            _widgetLaunchBtn = MakeGameButton("Launch", OnLaunchClicked);
+            _widgetLaunchBtn.style.width = 72;
+            _widgetLaunchBtn.style.marginRight = 4;
+            _widgetButtonRow.Add(_widgetLaunchBtn);
 
             _widgetStopBtn = MakeGameButton("Stop", OnStopClicked);
             _widgetStopBtn.style.width = 58;
@@ -354,8 +563,7 @@ namespace Timberbot
             _securitySettingsContainer.style.flexDirection = FlexDirection.Column;
             _settingsContainer.Add(_securitySettingsContainer);
 
-            var savedBinary = NormalizeValue(_service.GetUISetting("agentBinary"), DefaultBinary);
-            var savedGoal = _service.GetUISetting("agentGoal") ?? "reach 50 beavers with 77 well-being";
+            var savedGoal = _service.GetUISetting("agentGoal") ?? DefaultGoal;
             var savedActionLoggingEnabled = NormalizeBoolString(_service.GetUISetting("actionLoggingEnabled"), true);
             var savedDebugEndpointEnabled = NormalizeBoolString(_service.GetUISetting("debugEndpointEnabled"), false);
             var savedHttpPort = NormalizeValue(_service.GetUISetting("httpPort"), "8085");
@@ -365,35 +573,49 @@ namespace Timberbot
             var savedWebhookMaxPendingEvents = NormalizeValue(_service.GetUISetting("webhookMaxPendingEvents"), "1000");
             var savedWriteBudgetMs = NormalizeValue(_service.GetUISetting("writeBudgetMs"), "1.0");
 
-            _binaryField = MakeTextField(savedBinary);
-            _binaryField.RegisterValueChangedCallback(evt =>
-            {
-                var binary = NormalizeValue(evt.newValue, DefaultBinary);
-                _service.SaveUISetting("agentBinary", binary);
-            });
-            _binaryPresetBtn = MakePresetButton("v", () => TogglePresetMenu(_binaryPresetBtn, _binaryField, BinaryChoices));
-            _agentSettingsContainer.Add(MakePresetFieldRow("Backend:", _binaryField, _binaryPresetBtn));
+            _agentSettingsContainer.Add(MakeHintLabel(
+                "Backend / model / effort moved to ~/.config/timberbot/config.toml. " +
+                "Use the Launch button to flip the ready gate; the connector handles spawning the agent."));
 
-            _goalField = MakeTextField(savedGoal);
-            _goalField.multiline = true;
-            _goalField.style.height = 80;
-            _goalField.style.flexShrink = 1;
-            _goalField.style.maxWidth = 240;
-            _goalField.style.whiteSpace = WhiteSpace.Normal;
-            // ensure inner text element wraps too
-            var goalInput = _goalField.Q("unity-text-input");
-            if (goalInput != null)
-                goalInput.style.whiteSpace = WhiteSpace.Normal;
-            _goalField.RegisterValueChangedCallback(evt => _service.SaveUISetting("agentGoal", evt.newValue));
-            _agentSettingsContainer.Add(MakeFieldRow("Goal:", _goalField));
+            _modeField = MakeTextField(ModeAutonomous);
+            _modeField.RegisterValueChangedCallback(evt =>
+            {
+                var mode = NormalizeMode(evt.newValue);
+                _modeField.SetValueWithoutNotify(mode);
+                if (mode == _currentMode) return;
+                _currentMode = mode;
+                SyncTextareaForMode(mode, _latestState);
+                PostJsonAsync("/api/agent/config", new JObject { ["mode"] = mode });
+            });
+            _modePresetBtn = MakePresetButton("v", () => TogglePresetMenu(_modePresetBtn, _modeField, ModeChoices));
+            _agentSettingsContainer.Add(MakePresetFieldRow("Mode:", _modeField, _modePresetBtn));
+
+            _textareaField = MakeTextField(savedGoal);
+            _textareaField.multiline = true;
+            _textareaField.style.height = 100;
+            _textareaField.style.flexShrink = 1;
+            _textareaField.style.maxWidth = 240;
+            _textareaField.style.whiteSpace = WhiteSpace.Normal;
+            var textareaInner = _textareaField.Q("unity-text-input");
+            if (textareaInner != null)
+                textareaInner.style.whiteSpace = WhiteSpace.Normal;
+            _textareaField.RegisterValueChangedCallback(evt =>
+            {
+                if (_currentMode == ModeRequest)
+                    _requestDraft = evt.newValue ?? "";
+                else
+                    _goalDirtyTime = Time.realtimeSinceStartup;
+            });
+            _lastTextareaSavedValue = savedGoal;
+            _agentSettingsContainer.Add(MakeFieldRow("Goal / Prompt:", _textareaField));
 
             var agentActionRow = new VisualElement();
             agentActionRow.style.flexDirection = FlexDirection.Row;
             agentActionRow.style.justifyContent = Justify.FlexEnd;
             agentActionRow.style.marginTop = 6;
-            var modalStartBtn = MakeGameButton("Start", OnModalStartClicked);
-            modalStartBtn.style.width = 70;
-            agentActionRow.Add(modalStartBtn);
+            _modalLaunchBtn = MakeGameButton("Launch", OnModalLaunchClicked);
+            _modalLaunchBtn.style.width = 78;
+            agentActionRow.Add(_modalLaunchBtn);
             _agentSettingsContainer.Add(agentActionRow);
 
             _runtimeSettingsContainer.Add(MakeHintLabel("Timberborn must be restarted or save loaded after changing these settings."));
@@ -470,7 +692,7 @@ namespace Timberbot
             {
                 var value = NormalizeDoubleString(evt.newValue, 1.0, 0.001);
                 _writeBudgetMsField.SetValueWithoutNotify(value);
-                _service.SaveDoubleSetting("writeBudgetMs", double.Parse(value, System.Globalization.CultureInfo.InvariantCulture));
+                _service.SaveDoubleSetting("writeBudgetMs", double.Parse(value, CultureInfo.InvariantCulture));
             });
             _runtimeSettingsContainer.Add(MakeFieldRow("writeBudgetMs:", _writeBudgetMsField));
 
@@ -628,8 +850,8 @@ namespace Timberbot
 
             _isWidgetDragging = false;
             _statusBarLabel.ReleasePointer(evt.pointerId);
-            _service.SaveUISetting("widgetLeft", _widget.resolvedStyle.left.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            _service.SaveUISetting("widgetTop", _widget.resolvedStyle.top.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            _service.SaveUISetting("widgetLeft", _widget.resolvedStyle.left.ToString(CultureInfo.InvariantCulture));
+            _service.SaveUISetting("widgetTop", _widget.resolvedStyle.top.ToString(CultureInfo.InvariantCulture));
             evt.StopPropagation();
         }
 
@@ -692,28 +914,29 @@ namespace Timberbot
             HideTooltip();
         }
 
-        private void OnStartClicked()
+        private void OnLaunchClicked()
         {
-            var agent = _service.Agent;
-            if (agent == null)
-                return;
-
-            var binary = NormalizeValue(_binaryField.value, "claude");
-            var goal = _goalField.value;
-
-            // Model, effort, and custom command template live in
-            // ~/.config/timberbot/config.toml (via the Python agent backends)
-            // since PR 4. Pass them as empty so each backend's own defaults
-            // kick in; the player can still override via `tbot agent run`.
-            agent.Start(binary, model: null, effort: null, timeout: 120, goal: goal);
-            TimberbotLog.Info($"panel: started agent binary={binary}");
             HidePresetMenu();
+            // In request mode the Launch button doubles as Send: post the
+            // textarea contents as the next one-shot prompt before flipping
+            // the gate, so the connector finds the slot already filled when
+            // it heartbeats next.
+            if (_currentMode == ModeRequest && _textareaField != null && !string.IsNullOrWhiteSpace(_textareaField.value))
+            {
+                var prompt = _textareaField.value;
+                PostJsonAsync("/api/agent/request", new JObject { ["prompt"] = prompt });
+                _textareaField.SetValueWithoutNotify("");
+                _lastTextareaSavedValue = "";
+                _requestDraft = "";
+            }
+            PostJsonAsync("/api/ready", new JObject { ["ready"] = true });
+            TimberbotLog.Info("panel: launch (ready=true)");
         }
 
         private void OnStopClicked()
         {
-            _service.Agent?.Stop();
-            TimberbotLog.Info("panel: stopped agent");
+            PostJsonAsync("/api/ready", new JObject { ["ready"] = false });
+            TimberbotLog.Info("panel: stop (ready=false)");
         }
 
         private void OnMinimizeClicked()
@@ -742,9 +965,9 @@ namespace Timberbot
             }
         }
 
-        private void OnModalStartClicked()
+        private void OnModalLaunchClicked()
         {
-            OnStartClicked();
+            OnLaunchClicked();
             HideModal();
         }
 
@@ -919,17 +1142,51 @@ namespace Timberbot
 
         private static string NormalizeDoubleString(string value, double fallback, double minValue) => TimberbotPure.NormalizeDoubleString(value, fallback, minValue);
 
-        private static string FormatStatus(TimberbotAgent agent)
+        private static string NormalizeMode(string raw) => TimberbotPure.NormalizeMode(raw);
+
+        // Swap the textarea contents when the mode changes. Autonomous mode
+        // shows the persisted goal (so the player can edit it); request mode
+        // restores the in-progress prompt draft if there is one, otherwise
+        // starts empty. The draft is cleared only on Launch.
+        private void SyncTextareaForMode(string mode, JObject state)
         {
-            switch (agent.CurrentStatus)
+            if (_textareaField == null) return;
+            if (mode == ModeRequest)
             {
-                case AgentStatus.Idle: return "Idle";
-                case AgentStatus.Done: return "Done";
-                case AgentStatus.Error: return "Error";
-                case AgentStatus.GatheringState: return "Loading...";
-                case AgentStatus.Interactive: return "Running";
-                default: return agent.CurrentStatus.ToString();
+                _textareaField.SetValueWithoutNotify(_requestDraft ?? "");
+                _lastTextareaSavedValue = "";
             }
+            else
+            {
+                var goal = state?.Value<string>("goal") ?? _service.GetUISetting("agentGoal") ?? DefaultGoal;
+                _textareaField.SetValueWithoutNotify(goal);
+                _lastTextareaSavedValue = goal;
+            }
+        }
+
+        // Fire-and-forget JSON POST. Errors land in the log; the UI doesn't
+        // wait for the response because the state poll picks up the change on
+        // the next tick. ConfigureAwait(false) keeps us off the main thread.
+        private void PostJsonAsync(string path, JObject body)
+        {
+            var payload = body?.ToString(Newtonsoft.Json.Formatting.None) ?? "{}";
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+                    using var resp = await _http.PostAsync(_baseUrl + path, content).ConfigureAwait(false);
+                    if (!resp.IsSuccessStatusCode)
+                    {
+                        var bodyText = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        TimberbotLog.Info($"panel.post {path} -> {(int)resp.StatusCode}: {bodyText}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    TimberbotLog.Info($"panel.post {path} failed: {ex.GetType().Name}: {ex.Message}");
+                }
+            });
         }
 
         private static VisualElement MakeSeparator()

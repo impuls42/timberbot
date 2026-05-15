@@ -146,54 +146,92 @@ namespace Timberbot
             return "'" + value.Replace("'", "'\"'\"'") + "'";
         }
 
-        // Build the argv list passed to `tbot agent run`. The C# launcher shells
-        // out to the Python `tbot` CLI for all agent orchestration; this is the
-        // one argv-building step left on the C# side. Returns an argv list so
-        // callers can pass it to ProcessStartInfo.ArgumentList directly
-        // (UseShellExecute=false) and avoid OS-shell quoting hazards.
-        public static List<string> BuildTbotAgentRunArgv(
-            string backend,
-            string goal,
-            string model,
-            string effort,
-            string commandTemplate)
+        // BuildTbotAgentRunArgv / FormatArgvForDisplay used to live here. The
+        // mod no longer spawns `tbot agent run` from C#: the new architecture
+        // (see #12) inverts the relationship — the Python `tbot watch`
+        // connector polls the mod, and the player drives the agent via the
+        // in-game widget's Launch button (POST /api/ready). With the spawn
+        // path gone, the argv builder and its display formatter went with it.
+
+        // Connection-state pill rendered by TimberbotPanel. Extracted here so
+        // the classification logic can be unit-tested without dragging Unity
+        // (Color, VisualElement) into the test project.
+        public enum ConnectionPillState
         {
-            var args = new List<string> { "agent", "run", "--backend", backend ?? "claude", "--goal", goal ?? "" };
-            if (!string.IsNullOrEmpty(model))
-            {
-                args.Add("--model");
-                args.Add(model);
-            }
-            if (!string.IsNullOrEmpty(effort))
-            {
-                args.Add("--effort");
-                args.Add(effort);
-            }
-            if (!string.IsNullOrEmpty(commandTemplate))
-            {
-                args.Add("--command");
-                args.Add(commandTemplate);
-            }
-            return args;
+            Disconnected,
+            NotReady,
+            Idle,
+            Running,
+            Error,
         }
 
-        // Human-readable rendering of `BuildTbotAgentRunArgv` for log lines and
-        // the in-game panel's `currentCmd` field. Quoting is best-effort and
-        // only used for display — the launched argv goes through ArgumentList.
-        public static string FormatArgvForDisplay(IReadOnlyList<string> argv)
+        // Maps the /api/agent/state poll outcome to the pill state + whether
+        // the gate is open. `gateOn=true` means the Stop button is the active
+        // half of the Launch/Stop pair, including when the state is Error so
+        // the player can always Stop out of a stuck cycle.
+        public static (ConnectionPillState pill, bool gateOn) ClassifyConnection(
+            bool pollOk, JObject state)
         {
-            if (argv == null || argv.Count == 0) return "";
-            var sb = new StringBuilder();
-            for (int i = 0; i < argv.Count; i++)
+            if (!pollOk || state == null)
+                return (ConnectionPillState.Disconnected, false);
+
+            var ready = state.Value<bool?>("ready") ?? false;
+            var lastError = state.Value<string>("lastError");
+            if (!string.IsNullOrEmpty(lastError))
+                return (ConnectionPillState.Error, ready);
+
+            if (!ready)
+                return (ConnectionPillState.NotReady, false);
+
+            var pending = state["pendingRequest"];
+            var hasPending = pending != null && pending.Type != JTokenType.Null;
+            var agentStatus = ExtractAgentStatusString(state["agentStatus"]);
+            var running = hasPending || IsAgentStatusBusy(agentStatus);
+            return running
+                ? (ConnectionPillState.Running, true)
+                : (ConnectionPillState.Idle, true);
+        }
+
+        // /api/agent/state ships agentStatus as a free-form object (mirrors the
+        // openapi.yaml schema). We treat the connector's "status" field as the
+        // authoritative string when present, else fall back to a top-level
+        // string. Returns lowercased value or "" when absent.
+        public static string ExtractAgentStatusString(JToken agentStatus)
+        {
+            if (agentStatus == null || agentStatus.Type == JTokenType.Null) return "";
+            if (agentStatus.Type == JTokenType.String) return ((string)agentStatus ?? "").ToLowerInvariant();
+            if (agentStatus is JObject obj)
             {
-                if (i > 0) sb.Append(' ');
-                var a = argv[i] ?? "";
-                if (a.Length == 0 || a.IndexOfAny(new[] { ' ', '"', '\\' }) >= 0)
-                    sb.Append(QuoteArg(a));
-                else
-                    sb.Append(a);
+                var s = obj.Value<string>("status");
+                if (!string.IsNullOrEmpty(s)) return s.ToLowerInvariant();
             }
-            return sb.ToString();
+            return "";
+        }
+
+        // Treat anything that isn't an obviously-idle status name as busy.
+        // Keeps the widget honest if the connector ships a new status verb.
+        public static bool IsAgentStatusBusy(string lowercased)
+        {
+            if (string.IsNullOrEmpty(lowercased)) return false;
+            switch (lowercased)
+            {
+                case "idle":
+                case "done":
+                case "ready":
+                case "disconnected":
+                    return false;
+                default:
+                    return true;
+            }
+        }
+
+        // Normalize the mode dropdown's text value to the openapi.yaml enum.
+        // Anything not exactly "request" (case-insensitive, trimmed) falls
+        // back to "autonomous".
+        public static string NormalizeMode(string raw)
+        {
+            var v = (raw ?? "").Trim().ToLowerInvariant();
+            return v == "request" ? "request" : "autonomous";
         }
 
         public static bool ValidateWebhookUrlFormat(string url, out string error)
