@@ -67,6 +67,17 @@ namespace Timberbot
             return string.IsNullOrWhiteSpace(authToken);
         }
 
+        // Normalize a configured auth token: null-coalesce + trim surrounding
+        // whitespace so the server-side value matches the trimming that
+        // ExtractBearerToken already applies to the client-presented value.
+        // Without this, `"authToken": " s3cret "` in settings.json would never
+        // match a client sending `Authorization: Bearer s3cret` because the
+        // length check in BearerTokenMatches fails before any comparison.
+        public static string NormalizeAuthToken(string authToken)
+        {
+            return (authToken ?? "").Trim();
+        }
+
         // Extract the token from a `Bearer <token>` Authorization header
         // value, or null if the scheme is missing / wrong / empty. Scheme
         // match is case-insensitive per RFC 7235.

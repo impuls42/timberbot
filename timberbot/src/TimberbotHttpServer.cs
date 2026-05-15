@@ -85,7 +85,7 @@ namespace Timberbot
             _service = service;
             _debugEnabled = debugEnabled;
             _maxBodyBytes = maxBodyBytes;
-            _authToken = authToken ?? "";
+            _authToken = TimberbotPure.NormalizeAuthToken(authToken);
             _postRoutes = BuildPostRoutes();
             _listener = new HttpListener();
 

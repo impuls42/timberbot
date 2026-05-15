@@ -222,4 +222,66 @@ namespace Timberbot.Tests
                 "Comparison is not constant-time enough — should use CryptographicOperations.FixedTimeEquals.");
         }
     }
+
+    // Server-side trim normalization. ExtractBearerToken already trims the
+    // client-presented token, so an un-trimmed `_authToken` loaded from
+    // settings.json with surrounding whitespace would never match a legitimate
+    // request (the length check in BearerTokenMatches would fail first). Both
+    // the TimberbotHttpServer constructor and the TimberbotService settings
+    // loader funnel their configured token through NormalizeAuthToken so the
+    // two sides stay symmetric.
+    public class NormalizeAuthTokenTests
+    {
+        [Fact]
+        public void Null_BecomesEmpty() =>
+            Assert.Equal("", TimberbotPure.NormalizeAuthToken(null));
+
+        [Fact]
+        public void Empty_StaysEmpty() =>
+            Assert.Equal("", TimberbotPure.NormalizeAuthToken(""));
+
+        [Fact]
+        public void WhitespaceOnly_BecomesEmpty() =>
+            Assert.Equal("", TimberbotPure.NormalizeAuthToken("   "));
+
+        [Fact]
+        public void LeadingWhitespace_Trimmed() =>
+            Assert.Equal("s3cret", TimberbotPure.NormalizeAuthToken("  s3cret"));
+
+        [Fact]
+        public void TrailingWhitespace_Trimmed() =>
+            Assert.Equal("s3cret", TimberbotPure.NormalizeAuthToken("s3cret  "));
+
+        [Fact]
+        public void SurroundingWhitespace_Trimmed() =>
+            Assert.Equal("s3cret", TimberbotPure.NormalizeAuthToken("  s3cret  "));
+
+        [Fact]
+        public void InternalWhitespace_Preserved() =>
+            // Server-side tokens shouldn't contain spaces, but if they did
+            // the bearer-header parse wouldn't survive either; we only strip
+            // the outer padding that operators commonly introduce by accident.
+            Assert.Equal("s3 cret", TimberbotPure.NormalizeAuthToken("  s3 cret  "));
+
+        [Fact]
+        public void TabsAndNewlines_Trimmed() =>
+            Assert.Equal("s3cret", TimberbotPure.NormalizeAuthToken("\ts3cret\n"));
+
+        // Symmetry check: the value NormalizeAuthToken returns must match
+        // exactly what ExtractBearerToken returns for the same underlying
+        // token surrounded by whitespace. Without this invariant the
+        // FixedTimeEquals length check in BearerTokenMatches would reject
+        // legitimate clients.
+        [Theory]
+        [InlineData(" s3cret ", "Bearer s3cret")]
+        [InlineData("s3cret", "Bearer  s3cret  ")]
+        [InlineData("  s3cret  ", "Bearer s3cret")]
+        public void SymmetricWithExtractBearerToken(string serverConfigured, string clientHeader)
+        {
+            var serverSide = TimberbotPure.NormalizeAuthToken(serverConfigured);
+            var clientSide = TimberbotPure.ExtractBearerToken(clientHeader);
+            Assert.Equal(serverSide, clientSide);
+            Assert.True(TimberbotPure.BearerTokenMatches(serverSide, clientSide));
+        }
+    }
 }

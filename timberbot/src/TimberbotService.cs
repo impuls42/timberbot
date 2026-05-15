@@ -200,7 +200,7 @@ namespace Timberbot
                     if (json["actionLoggingEnabled"] != null)
                         _actionLoggingEnabled = json.Value<bool>("actionLoggingEnabled");
                     if (json["authToken"] != null)
-                        _authToken = json.Value<string>("authToken") ?? "";
+                        _authToken = TimberbotPure.NormalizeAuthToken(json.Value<string>("authToken"));
 
                     // PR 4: detect deprecated keys and log once. Values stay
                     // on disk this release so a future PR can strip them
