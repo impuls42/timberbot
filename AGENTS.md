@@ -130,10 +130,6 @@ The mod currently does **not** support:
 
 See `docs/automation-plan.md` for the full implementation plan with decompiled API surface from `Timberborn.Automation.dll` and `Timberborn.AutomationBuildings.dll`.
 
-## Known Issues
-
-- **macOS agent execution:** `TimberbotAgent.cs` has a bug in the command execution path that forces Windows-specific logic when a terminal is provided, and fails when it isn't. The platform detection around line 680 needs fixing.
-
 ## External References
 
 - Game automation guide: https://timberborn.org/articles/automation-guide

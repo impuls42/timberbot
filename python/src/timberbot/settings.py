@@ -22,7 +22,6 @@ from timberbot.paths import TimberbotPathError, settings_path
 DEPRECATED_KEYS: tuple[str, ...] = (
     "terminal",
     "pythonCommand",
-    "agentBinary",
     "agentModel",
     "agentEffort",
     "agentCommandTemplate",

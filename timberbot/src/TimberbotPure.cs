@@ -24,7 +24,6 @@ namespace Timberbot
         public static readonly string[] DEPRECATED_SETTINGS_KEYS = {
             "terminal",
             "pythonCommand",
-            "agentBinary",
             "agentModel",
             "agentEffort",
             "agentCommandTemplate",

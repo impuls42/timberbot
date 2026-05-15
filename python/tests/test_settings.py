@@ -36,9 +36,9 @@ def test_load_mod_settings_strips_deprecated_keys(tmp_path):
     p = tmp_path / "settings.json"
     p.write_text(json.dumps({
         "httpPort": 8085,
+        "agentBinary": "claude",
         "terminal": "wt -d {cwd} --",
         "pythonCommand": "python3",
-        "agentBinary": "claude",
         "agentModel": "claude-sonnet-4-6",
         "agentEffort": "medium",
         "agentCommandTemplate": "{skill}",
@@ -48,7 +48,9 @@ def test_load_mod_settings_strips_deprecated_keys(tmp_path):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         s = settings.load_mod_settings(p)
-    assert s == {"httpPort": 8085}
+    # agentBinary is the storage for the still-active Backend dropdown,
+    # so it must survive the strip even though similarly-named keys go.
+    assert s == {"httpPort": 8085, "agentBinary": "claude"}
 
 
 def test_load_mod_settings_emits_deprecation_warning(tmp_path):

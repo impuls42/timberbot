@@ -24,7 +24,7 @@ namespace Timberbot.Tests
         [Fact]
         public void DetectsEveryDeprecatedKey()
         {
-            var json = JObject.Parse("{\"terminal\":\"wt\",\"pythonCommand\":\"py3\",\"agentBinary\":\"claude\"," +
+            var json = JObject.Parse("{\"terminal\":\"wt\",\"pythonCommand\":\"py3\"," +
                                     "\"agentModel\":\"sonnet\",\"agentEffort\":\"high\",\"agentCommandTemplate\":\"x\"," +
                                     "\"agentAllowlistEnabled\":false,\"agentAllowedBinaries\":[\"opencode\"]," +
                                     "\"httpPort\":8085}");
@@ -32,6 +32,16 @@ namespace Timberbot.Tests
             Assert.Equal(TimberbotPure.DEPRECATED_SETTINGS_KEYS.Length, got.Count);
             foreach (var key in TimberbotPure.DEPRECATED_SETTINGS_KEYS)
                 Assert.Contains(key, got);
+        }
+
+        [Fact]
+        public void DoesNotDetectAgentBinary()
+        {
+            // agentBinary is the storage key for the still-active Backend
+            // dropdown — listing it as deprecated would cause a warning-loop
+            // each time the panel saved the field back.
+            var json = JObject.Parse("{\"agentBinary\":\"claude\"}");
+            Assert.Empty(TimberbotPure.DetectDeprecatedSettings(json));
         }
 
         [Fact]

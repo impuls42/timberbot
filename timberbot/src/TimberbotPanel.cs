@@ -124,6 +124,7 @@ namespace Timberbot
         {
             ["Backend:"] = "Which agent backend `tbot agent run` launches. Built-in: claude, codex, opencode. Use 'custom' to invoke a backend defined in ~/.config/timberbot/config.toml.",
             ["Goal:"] = "Initial task sent to the agent after it prints the boot report. The merged system prompt also includes the guide and current colony state.",
+            ["actionLoggingEnabled:"] = "Logs agent write/placement actions to the in-game console panel. Takes effect immediately.",
             ["debugEndpointEnabled:"] = "Enables debug and benchmark endpoints such as /api/debug and /api/benchmark. Reload save to apply.",
             ["httpPort:"] = "HTTP server port Timberbot listens on. The Python client reads this by default from settings.json. Reload save to apply.",
             ["webhooksEnabled:"] = "Turns outgoing webhook event delivery on or off. Reload save to apply.",
