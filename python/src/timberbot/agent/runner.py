@@ -69,15 +69,25 @@ def _resolve_backend_defaults(
 ) -> tuple[str | None, str | None, str | None, str | None, str | None, str | None]:
     """Merge `[backends.<name>]` from config.toml over explicit CLI args.
 
-    Precedence: explicit (caller passed not-None and non-empty) > config.toml
-    value > None (leaving the backend's own default to apply). Empty strings
-    on the CLI side are treated as "unset" so users can clear a config.toml
-    default with `--attach-url ""`. Returns the resolved tuple in the same
-    order the caller will pass to `AgentContext`.
+    Precedence for value-picking fields (model/effort/command/binary/
+    terminal_prefix): explicit (caller passed not-None) > config.toml value >
+    None. Passing `""` for these is taken literally; we don't second-guess.
+
+    Precedence for `attach_url`: same chain, but `""` on either side is
+    treated as "explicitly cleared" so a user can disable a config.toml
+    default for a single run via `--attach-url ""`. This asymmetry is
+    deliberate — attach_url is a toggle for a long-running side process that
+    users naturally want to disable occasionally without editing config,
+    whereas the other fields are value-picking and silently rewriting `""`
+    to "fall through" would surprise anyone who actually wanted the empty
+    string.
+
+    Returns the resolved tuple in the same order the caller will pass to
+    `AgentContext`.
     """
     defaults = backend_defaults(backend)
 
-    def _cli_wins(cli_value: str | None, key: str) -> str | None:
+    def _cli_wins_with_empty_clears(cli_value: str | None, key: str) -> str | None:
         if cli_value is None or cli_value == "":
             cfg_value = defaults.get(key)
             return cfg_value if cfg_value else None
@@ -89,7 +99,7 @@ def _resolve_backend_defaults(
         command_template if command_template is not None else defaults.get("command"),
         binary if binary is not None else defaults.get("binary"),
         terminal_prefix if terminal_prefix is not None else defaults.get("terminal_prefix"),
-        _cli_wins(attach_url, "attach_url"),
+        _cli_wins_with_empty_clears(attach_url, "attach_url"),
     )
 
 

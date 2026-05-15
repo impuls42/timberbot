@@ -22,6 +22,7 @@ form.
 """
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 from timberbot.agent.backend import AgentContext, _BackendBase, register_backend
@@ -59,10 +60,24 @@ def _read_instructions(path: Path) -> str:
     """Best-effort read; return empty string if the file is missing/unreadable.
 
     The runner writes the merged prompt before we get here, so the file is
-    expected to exist. In unit tests the file may be absent — in that case we
-    silently fall through to a goal-only invocation rather than blowing up.
+    expected to exist in production. Missing/unreadable is treated as a
+    soft failure (return "") because:
+      * unit tests legitimately call build_argv without writing the file;
+      * a goal-only invocation is still useful (the agent loses its system
+        prompt but the CLI doesn't crash).
+    We emit a UserWarning when the file *exists* but reading fails (e.g.
+    permissions) so the operator sees that something is genuinely wrong;
+    a plain FileNotFoundError stays silent because that's the test path.
     """
     try:
         return path.read_text(encoding="utf-8").strip()
-    except OSError:
+    except FileNotFoundError:
+        return ""
+    except OSError as exc:
+        warnings.warn(
+            f"opencode backend: could not read instructions file {path} "
+            f"({exc.__class__.__name__}: {exc}); falling back to goal-only message",
+            UserWarning,
+            stacklevel=2,
+        )
         return ""

@@ -187,3 +187,55 @@ def test_resolve_empty_string_config_is_treated_as_unset(tmp_path, monkeypatch):
         attach_url=None,
     )
     assert attach_url is None
+
+
+# --- end-to-end test through run_agent -----------------------------------
+
+
+def test_run_agent_threads_attach_url_into_opencode_argv(monkeypatch, tmp_path):
+    """Sanity check that `attach_url` survives the full runner pipeline and
+    lands in the subprocess argv built by `OpencodeBackend`. Uses a stubbed
+    TimberbotClient to avoid spinning up an HTTP fixture for an argv-shape
+    assertion."""
+    pytest_httpserver = pytest.importorskip("pytest_httpserver")
+    httpserver = pytest_httpserver.HTTPServer()
+    httpserver.start()
+    try:
+        httpserver.expect_request("/api/ping").respond_with_json({"ready": True})
+        httpserver.expect_request("/api/summary").respond_with_json({
+            "settlement": "Castle", "day": 5, "districts": [],
+        })
+
+        captured: dict[str, list[str]] = {}
+
+        def fake_subprocess_run(argv, cwd=None, env=None, check=False):
+            captured["argv"] = argv
+
+            class _R:
+                returncode = 0
+            return _R()
+
+        monkeypatch.setattr("timberbot.agent.backend.subprocess.run", fake_subprocess_run)
+        monkeypatch.setenv("TBOT_CONFIG_DIR", str(tmp_path))
+
+        from timberbot.api.client import TimberbotClient
+        client = TimberbotClient(host=httpserver.host, port=httpserver.port, json_mode=True)
+
+        rc = runner.run_agent(
+            backend="opencode",
+            goal="reach 50 beavers",
+            attach_url="http://opencode-serve.local:4096",
+            client=client,
+            user_config_dir=tmp_path,
+        )
+        assert rc == 0
+        argv = captured["argv"]
+        assert argv[:4] == [
+            "opencode", "run", "--attach", "http://opencode-serve.local:4096",
+        ]
+        # Instructions file was materialized by the runner and spliced into
+        # the positional message — both the system-prompt marker and the goal
+        # should be present.
+        assert "reach 50 beavers" in argv[-1]
+    finally:
+        httpserver.stop()
