@@ -25,6 +25,10 @@ dependencies = [
   "requests>=2.33.1",
   "toons>=0.5.4",
   "pydantic>=2.6",
+  # `tbot listen` runs an aiohttp webhook receiver. aiohttp is also a natural
+  # fit for the upcoming `tbot watch` connector (async polling + outbound
+  # batching).
+  "aiohttp>=3.9",
   # `tomllib` is stdlib on 3.11+; `tomli` provides the same API for 3.10.
   "tomli>=2.0; python_version < '3.11'",
 ]

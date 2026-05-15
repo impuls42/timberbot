@@ -42,7 +42,7 @@ from timberbot.cli.dispatcher import (
 
 # Built-in subcommands route their own argv (they own the rest after the name).
 # Anything not in this set falls through to TimberbotClient method dispatch.
-_BUILTIN_COMMANDS = {"top", "manager", "launch", "agent", "init"}
+_BUILTIN_COMMANDS = {"top", "manager", "launch", "agent", "init", "listen"}
 
 
 def _ensure_utf8_stdout() -> None:
@@ -57,6 +57,7 @@ def _build_registry() -> CommandRegistry:
     from timberbot.cli.commands import agent as agent_cmd
     from timberbot.cli.commands import init_cmd
     from timberbot.cli.commands import launch as launch_cmd
+    from timberbot.cli.commands import listen as listen_cmd
     from timberbot.cli.commands import manager as manager_cmd
     from timberbot.cli.commands import top as top_cmd
 
@@ -93,6 +94,12 @@ def _build_registry() -> CommandRegistry:
         summary="materialize agent prompts into the user config dir",
         handler=init_cmd.run,
         usage="  init [--force] [--list]",
+    ))
+    registry.register(Command(
+        name="listen",
+        summary="reference webhook receiver (POST / or /events)",
+        handler=listen_cmd.run,
+        usage="  listen [--port 9000] [--pretty] [--forward-to PATH_OR_URL] [--quiet]",
     ))
     return registry
 
