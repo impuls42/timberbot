@@ -210,32 +210,76 @@ Paste the contents of `docs/timberbot.md` as the system prompt. Keep `docs/api-r
 
 ## Remote connections
 
-By default the Python client connects to `127.0.0.1:8085`. To connect to a game running on another machine:
+By default the Python client connects to `127.0.0.1:8085`. Several ways to override:
 
 ```bash
-tbot --host=192.168.1.50 --port=8085 summary
+tbot --host=192.168.1.50 --port=8085 summary       # per-invocation CLI flag
+export TBOT_HOST=192.168.1.50 TBOT_PORT=8085       # per-shell env vars
 ```
 
-Or set defaults in `settings.json` (mod folder):
+For a persistent default, drop a `config.toml` under your user config dir:
 
-```json
-{
-  "httpHost": "192.168.1.50",
-  "httpPort": 8085
-}
+```toml
+# ~/.config/timberbot/config.toml (Linux/macOS)
+# %APPDATA%\timberbot\config.toml  (Windows)
+
+[client]
+host = "192.168.1.50"
+port = 8085
 ```
 
-The client reads `httpHost` and `httpPort` from settings.json when no CLI flags are given. CLI flags take precedence. See [architecture.md](architecture.md#settings) for all settings.
+For a multi-machine setup where the *mod itself* needs to accept non-localhost
+clients, also flip `listenAddress` in the mod's `settings.json` to bind a
+reachable interface — see the [Settings](#settings-and-configuration) section.
 
-## Settings and configuration
+## Configuration sources
 
-The in-game `Settings` modal is the primary way to configure Timberbot.
+Timberbot reads settings from three places, in this order (first match wins):
 
-All settings persist to `settings.json`, including:
+| Tier | Where | Owns |
+|---|---|---|
+| 1. CLI flags | `tbot --host=X --port=Y --documents-dir=… --mod-dir=…` | per-invocation overrides |
+| 2. Environment | `TBOT_HOST`, `TBOT_PORT`, `TBOT_DOCUMENTS_DIR`, `TBOT_MOD_DIR`, `TBOT_CONFIG_DIR` | per-shell overrides |
+| 3. User config | `~/.config/timberbot/config.toml` (or platform equivalent) | per-user defaults — client target, per-backend model/effort |
+| 4. Mod settings | `Documents/Timberborn/Mods/Timberbot/settings.json` | mod runtime (port, security, webhook). `httpHost` here is a legacy client-side override. |
+| 5. Built-in | hard-coded | `127.0.0.1:8085`, etc. |
+
+### `config.toml`
+
+The `tbot` CLI looks for a TOML file at your platform's user-config directory.
+Two sections matter today:
+
+```toml
+[client]
+host = "127.0.0.1"        # default target host for the CLI
+port = 8085               # default target port
+
+[backends.claude]
+model = "claude-opus-4-7"
+effort = "high"
+
+[backends.opencode]
+model = "glm-4.6"
+
+[backends.custom]
+command = "aider --system-prompt-file {skill} {prompt}"   # template
+```
+
+Per-backend keys (`model`, `effort`, `command`, `binary`, `terminal_prefix`)
+are fed into the same `tbot agent run` arguments — explicit CLI flags still
+win.
+
+### Settings and configuration (server / mod)
+
+The in-game `Settings` modal is the primary way to configure mod-side runtime.
+
+All mod-side settings persist to `settings.json`, including:
 
 - agent UI settings: `agentBinary` (backend choice) and `agentGoal`; plus widget position
 - runtime settings: `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `writeBudgetMs`
-- security settings: `listenAddress` (default `localhost`), `webhookValidateUrls` (default `true`), `maxBodyBytes` (default `1048576`)
+- security settings: `listenAddress` (default `127.0.0.1`), `webhookValidateUrls` (default `true`), `maxBodyBytes` (default `1048576`)
+- optional: `tbotCommand` — explicit path to the `tbot` console script when it
+  isn't on the in-game user's `PATH` (e.g. pipx into a sandboxed environment).
 
 Editing `settings.json` directly is the advanced/manual path. The normal path
 is to change settings in-game and let Timberbot save them for you.
@@ -244,12 +288,11 @@ Some runtime settings are applied on load, so changing them may require
 reloading the save or mod to fully apply.
 
 !!! note "Deprecated settings keys"
-    `terminal`, `pythonCommand`, `agentBinary` (as a path), `agentModel`,
-    `agentEffort`, `agentCommandTemplate`, `agentAllowlistEnabled`, and
-    `agentAllowedBinaries` are no longer read by the mod. They are logged as
-    ignored on load. Manage per-backend model/effort/command defaults via
-    `~/.config/timberbot/config.toml` (Linux/macOS) or
-    `%APPDATA%/timberbot/config.toml` (Windows).
+    `terminal`, `pythonCommand`, `agentModel`, `agentEffort`,
+    `agentCommandTemplate`, `agentAllowlistEnabled`, and `agentAllowedBinaries`
+    are no longer read by the mod. They are logged as ignored on load. Manage
+    per-backend model/effort/command defaults via the user `config.toml`
+    described above.
 
 ## macOS launch helper
 

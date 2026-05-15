@@ -75,16 +75,69 @@ def test_load_mod_settings_warns_only_once_per_key(tmp_path):
     assert len(deps) == 1
 
 
-def test_resolve_endpoint_prefers_explicit_args():
-    host, port = settings.resolve_endpoint("10.0.0.1", 1234, settings={"httpHost": "x", "httpPort": 9})
+def test_resolve_endpoint_prefers_explicit_args(monkeypatch):
+    monkeypatch.setenv("TBOT_HOST", "ignored.example")
+    monkeypatch.setenv("TBOT_PORT", "9999")
+    host, port = settings.resolve_endpoint(
+        "10.0.0.1", 1234,
+        settings={"httpHost": "x", "httpPort": 9},
+        user_config={"host": "y", "port": 7},
+    )
     assert (host, port) == ("10.0.0.1", 1234)
 
 
-def test_resolve_endpoint_falls_back_to_settings():
-    host, port = settings.resolve_endpoint(settings={"httpHost": "x", "httpPort": 9})
+def test_resolve_endpoint_uses_env_when_no_explicit(monkeypatch):
+    monkeypatch.setenv("TBOT_HOST", "10.0.0.2")
+    monkeypatch.setenv("TBOT_PORT", "4321")
+    host, port = settings.resolve_endpoint(
+        settings={"httpHost": "x", "httpPort": 9},
+        user_config={"host": "y", "port": 7},
+    )
+    assert (host, port) == ("10.0.0.2", 4321)
+
+
+def test_resolve_endpoint_uses_user_config_when_no_env(monkeypatch):
+    monkeypatch.delenv("TBOT_HOST", raising=False)
+    monkeypatch.delenv("TBOT_PORT", raising=False)
+    host, port = settings.resolve_endpoint(
+        settings={"httpHost": "x", "httpPort": 9},
+        user_config={"host": "y", "port": 7},
+    )
+    assert (host, port) == ("y", 7)
+
+
+def test_resolve_endpoint_falls_back_to_mod_settings(monkeypatch):
+    monkeypatch.delenv("TBOT_HOST", raising=False)
+    monkeypatch.delenv("TBOT_PORT", raising=False)
+    host, port = settings.resolve_endpoint(
+        settings={"httpHost": "x", "httpPort": 9},
+        user_config={},
+    )
     assert (host, port) == ("x", 9)
 
 
-def test_resolve_endpoint_uses_defaults_when_settings_empty():
-    host, port = settings.resolve_endpoint(settings={})
+def test_resolve_endpoint_uses_defaults_when_everything_empty(monkeypatch):
+    monkeypatch.delenv("TBOT_HOST", raising=False)
+    monkeypatch.delenv("TBOT_PORT", raising=False)
+    host, port = settings.resolve_endpoint(settings={}, user_config={})
     assert (host, port) == ("127.0.0.1", 8085)
+
+
+def test_resolve_endpoint_ignores_malformed_tbot_port(monkeypatch):
+    monkeypatch.setenv("TBOT_PORT", "not-a-number")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", UserWarning)
+        host, port = settings.resolve_endpoint(settings={"httpPort": 9}, user_config={})
+    assert port == 9
+    assert any("TBOT_PORT" in str(w.message) for w in caught)
+    assert host == "127.0.0.1"
+
+
+def test_resolve_endpoint_env_partial_override(monkeypatch):
+    """TBOT_HOST without TBOT_PORT still falls through cleanly for the missing field."""
+    monkeypatch.setenv("TBOT_HOST", "10.0.0.3")
+    monkeypatch.delenv("TBOT_PORT", raising=False)
+    host, port = settings.resolve_endpoint(
+        settings={"httpPort": 9}, user_config={"port": 7},
+    )
+    assert (host, port) == ("10.0.0.3", 7)

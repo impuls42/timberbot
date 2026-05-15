@@ -96,3 +96,80 @@ def test_run_agent_unknown_backend_raises_value_error(monkeypatch, tmp_path):
             goal="x",
             user_config_dir=tmp_path,
         )
+
+
+def test_resolve_backend_defaults_explicit_wins(tmp_path, monkeypatch):
+    """CLI-supplied args must override config.toml `[backends.<name>]`."""
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        '[backends.claude]\n'
+        'model = "from-config"\n'
+        'effort = "medium"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TBOT_CONFIG_DIR", str(tmp_path))
+    model, effort, cmd, binary, prefix = runner._resolve_backend_defaults(
+        "claude",
+        model="from-cli",
+        effort=None,
+        command_template=None,
+        binary=None,
+        terminal_prefix=None,
+    )
+    assert model == "from-cli"   # explicit wins
+    assert effort == "medium"    # fell through to config
+    assert cmd is None
+    assert binary is None
+    assert prefix is None
+
+
+def test_resolve_backend_defaults_unknown_backend_returns_passthrough(tmp_path, monkeypatch):
+    monkeypatch.setenv("TBOT_CONFIG_DIR", str(tmp_path))
+    # No config.toml exists → all defaults None.
+    out = runner._resolve_backend_defaults(
+        "claude",
+        model="cli-model",
+        effort="cli-effort",
+        command_template=None,
+        binary=None,
+        terminal_prefix=None,
+    )
+    assert out == ("cli-model", "cli-effort", None, None, None)
+
+
+def test_run_agent_uses_config_toml_model(monkeypatch, tmp_path, httpserver):
+    """When --model is not passed, the agent run picks it up from config.toml."""
+    httpserver.expect_request("/api/ping").respond_with_json({"ready": True})
+    httpserver.expect_request("/api/summary").respond_with_json({
+        "settlement": "Castle", "day": 5, "districts": [],
+    })
+
+    (tmp_path / "config.toml").write_text(
+        '[backends.claude]\n'
+        'model = "claude-opus-from-config"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TBOT_CONFIG_DIR", str(tmp_path))
+
+    captured: dict = {}
+
+    def fake_subprocess_run(argv, cwd=None, env=None, check=False):
+        captured["argv"] = argv
+
+        class _R:
+            returncode = 0
+        return _R()
+
+    monkeypatch.setattr("timberbot.agent.backend.subprocess.run", fake_subprocess_run)
+    client = TimberbotClient(host=httpserver.host, port=httpserver.port, json_mode=True)
+    rc = runner.run_agent(
+        backend="claude",
+        goal="g",
+        client=client,
+        user_config_dir=tmp_path,
+    )
+    assert rc == 0
+    argv = captured["argv"]
+    # The argv shape is `claude --system-prompt-file F --model M g`.
+    assert "--model" in argv
+    assert argv[argv.index("--model") + 1] == "claude-opus-from-config"

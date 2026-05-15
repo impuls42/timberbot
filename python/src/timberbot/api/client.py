@@ -13,10 +13,12 @@ locations, tasks). Those methods delegate to a lazily-constructed
 """
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import requests
 
+from timberbot.__about__ import OPENAPI_VERSION
 from timberbot.api.exceptions import TimberbotError
 from timberbot.api.models._generated import (
     Alerts,
@@ -106,11 +108,45 @@ class TimberbotClient:
     # ------------------------------------------------------------------
 
     def ping(self) -> bool:
-        """True if the Timberbot mod is reachable."""
+        """True if the Timberbot mod is reachable.
+
+        Side effect: the first successful ping per client instance also checks
+        the server's `openapiVersion` against the client's `OPENAPI_VERSION`
+        and emits a one-time `UserWarning` on major-version mismatch. The
+        check is best-effort — pings to old mods that don't report a version
+        are accepted silently.
+        """
         try:
-            return bool(self._get_json("/api/ping").get("ready", False))
+            data = self._get_json("/api/ping")
         except (requests.ConnectionError, requests.Timeout):
             return False
+        self._check_openapi_version(data.get("openapiVersion"))
+        return bool(data.get("ready", False))
+
+    def _check_openapi_version(self, server_version: Any) -> None:
+        """Compare server-reported `openapiVersion` with the client's expected major.
+
+        Warns at most once per client instance. The expected version comes from
+        `timberbot.__about__.OPENAPI_VERSION`; both sides bump in lockstep.
+        """
+        if getattr(self, "_openapi_version_checked", False):
+            return
+        self._openapi_version_checked = True
+        if not isinstance(server_version, str) or not server_version:
+            return
+        try:
+            server_major = int(server_version.split(".", 1)[0])
+            client_major = int(OPENAPI_VERSION.split(".", 1)[0])
+        except (ValueError, AttributeError):
+            return
+        if server_major != client_major:
+            warnings.warn(
+                f"Timberbot OpenAPI version mismatch: client expects "
+                f"v{OPENAPI_VERSION}, server speaks v{server_version}. "
+                "Update the mod or `pip install --upgrade timberbot` to match.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     def settlement(self) -> SettlementName:
         """The current settlement's metadata (`{name: ...}`)."""

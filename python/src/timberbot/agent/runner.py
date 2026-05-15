@@ -15,6 +15,7 @@ from timberbot.agent.backend import (
 from timberbot.agent.prompts import build_merged_instructions, load_prompt
 from timberbot.api.client import TimberbotClient
 from timberbot.config import config_dir
+from timberbot.user_config import backend_defaults
 
 
 def _default_log(msg: str) -> None:
@@ -56,6 +57,31 @@ def render_colony_state(client: TimberbotClient, goal: str | None) -> str:
     return json.dumps(snapshot, indent=2)
 
 
+def _resolve_backend_defaults(
+    backend: str,
+    *,
+    model: str | None,
+    effort: str | None,
+    command_template: str | None,
+    binary: str | None,
+    terminal_prefix: str | None,
+) -> tuple[str | None, str | None, str | None, str | None, str | None]:
+    """Merge `[backends.<name>]` from config.toml over explicit CLI args.
+
+    Precedence: explicit (caller passed not-None) > config.toml value > None
+    (leaving the backend's own default to apply). Returns the resolved tuple
+    in the same order the caller will pass to `AgentContext`.
+    """
+    defaults = backend_defaults(backend)
+    return (
+        model if model is not None else defaults.get("model"),
+        effort if effort is not None else defaults.get("effort"),
+        command_template if command_template is not None else defaults.get("command"),
+        binary if binary is not None else defaults.get("binary"),
+        terminal_prefix if terminal_prefix is not None else defaults.get("terminal_prefix"),
+    )
+
+
 def run_agent(
     *,
     backend: str,
@@ -72,7 +98,8 @@ def run_agent(
 ) -> int:
     """End-to-end agent launch. Returns the agent process exit code.
 
-    1. Resolve the backend.
+    1. Resolve the backend (merging `[backends.<name>]` defaults from
+       `~/.config/timberbot/config.toml` under any explicit args).
     2. Fetch live colony state via `TimberbotClient.brain(goal)`.
     3. Load the prompt (user config dir wins over packaged).
     4. Write merged `agent-instructions.md` to the config dir.
@@ -83,6 +110,15 @@ def run_agent(
 
     cd = user_config_dir or config_dir()
     cd.mkdir(parents=True, exist_ok=True)
+
+    model, effort, command_template, binary, terminal_prefix = _resolve_backend_defaults(
+        backend,
+        model=model,
+        effort=effort,
+        command_template=command_template,
+        binary=binary,
+        terminal_prefix=terminal_prefix,
+    )
 
     backend_impl = resolve_backend(
         backend,
