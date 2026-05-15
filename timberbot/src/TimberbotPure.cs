@@ -46,6 +46,67 @@ namespace Timberbot
             return found;
         }
 
+        // --- bearer-token auth helpers ---
+
+        // True if the listen address is a loopback alias and therefore safe to
+        // bind without an authToken. Anything else (a wildcard, a LAN IP, a
+        // hostname) reaches outside the local box, so RequiresAuthToken kicks in.
+        public static bool IsLoopbackAddress(string listenAddress)
+        {
+            if (string.IsNullOrWhiteSpace(listenAddress)) return true;
+            var addr = listenAddress.Trim().ToLowerInvariant();
+            return addr == "localhost" || addr == "127.0.0.1" || addr == "::1";
+        }
+
+        // Refuse-to-start check: a non-loopback bind without an authToken would
+        // expose every /api/* endpoint to anyone who can reach the port. Empty
+        // / whitespace tokens count as unset.
+        public static bool RequiresAuthToken(string listenAddress, string authToken)
+        {
+            if (IsLoopbackAddress(listenAddress)) return false;
+            return string.IsNullOrWhiteSpace(authToken);
+        }
+
+        // Normalize a configured auth token: null-coalesce + trim surrounding
+        // whitespace so the server-side value matches the trimming that
+        // ExtractBearerToken already applies to the client-presented value.
+        // Without this, `"authToken": " s3cret "` in settings.json would never
+        // match a client sending `Authorization: Bearer s3cret` because the
+        // length check in BearerTokenMatches fails before any comparison.
+        public static string NormalizeAuthToken(string authToken)
+        {
+            return (authToken ?? "").Trim();
+        }
+
+        // Extract the token from a `Bearer <token>` Authorization header
+        // value, or null if the scheme is missing / wrong / empty. Scheme
+        // match is case-insensitive per RFC 7235.
+        public static string ExtractBearerToken(string authHeader)
+        {
+            if (string.IsNullOrWhiteSpace(authHeader)) return null;
+            const string prefix = "Bearer ";
+            if (authHeader.Length <= prefix.Length) return null;
+            if (!authHeader.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return null;
+            var token = authHeader.Substring(prefix.Length).Trim();
+            return token.Length == 0 ? null : token;
+        }
+
+        // Constant-time comparison of an expected secret against a presented
+        // bearer token, via CryptographicOperations.FixedTimeEquals — avoids
+        // leaking the token through response-time side-channels.
+        public static bool BearerTokenMatches(string expected, string presented)
+        {
+            if (string.IsNullOrEmpty(expected) || string.IsNullOrEmpty(presented))
+                return false;
+            var expectedBytes = Encoding.UTF8.GetBytes(expected);
+            var presentedBytes = Encoding.UTF8.GetBytes(presented);
+            // FixedTimeEquals requires equal-length inputs; the length
+            // mismatch itself is a side-channel, but the server-side token
+            // is fixed-length so its length is already public information.
+            if (expectedBytes.Length != presentedBytes.Length) return false;
+            return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(expectedBytes, presentedBytes);
+        }
+
         // --- from TimberbotAgent ---
 
         public static string JsonEscape(string s)

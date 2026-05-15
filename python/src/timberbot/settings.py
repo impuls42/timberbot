@@ -8,6 +8,14 @@ Resolution order for `(host, port)` — first-match wins:
 4. `httpHost` / `httpPort` in the mod's `settings.json` (legacy compat).
 5. Built-in defaults: `127.0.0.1` / `8085`.
 
+Resolution order for `auth_token` — first non-empty wins:
+
+1. Explicit `auth_token=` argument to `resolve_auth_token`.
+2. `TBOT_AUTH_TOKEN` env var.
+3. `[client].auth_token` in `~/.config/timberbot/config.toml`.
+4. None (no auth header sent; the mod only enforces when `authToken` is set
+   in `settings.json`).
+
 The mod's `settings.json` is the canonical place for **server-side** settings
 (bind address, security, webhook tuning). Client-only overrides should live in
 the user `config.toml` — `settings.py:resolve_endpoint` still reads `httpHost`
@@ -160,3 +168,33 @@ def resolve_endpoint(
             resolved_port = 8085
 
     return resolved_host, resolved_port
+
+
+def resolve_auth_token(
+    auth_token: str | None = None,
+    user_config: dict[str, Any] | None = None,
+) -> str | None:
+    """Resolve the bearer token per the precedence chain documented at module top.
+
+    Returns `None` when no token is configured (the client then omits the
+    `Authorization` header and the mod responds 401 only when it has a
+    non-empty `authToken` itself). Whitespace-only values at any level are
+    treated as unset so the chain falls through cleanly.
+
+    `user_config` exists so tests can inject in-memory dicts without
+    touching the filesystem. Production callers leave it None and let the
+    loader read the canonical location.
+    """
+    if auth_token is not None and auth_token.strip():
+        return auth_token.strip()
+
+    env_token = os.environ.get("TBOT_AUTH_TOKEN")
+    if env_token and env_token.strip():
+        return env_token.strip()
+
+    uc = user_config if user_config is not None else client_config()
+    cfg_token = uc.get("auth_token")
+    if isinstance(cfg_token, str) and cfg_token.strip():
+        return cfg_token.strip()
+
+    return None

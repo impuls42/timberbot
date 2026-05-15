@@ -12,6 +12,7 @@ Schema::
     host = "127.0.0.1"
     port = 8085
     default_format = "toon"    # or "json"
+    auth_token = "shared-secret"  # matches mod's authToken in settings.json
 
     [backends.claude]
     model = "claude-opus-4-7"

@@ -19,7 +19,7 @@ from typing import Any
 import requests
 
 from timberbot.__about__ import OPENAPI_VERSION
-from timberbot.api.exceptions import TimberbotError
+from timberbot.api.exceptions import AuthenticationError, TimberbotError
 from timberbot.api.models._generated import (
     AgentRequestAck,
     AgentState,
@@ -51,7 +51,7 @@ from timberbot.api.models._generated import (
     WellbeingReport,
     WorkHours,
 )
-from timberbot.settings import resolve_endpoint
+from timberbot.settings import resolve_auth_token, resolve_endpoint
 from timberbot.state import SettlementContext, compact_locations, compact_summary
 
 
@@ -65,10 +65,18 @@ class TimberbotClient:
         json_mode: bool = False,
         write_timeout: int = 60,
         settlement_context: SettlementContext | None = None,
+        auth_token: str | None = None,
     ) -> None:
         """Construct a client. `json_mode` is accepted for backwards
         compatibility but ignored — the wire is always JSON. CLI display
         format (TOON vs JSON) is handled in `timberbot.cli.main._format_output`.
+
+        `auth_token` matches the mod's `authToken` setting. When set, the
+        client adds an `Authorization: Bearer <token>` header to every
+        request. Resolution chain (first wins): constructor arg →
+        `TBOT_AUTH_TOKEN` env → `[client].auth_token` in
+        `~/.config/timberbot/config.toml`. Empty / whitespace values at any
+        level are treated as "not set" so the chain falls through.
         """
         del json_mode  # see docstring
         host, port = resolve_endpoint(host, port)
@@ -78,6 +86,9 @@ class TimberbotClient:
         self._write_timeout = write_timeout
         self.s = requests.Session()
         self.s.headers["Accept"] = "application/json"
+        token = resolve_auth_token(auth_token)
+        if token:
+            self.s.headers["Authorization"] = f"Bearer {token}"
         self._ctx: SettlementContext | None = settlement_context
 
     # ------------------------------------------------------------------
@@ -89,17 +100,37 @@ class TimberbotClient:
             raise TimberbotError(data)
         return data
 
+    def _check_auth(self, r: requests.Response) -> None:
+        """Promote 401 responses to a typed `AuthenticationError` before
+        `raise_for_status()` would otherwise surface a raw `requests.HTTPError`.
+
+        Callers that want to programmatically distinguish "wrong/missing
+        bearer token" from any other HTTP failure should catch
+        `AuthenticationError` (or its parent `TimberbotError`).
+        """
+        if r.status_code != 401:
+            return
+        try:
+            body = r.json()
+        except ValueError:
+            body = {}
+        if not isinstance(body, dict) or "error" not in body:
+            body = {"error": f"unauthorized: {r.text or 'authentication required'}"}
+        raise AuthenticationError(body)
+
     def _get(self, path: str, params: dict[str, int | str] | None = None) -> dict[str, Any]:
         p: dict[str, int | str] = {"format": "json"}
         if params:
             p.update(params)
         r = self.s.get(f"{self.url}{path}", params=p, timeout=5)
+        self._check_auth(r)
         r.raise_for_status()
         return self._check(r.json())
 
     def _post(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
         data["format"] = "json"
         r = self.s.post(f"{self.url}{path}", json=data, timeout=self._write_timeout)
+        self._check_auth(r)
         return self._check(r.json())
 
     # Back-compat aliases: kept so external callers (integration tests, etc.)

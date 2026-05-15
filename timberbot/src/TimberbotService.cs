@@ -69,6 +69,9 @@ namespace Timberbot
         private bool _webhookValidateUrls = true;
         private int _maxBodyBytes = 1048576;
         private bool _actionLoggingEnabled = true;
+        // Bearer-token shared secret for /api/* requests. Empty = no
+        // enforcement (only safe for loopback binds — see RequiresAuthToken).
+        private string _authToken = "";
         private readonly NotificationBus _notificationBus;
         private string _settingsPath;            // full path to settings.json
         private JObject _cachedSettings;         // in-memory settings, flushed on debounce
@@ -110,13 +113,27 @@ namespace Timberbot
             LoadAgentState();
             var modDir = TimberbotPaths.ModDir;
             TimberbotLog.Init(modDir);
+
+            // Refuse-to-start guard: a non-loopback bind without an authToken would
+            // expose every /api/* mutation endpoint to anyone on the network. Bail
+            // before opening the listener so an operator cannot accidentally ship
+            // an unauthenticated, internet-reachable mod.
+            if (TimberbotPure.RequiresAuthToken(_listenAddress, _authToken))
+            {
+                var msg = $"refusing to start: listenAddress='{_listenAddress}' is non-loopback but authToken is empty. " +
+                          "Set authToken in settings.json (any non-empty string) or change listenAddress to localhost/127.0.0.1.";
+                TimberbotLog.Info("startup.refused: " + msg);
+                UnityEngine.Debug.LogError("[Timberbot] " + msg);
+                return;
+            }
+
             WebhookMgr.Enabled = _webhooksEnabled;
             WebhookMgr.BatchSeconds = _webhookBatchSeconds;
             WebhookMgr.CircuitBreakerThreshold = _webhookCircuitBreaker;
             WebhookMgr.MaxPendingEvents = _webhookMaxPendingEvents;
             WebhookMgr.ValidateUrls = _webhookValidateUrls;
             var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "unknown";
-            TimberbotLog.Info($"v{version} port={_httpPort} debug={_debugEnabled} webhooks={_webhooksEnabled} batchMs={_webhookBatchSeconds * 1000:F0} listen={_listenAddress} webhookValidate={_webhookValidateUrls} maxBody={_maxBodyBytes}");
+            TimberbotLog.Info($"v{version} port={_httpPort} debug={_debugEnabled} webhooks={_webhooksEnabled} batchMs={_webhookBatchSeconds * 1000:F0} listen={_listenAddress} webhookValidate={_webhookValidateUrls} maxBody={_maxBodyBytes} authTokenSet={(!string.IsNullOrEmpty(_authToken))}");
             Registry.WebhookMgr = WebhookMgr;  // registry pushes webhook events on entity lifecycle
             DebugTool.Service = this;         // debug needs Service reference for endpoint benchmarks
             _eventBus.Register(this);
@@ -127,7 +144,7 @@ namespace Timberbot
             Registry.BuildAllIndexes();        // populate indexes from existing entities
             ReadV2.BuildAll();          // populate v2 building trackers from existing entities
             Agent = new TimberbotAgent(_tbotCommand);
-            _server = new TimberbotHttpServer(_httpPort, this, _debugEnabled, _listenAddress, _corsOrigin, _maxBodyBytes);
+            _server = new TimberbotHttpServer(_httpPort, this, _debugEnabled, _listenAddress, _corsOrigin, _maxBodyBytes, _authToken);
             TimberbotLog.Info($"HTTP server started on port {_httpPort}");
         }
 
@@ -182,6 +199,8 @@ namespace Timberbot
                     }
                     if (json["actionLoggingEnabled"] != null)
                         _actionLoggingEnabled = json.Value<bool>("actionLoggingEnabled");
+                    if (json["authToken"] != null)
+                        _authToken = TimberbotPure.NormalizeAuthToken(json.Value<string>("authToken"));
 
                     // PR 4: detect deprecated keys and log once. Values stay
                     // on disk this release so a future PR can strip them

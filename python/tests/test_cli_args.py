@@ -21,6 +21,7 @@ def test_parse_flags_picks_up_json_help_host_port():
     assert flags.port == 9001
     assert flags.documents_dir is None
     assert flags.mod_dir is None
+    assert flags.auth_token is None
     assert flags.positional == ["summary", "x:1"]
 
 
@@ -35,6 +36,19 @@ def test_parse_flags_picks_up_documents_dir_and_mod_dir():
     assert flags.positional == ["summary"]
 
 
+def test_parse_flags_picks_up_auth_token():
+    flags = parse_flags(["--auth-token=s3cret", "summary"])
+    assert flags.auth_token == "s3cret"
+    # Token value must not leak into positionals.
+    assert flags.positional == ["summary"]
+
+
+def test_parse_flags_auth_token_allows_equals_in_value():
+    """Bearer tokens commonly contain '=' (base64 padding). Only split on the first."""
+    flags = parse_flags(["--auth-token=abc==", "summary"])
+    assert flags.auth_token == "abc=="
+
+
 def test_parse_flags_defaults():
     flags = parse_flags(["summary"])
     assert flags.json_mode is False
@@ -43,6 +57,7 @@ def test_parse_flags_defaults():
     assert flags.port is None
     assert flags.documents_dir is None
     assert flags.mod_dir is None
+    assert flags.auth_token is None
     assert flags.positional == ["summary"]
 
 

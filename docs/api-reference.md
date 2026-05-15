@@ -6,7 +6,7 @@
 |---|---|
 | **Base URL** | `http://localhost:8085` |
 | **Content-Type** | `application/json` |
-| **Authentication** | None |
+| **Authentication** | Opt-in. None by default; when `authToken` is set in `settings.json` (or `TBOT_AUTH_TOKEN` env / `[client].auth_token` in `~/.config/timberbot/config.toml` on the client side), every `/api/*` route except `/api/ping` requires `Authorization: Bearer <token>`. Missing or wrong tokens get `401` with `WWW-Authenticate: Bearer realm="timberbot"`. |
 | **CORS** | `Access-Control-Allow-Origin: *` |
 
 ### Output Format

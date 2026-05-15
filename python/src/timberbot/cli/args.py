@@ -31,17 +31,24 @@ class GlobalFlags:
     port: int | None
     documents_dir: str | None
     mod_dir: str | None
+    auth_token: str | None
     positional: list[str]
 
 
-_VALUE_PREFIXES = ("--host=", "--port=", "--documents-dir=", "--mod-dir=")
+_VALUE_PREFIXES = (
+    "--host=",
+    "--port=",
+    "--documents-dir=",
+    "--mod-dir=",
+    "--auth-token=",
+)
 
 
 def parse_flags(argv: list[str]) -> GlobalFlags:
     """Pull out global flags. Returns the rest as positional.
 
     Recognised flags: --json, --help/-h, --host=, --port=, --documents-dir=,
-    --mod-dir=.
+    --mod-dir=, --auth-token=.
     """
     help_mode = "--help" in argv or "-h" in argv
     json_mode = "--json" in argv
@@ -49,6 +56,7 @@ def parse_flags(argv: list[str]) -> GlobalFlags:
     port: int | None = None
     documents_dir: str | None = None
     mod_dir: str | None = None
+    auth_token: str | None = None
     for a in argv:
         if a.startswith("--host="):
             host = a.split("=", 1)[1]
@@ -59,6 +67,8 @@ def parse_flags(argv: list[str]) -> GlobalFlags:
             documents_dir = a.split("=", 1)[1]
         elif a.startswith("--mod-dir="):
             mod_dir = a.split("=", 1)[1]
+        elif a.startswith("--auth-token="):
+            auth_token = a.split("=", 1)[1]
     skip = {"--", "--json", "--help", "-h"}
     positional = [
         a for a in argv
@@ -71,6 +81,7 @@ def parse_flags(argv: list[str]) -> GlobalFlags:
         port=port,
         documents_dir=documents_dir,
         mod_dir=mod_dir,
+        auth_token=auth_token,
         positional=positional,
     )
 

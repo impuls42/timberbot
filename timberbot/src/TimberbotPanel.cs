@@ -133,6 +133,7 @@ namespace Timberbot
             ["webhookMaxPendingEvents:"] = "Per-webhook cap for queued event payloads while delivery is in flight or failing. Oldest queued events are dropped when the cap is reached. Reload save to apply.",
             ["writeBudgetMs:"] = "Per-frame main-thread time budget for queued write jobs. Higher values process writes faster but use more frame time. Reload save to apply.",
             ["listenAddress:"] = "Network address the HTTP server binds to. 'localhost' (default) = local only. '+' = all interfaces (LAN access). Reload save to apply.",
+            ["authToken:"] = "Bearer token required on every /api/* request except /api/ping. Empty = no auth (default; only safe on loopback). Required when listenAddress is non-loopback — the mod refuses to start otherwise. Reload save to apply.",
             ["corsOrigin:"] = "Allowed CORS origin for browser requests. Empty = auto (localhost only). '*' = any origin (less secure). Reload save to apply.",
             ["webhookValidateUrls:"] = "When true, webhook URLs are validated: must be http/https and must not resolve to private/internal IP addresses. Set false to allow any URL. Reload save to apply.",
             ["maxBodyBytes:"] = "Maximum POST request body size in bytes. 0 = unlimited. Default 1048576 (1MB). Reload save to apply.",

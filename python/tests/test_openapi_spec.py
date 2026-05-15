@@ -179,3 +179,22 @@ def test_agent_connector_operation_ids_have_client_methods():
         "Missing TimberbotClient methods for agent/connector ops:\n  "
         + "\n  ".join(missing)
     )
+
+
+def test_ping_opts_out_of_auth(spec):
+    """`/api/ping` must declare `security: []` so clients can probe liveness
+    and the OpenAPI version before they know an auth token is required.
+
+    The C# server enforces this same exemption (see TimberbotHttpServer.cs's
+    auth gate at ~line 259); the spec must match so the generated client and
+    docs agree.
+    """
+    ping = spec["paths"].get("/api/ping", {}).get("get")
+    assert ping is not None, "/api/ping GET missing from openapi.yaml"
+    assert "security" in ping, (
+        "/api/ping GET must explicitly declare `security: []` to opt out of "
+        "the default bearer-auth requirement."
+    )
+    assert ping["security"] == [], (
+        f"/api/ping GET must declare `security: []` (got {ping['security']!r})."
+    )

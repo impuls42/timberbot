@@ -180,6 +180,15 @@ curl -X POST http://localhost:8085/api/speed -d '{"speed": 3}'
 curl -X POST http://localhost:8085/api/building/place -d '{"prefab": "Path", "x": 120, "y": 130, "z": 2, "orientation": 0}'
 ```
 
+When the mod has `authToken` set in `settings.json`, every `/api/*` route
+except `/api/ping` requires an `Authorization: Bearer <token>` header:
+
+```bash
+curl -H "Authorization: Bearer $TBOT_AUTH_TOKEN" http://localhost:8085/api/summary
+curl -X POST -H "Authorization: Bearer $TBOT_AUTH_TOKEN" \
+     http://localhost:8085/api/speed -d '{"speed": 3}'
+```
+
 ## Let AI play your colony
 
 The mod also ships docs for AI play with Claude Code, OpenAI Codex, ChatGPT, or any AI agent that can make HTTP calls. This is optional if you prefer the in-game UI workflow.
@@ -214,7 +223,9 @@ By default the Python client connects to `127.0.0.1:8085`. Several ways to overr
 
 ```bash
 tbot --host=192.168.1.50 --port=8085 summary       # per-invocation CLI flag
+tbot --auth-token=s3cret summary                   # when the mod enforces auth
 export TBOT_HOST=192.168.1.50 TBOT_PORT=8085       # per-shell env vars
+export TBOT_AUTH_TOKEN=s3cret                      # bearer token (opt-in)
 ```
 
 For a persistent default, drop a `config.toml` under your user config dir:
@@ -238,10 +249,10 @@ Timberbot reads settings from three places, in this order (first match wins):
 
 | Tier | Where | Owns |
 |---|---|---|
-| 1. CLI flags | `tbot --host=X --port=Y --documents-dir=… --mod-dir=…` | per-invocation overrides |
-| 2. Environment | `TBOT_HOST`, `TBOT_PORT`, `TBOT_DOCUMENTS_DIR`, `TBOT_MOD_DIR`, `TBOT_CONFIG_DIR` | per-shell overrides |
-| 3. User config | `~/.config/timberbot/config.toml` (or platform equivalent) | per-user defaults — client target, per-backend model/effort |
-| 4. Mod settings | `Documents/Timberborn/Mods/Timberbot/settings.json` | mod runtime (port, security, webhook). `httpHost` here is a legacy client-side override. |
+| 1. CLI flags | `tbot --host=X --port=Y --auth-token=T --documents-dir=… --mod-dir=…` | per-invocation overrides |
+| 2. Environment | `TBOT_HOST`, `TBOT_PORT`, `TBOT_AUTH_TOKEN`, `TBOT_DOCUMENTS_DIR`, `TBOT_MOD_DIR`, `TBOT_CONFIG_DIR` | per-shell overrides |
+| 3. User config | `~/.config/timberbot/config.toml` (or platform equivalent) | per-user defaults — client target, bearer token, per-backend model/effort |
+| 4. Mod settings | `Documents/Timberborn/Mods/Timberbot/settings.json` | mod runtime (port, security, webhook, `authToken`). `httpHost` here is a legacy client-side override. |
 | 5. Built-in | hard-coded | `127.0.0.1:8085`, etc. |
 
 ### `config.toml`
@@ -253,6 +264,7 @@ Two sections matter today:
 [client]
 host = "127.0.0.1"        # default target host for the CLI
 port = 8085               # default target port
+auth_token = ""           # bearer token; only needed when the mod sets `authToken`
 
 [backends.claude]
 model = "claude-opus-4-7"

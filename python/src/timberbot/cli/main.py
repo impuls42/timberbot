@@ -99,7 +99,16 @@ def _build_registry() -> CommandRegistry:
 
 def _print_help_index(registry: CommandRegistry) -> None:
     """Print the no-args help screen listing every command."""
-    print("usage: tbot <command> key:value ...")
+    print("usage: tbot [--json] [--host=HOST] [--port=PORT] [--auth-token=TOKEN]")
+    print("            [--documents-dir=DIR] [--mod-dir=DIR] <command> key:value ...")
+    print()
+    print("global flags:")
+    print("  --json                output JSON instead of TOON")
+    print("  --host=HOST           override target host (env: TBOT_HOST)")
+    print("  --port=PORT           override target port (env: TBOT_PORT)")
+    print("  --auth-token=TOKEN    bearer token for mod auth (env: TBOT_AUTH_TOKEN)")
+    print("  --documents-dir=DIR   override Timberborn Documents dir (env: TBOT_DOCUMENTS_DIR)")
+    print("  --mod-dir=DIR         override Timberbot mod dir (env: TBOT_MOD_DIR)")
     print()
     print("methods:")
     for name in public_method_names(TimberbotClient):
@@ -166,9 +175,12 @@ def _dispatch_method(
     json_mode: bool,
     host: str | None,
     port: int | None,
+    auth_token: str | None,
 ) -> int:
     """Dispatch a method-forward command against TimberbotClient."""
-    bot = TimberbotClient(host=host, port=port, json_mode=json_mode)
+    bot = TimberbotClient(
+        host=host, port=port, json_mode=json_mode, auth_token=auth_token,
+    )
 
     if not hasattr(bot, method_name):
         print(f"error: unknown method '{method_name}'", file=sys.stderr)
@@ -231,6 +243,7 @@ def main(argv: list[str] | None = None) -> int:
     return _dispatch_method(
         method_name, rest,
         json_mode=flags.json_mode, host=flags.host, port=flags.port,
+        auth_token=flags.auth_token,
     )
 
 
