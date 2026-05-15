@@ -45,6 +45,9 @@ namespace Timberbot
         private readonly string _corsOrigin;
         private readonly int _maxBodyBytes;
         private readonly bool _debugEnabled;
+        // Shared-secret bearer token. Empty = no enforcement (only safe for
+        // loopback binds; TimberbotService.Load enforces the invariant).
+        private readonly string _authToken;
         // separate JW for HTTP-layer errors (thread-safe: not shared with read/write paths)
         private readonly TimberbotJw _jw = new TimberbotJw(512);
 
@@ -77,11 +80,12 @@ namespace Timberbot
             public PostRouteDescriptor PostRoute;
         }
 
-        public TimberbotHttpServer(int port, TimberbotService service, bool debugEnabled = false, string listenAddress = "localhost", string corsOrigin = null, int maxBodyBytes = 1048576)
+        public TimberbotHttpServer(int port, TimberbotService service, bool debugEnabled = false, string listenAddress = "localhost", string corsOrigin = null, int maxBodyBytes = 1048576, string authToken = "")
         {
             _service = service;
             _debugEnabled = debugEnabled;
             _maxBodyBytes = maxBodyBytes;
+            _authToken = authToken ?? "";
             _postRoutes = BuildPostRoutes();
             _listener = new HttpListener();
 
@@ -246,6 +250,26 @@ namespace Timberbot
                     AddCorsHeaders(ctx.Response);
                     ctx.Response.OutputStream.Close();
                     continue;
+                }
+
+                // Bearer-token auth. /api/ping is the only carve-out: clients use
+                // it to probe liveness + openapi version BEFORE they can know
+                // they need an auth token. Everything else under /api/* is gated
+                // when authToken is configured.
+                if (!string.IsNullOrEmpty(_authToken) && path != "/api/ping" && path.StartsWith("/api/", StringComparison.Ordinal))
+                {
+                    var authHeader = ctx.Request.Headers["Authorization"];
+                    var presented = TimberbotPure.ExtractBearerToken(authHeader);
+                    if (presented == null || !TimberbotPure.BearerTokenMatches(_authToken, presented))
+                    {
+                        if (_debugEnabled) TimberbotLog.Info($"auth.reject path={path} hasHeader={(authHeader != null)}");
+                        // 401 + WWW-Authenticate per RFC 6750. The error body
+                        // stays generic — never echo the presented token nor
+                        // distinguish "missing" from "wrong" beyond the log.
+                        ctx.Response.Headers["WWW-Authenticate"] = "Bearer realm=\"timberbot\"";
+                        Respond(ctx, 401, _jw.Error("unauthorized: missing or invalid bearer token"));
+                        continue;
+                    }
                 }
 
                 // Ready-gate middleware. Refuses all /api/* reads AND writes
@@ -722,7 +746,7 @@ namespace Timberbot
         {
             response.Headers.Add("Access-Control-Allow-Origin", _corsOrigin);
             response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
+            response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
         }
 
         private static string ThreadPoolState()

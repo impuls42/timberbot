@@ -63,7 +63,29 @@ tags:
   - name: connector
     description: Endpoints consumed by the `tbot watch` connector (register/heartbeat).
 
+security:
+  # When `authToken` is configured in `settings.json`, every /api/* route
+  # except `/api/ping` requires `Authorization: Bearer <token>`. Operations
+  # that opt out (only `/api/ping`) override this with `security: []`.
+  # An empty `authToken` disables enforcement entirely — only safe for
+  # loopback (127.0.0.1 / localhost) binds; the mod refuses to start if
+  # `listenAddress` is non-loopback and `authToken` is empty.
+  - bearer: []
+
 components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: |
+        Shared-secret bearer token. The mod compares the presented token to
+        `authToken` from `settings.json` using a constant-time compare
+        (`CryptographicOperations.FixedTimeEquals`). Missing or mismatched
+        tokens get `401 Unauthorized` with `WWW-Authenticate: Bearer realm="timberbot"`.
+        Configure the Python client via `TimberbotClient(auth_token=...)`,
+        the `TBOT_AUTH_TOKEN` env var, or `[client].auth_token` in
+        `~/.config/timberbot/config.toml`.
   parameters:
     Format:
       name: format
@@ -863,6 +885,16 @@ components:
         Player has not pressed Launch yet. All non-whitelisted `/api/*`
         routes (reads and writes) return this until `ready=true`.
       content: { application/json: { schema: { $ref: '#/components/schemas/GameNotReady' } } }
+    Unauthorized:
+      description: |
+        Missing or invalid `Authorization: Bearer <token>` header. The mod
+        enforces auth on every `/api/*` route except `/api/ping` whenever
+        `authToken` is non-empty in `settings.json`. Response includes
+        `WWW-Authenticate: Bearer realm="timberbot"`.
+      headers:
+        WWW-Authenticate:
+          schema: { type: string, example: 'Bearer realm="timberbot"' }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } }
 
 paths:
   # ---------------------------------------------------------------------------
@@ -872,8 +904,14 @@ paths:
     get:
       operationId: ping
       summary: Liveness check.
-      description: 'Returns `{status: ok, ready: true}` when the mod is loaded into a game session.'
+      description: |
+        Returns `{status: ok, ready: true}` when the mod is loaded into a game session.
+
+        Unauthenticated even when `authToken` is configured — clients use
+        this endpoint to probe liveness and the OpenAPI version before they
+        know an auth token is required.
       tags: [meta]
+      security: []
       responses:
         '200':
           description: Mod is alive and a game is loaded.

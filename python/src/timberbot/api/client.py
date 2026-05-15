@@ -51,7 +51,7 @@ from timberbot.api.models._generated import (
     WellbeingReport,
     WorkHours,
 )
-from timberbot.settings import resolve_endpoint
+from timberbot.settings import resolve_auth_token, resolve_endpoint
 from timberbot.state import SettlementContext, compact_locations, compact_summary
 
 
@@ -65,10 +65,18 @@ class TimberbotClient:
         json_mode: bool = False,
         write_timeout: int = 60,
         settlement_context: SettlementContext | None = None,
+        auth_token: str | None = None,
     ) -> None:
         """Construct a client. `json_mode` is accepted for backwards
         compatibility but ignored — the wire is always JSON. CLI display
         format (TOON vs JSON) is handled in `timberbot.cli.main._format_output`.
+
+        `auth_token` matches the mod's `authToken` setting. When set, the
+        client adds an `Authorization: Bearer <token>` header to every
+        request. Resolution chain (first wins): constructor arg →
+        `TBOT_AUTH_TOKEN` env → `[client].auth_token` in
+        `~/.config/timberbot/config.toml`. Empty / whitespace values at any
+        level are treated as "not set" so the chain falls through.
         """
         del json_mode  # see docstring
         host, port = resolve_endpoint(host, port)
@@ -78,6 +86,9 @@ class TimberbotClient:
         self._write_timeout = write_timeout
         self.s = requests.Session()
         self.s.headers["Accept"] = "application/json"
+        token = resolve_auth_token(auth_token)
+        if token:
+            self.s.headers["Authorization"] = f"Bearer {token}"
         self._ctx: SettlementContext | None = settlement_context
 
     # ------------------------------------------------------------------
