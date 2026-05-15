@@ -34,6 +34,21 @@ def test_mod_dir_override_pins_path(tmp_path):
     assert paths.memory_base() == tmp_path / "custom-mod" / "memory"
 
 
+def test_mod_dir_from_env_var(monkeypatch, tmp_path):
+    """TBOT_MOD_DIR takes precedence over the documents-dir-derived default."""
+    monkeypatch.setenv("TBOT_DOCUMENTS_DIR", str(tmp_path / "Timberborn"))
+    monkeypatch.setenv("TBOT_MOD_DIR", str(tmp_path / "alt-mod"))
+    assert paths.mod_dir() == tmp_path / "alt-mod"
+
+
+def test_explicit_override_beats_env_var(monkeypatch, tmp_path):
+    """`set_mod_dir_override` wins over TBOT_MOD_DIR (CLI flag tier)."""
+    monkeypatch.setenv("TBOT_DOCUMENTS_DIR", str(tmp_path / "Timberborn"))
+    monkeypatch.setenv("TBOT_MOD_DIR", str(tmp_path / "from-env"))
+    paths.set_mod_dir_override(tmp_path / "from-cli")
+    assert paths.mod_dir() == tmp_path / "from-cli"
+
+
 def test_sanitize_name_strips_filesystem_unsafe_chars():
     assert paths.sanitize_name("My/Castle") == "My_Castle"
     assert paths.sanitize_name('hello"world') == "hello_world"

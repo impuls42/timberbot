@@ -52,7 +52,10 @@ namespace Timberbot
         private double _writeBudgetMs = 1.0;
         private string _tbotCommand = "";        // optional override for the `tbot` console-script path
         // security settings
-        private string _listenAddress = "localhost";
+        // IPv4 literal — avoids the `localhost` AAAA/A resolution split, which
+        // can have HttpListener bind to ::1 on some platforms while clients
+        // dial 127.0.0.1.
+        private string _listenAddress = "127.0.0.1";
         private string _corsOrigin = "";
         private bool _webhookValidateUrls = true;
         private int _maxBodyBytes = 1048576;
@@ -157,7 +160,7 @@ namespace Timberbot
                         _tbotCommand = json.Value<string>("tbotCommand") ?? "";
                     // security settings
                     if (json["listenAddress"] != null)
-                        _listenAddress = json.Value<string>("listenAddress") ?? "localhost";
+                        _listenAddress = json.Value<string>("listenAddress") ?? "127.0.0.1";
                     if (json["corsOrigin"] != null)
                         _corsOrigin = json.Value<string>("corsOrigin") ?? "";
                     if (json["webhookValidateUrls"] != null)

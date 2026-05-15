@@ -2,7 +2,7 @@
   "debugEndpointEnabled": false,
   "webhooksEnabled": true,
   "httpPort": 8085,
-  "listenAddress": "localhost",
+  "listenAddress": "127.0.0.1",
   "webhookValidateUrls": true,
   "maxBodyBytes": 1048576
 }

@@ -15,9 +15,11 @@
    match.
 5. Otherwise, raise `TimberbotPathError`.
 
-A `--mod-dir` override is also supported: `set_mod_dir_override()` pins
-`mod_dir()` directly, bypassing both `documents_dir / "Mods" / "Timberbot"` and
-the resolver above.
+The mod folder is resolved separately by `mod_dir()`:
+
+1. `set_mod_dir_override()` (e.g. CLI `--mod-dir=`).
+2. `$TBOT_MOD_DIR` env var.
+3. `documents_dir() / "Mods" / "Timberbot"`.
 """
 from __future__ import annotations
 
@@ -127,9 +129,18 @@ def documents_dir() -> Path:
 
 
 def mod_dir() -> Path:
-    """The Timberbot mod folder under `documents_dir()`."""
+    """The Timberbot mod folder.
+
+    Precedence: explicit override → `TBOT_MOD_DIR` env var →
+    `documents_dir() / "Mods" / "Timberbot"`. The env var sits at the same
+    tier as `TBOT_DOCUMENTS_DIR` and lets users on unusual Wine prefixes pin
+    the mod folder without also setting Documents.
+    """
     if _mod_dir_override is not None:
         return _mod_dir_override
+    env = os.environ.get("TBOT_MOD_DIR")
+    if env:
+        return Path(env)
     return documents_dir() / "Mods" / "Timberbot"
 
 
