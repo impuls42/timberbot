@@ -1,11 +1,13 @@
 ---
 title: Timberbot Guide
-description: Full operating guide for Claude and other LLMs playing Timberborn via timberbot.py.
-version: "0.8.5"
+description: Full operating guide for Claude and other LLMs playing Timberborn via the tbot CLI.
+version: "0.9.0"
 ---
 # Timberbot Guide
 
-This is the full Timberbot Guide for playing Timberborn through `timberbot.py`.
+> **v0.9 — architecture rework, in flight.** The launch flow now uses the `tbot watch` connector and the in-game Launch button instead of the old subprocess spawn. Gameplay strategy is unchanged.
+
+This is the full Timberbot Guide for playing Timberborn through the `tbot` CLI.
 
 The `timberbot` agent prompt (shipped as `tbot.agent_prompts.timberbot` and materialized via `tbot init`) is the slim runtime prompt injected at launch. This page is the full guide behind that prompt. The split keeps launch tokens low while preserving the deeper operating rules and reference material the agent may need.
 
@@ -14,13 +16,28 @@ Read this first. Use the other docs only when needed:
 - [API Reference](api-reference.md) for exact commands, endpoint shapes, helper behavior, pagination, and error payloads
 - [Getting Started](getting-started.md) for install, PATH, remote host, and troubleshooting
 
+## How the agent gets here
+
+The agent never starts itself. The chain is:
+
+1. The player runs `tbot watch` on their machine. It heartbeats the mod every 2 s.
+2. The player presses **Launch** in the in-game Timberbot widget. The mod sets `ready=true` and opens the `/api/*` gate.
+3. In **request mode**, the player typed a prompt; the mod fires the connector's registered webhook (or surfaces the request via the next heartbeat poll). In **autonomous mode**, the connector dispatches on its own cadence using the persisted `goal`.
+4. The connector calls `tbot agent run` (or attaches to a long-running `opencode serve`), which is when this guide enters the agent's context.
+
+You're the agent in step 4. The widget and the connector are not in your context — they're the human's tooling for waving you in. The contract you care about is:
+
+- `/api/agent/state` tells you the current `mode`, `goal`, `ready`, and (if any) the `pendingRequest` payload that triggered this run.
+- The ready gate is **already open** by the time you run; you don't need to touch `/api/ready`. If you ever see `409 game_not_ready`, the player pressed Stop mid-run — abort cleanly and don't retry.
+- After completing a request-mode cycle, the connector advances `acked_request_id` to clear the pending slot. You don't have to ack manually.
+
 ## FIRST RUN: Boot Sequence
 
 On the first invocation of `/timberbot` per session, complete `Boot`, then `Brain`, in order. The boot report is not a game action. It proves that you loaded the guide before making changes.
 
 ### Boot (rules confirmation. NO API calls)
 
-`timberbot.py` is on PATH. Run it directly. never use `python` prefix, never `cd` anywhere.
+The `tbot` CLI is on PATH. Run it directly. never use `python` prefix, never `cd` anywhere.
 
 1. Read this entire guide top to bottom before calling any game APIs.
 2. Read `api-reference.md` top to bottom. Once in context, use it from context. do not re-read it.
@@ -52,7 +69,7 @@ If boot is `PASSED`, continue immediately to `Brain`.
 If any doc is `MISSING`, any placeholder is left blank, or any fact cannot be stated, boot is `FAILED`. Report the issue, ask the user for guidance, and do not make any game API calls.
 ### Brain (pre-loaded. do NOT call brain again)
 
-Colony state was already gathered and injected into your system prompt before this session started. Look for the `## CURRENT COLONY STATE` section in your context. Do NOT run `timberbot.py brain`. it was already run for you.
+Colony state was already gathered and injected into your system prompt before this session started. Look for the `## CURRENT COLONY STATE` section in your context. Do NOT run `tbot brain`. it was already run for you.
 
 3. Print this readout using the colony state from your system prompt:
 
@@ -74,7 +91,7 @@ If food or water is `<= 1d`, append `CRITICAL` after the value. If alerts are al
 
 **Note on stats:** Wellbeing averages, "miserable" counts, "critical" counts, and survival days (food/water/logs/planks/gears) strictly reflect **organic beavers** only. Bots are excluded to ensure statistics represent actual colony survival and health.
 
-If the colony state section is missing from your system prompt, fall back to running `timberbot.py brain goal:"<goal>"` manually.
+If the colony state section is missing from your system prompt, fall back to running `tbot brain goal:"<goal>"` manually.
 
 4. If there are failed or active tasks from a previous session, list them and assess whether to retry or re-plan before starting new work.
 
@@ -86,7 +103,7 @@ On subsequent invocations in the same session, skip the boot sequence and go str
 
 This is a human-AI co-op game. The human player is also building, demolishing, and changing settings in real time. Game state can change between API calls.
 
-`timberbot.py` is on PATH. Call it directly. See [Getting Started](getting-started.md) for setup details.
+The `tbot` CLI is on PATH. Call it directly. See [Getting Started](getting-started.md) for setup details.
 
 Beavers die if food or water hits 0.
 

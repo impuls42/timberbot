@@ -1,22 +1,42 @@
 # Architecture
 
+> **v0.9 — architecture rework, in flight.** Behavior on `master` may briefly lag this page while units #13–#18 land. The shape described here is what ships when the rework is complete.
+
 How Timberbot works internally. For migration history, see [`fresh-on-request-snapshots.md`](fresh-on-request-snapshots.md).
+
+## The mod ↔ connector split
+
+Timberbot is two cooperating processes:
+
+- The **mod** runs inside the game and exposes the HTTP API. It is a pure server — it never spawns the agent. It owns the canonical session state (`mode`, `goal`, `pendingRequest`, `ready`, …) and a ready gate that refuses traffic until the player presses Launch.
+- The **agent connector** (`tbot watch`) is a long-running Python process on the player's machine. It polls the mod, optionally registers a webhook URL for push triggers, sends heartbeats, and dispatches agent runs.
+
+```
+┌─ Timberborn (game process) ────────────────┐        ┌─ tbot watch (host process) ────────────┐
+│  Timberbot.dll                             │        │                                        │
+│    TimberbotHttpServer  :8085              │◀──────▶│  reconnect loop                        │
+│    TimberbotAgentState  state.json         │   HTTP │  POST /api/tbot/heartbeat   every 2s   │
+│    TimberbotReadV2 / TimberbotWrite        │        │  POST /api/tbot/register    on connect │
+│    TimberbotWebhook                        │──push─▶│  webhook receiver (optional)           │
+│    TimberbotPanel  (Launch / Stop widget)  │        │  agent run dispatcher                  │
+└────────────────────────────────────────────┘        └────────────────────────────────────────┘
+```
 
 ## Components
 
 The mod has one read stack and one write stack:
 
-- read: [`TimberbotReadV2`](../timberbot/src/TimberbotReadV2.cs). all GET endpoints, projection snapshots
-- write: [`TimberbotWrite`](../timberbot/src/TimberbotWrite.cs). all POST mutations
-- entity lookup: [`TimberbotEntityRegistry`](../timberbot/src/TimberbotEntityRegistry.cs). GUID/numeric ID bridge
-- placement: [`TimberbotPlacement`](../timberbot/src/TimberbotPlacement.cs). building placement, A* path routing
-- HTTP: [`TimberbotHttpServer`](../timberbot/src/TimberbotHttpServer.cs). background listener, routing
-- webhooks: [`TimberbotWebhook`](../timberbot/src/TimberbotWebhook.cs). batched push notifications
-- debug: [`TimberbotDebug`](../timberbot/src/TimberbotDebug.cs). reflection inspector, benchmark
-- agent: [`TimberbotAgent`](../timberbot/src/TimberbotAgent.cs). interactive Claude/Codex/custom-binary launcher
-- UI: [`TimberbotPanel`](../timberbot/src/TimberbotPanel.cs). movable in-game widget + centered settings modal
-- orchestrator: [`TimberbotService`](../timberbot/src/TimberbotService.cs). lifecycle, settings, per-frame dispatch
-- write jobs: [`ITimberbotWriteJob`](../timberbot/src/ITimberbotWriteJob.cs). budgeted write execution
+- read: `TimberbotReadV2` — all GET endpoints, projection snapshots
+- write: `TimberbotWrite` — all POST mutations
+- entity lookup: `TimberbotEntityRegistry` — GUID/numeric ID bridge
+- placement: `TimberbotPlacement` — building placement, A* path routing
+- HTTP: `TimberbotHttpServer` — background listener, routing, ready-gate + auth middleware
+- webhooks: `TimberbotWebhook` — batched push notifications
+- debug: `TimberbotDebug` — reflection inspector, benchmark
+- agent state: `TimberbotAgentState` — single source of truth for `mode`, `goal`, `ready`, `pendingRequest`, `tbotWebhookUrl`, `lastAckedRequestId`, `lastError`. Persisted fields live in `state.json`; ephemeral fields reset on save load.
+- UI: `TimberbotPanel` — movable in-game widget (Launch / Stop, mode dropdown, mode-aware textarea) + centered settings modal
+- orchestrator: `TimberbotService` — lifecycle, settings, per-frame dispatch
+- write jobs: `ITimberbotWriteJob` — budgeted write execution
 
 ## Thread model
 
@@ -55,17 +75,17 @@ UpdateSingleton() [every frame]             ListenLoop() [blocking accept]
 
 ## TimberbotService
 
-[`TimberbotService`](../timberbot/src/TimberbotService.cs) is the singleton orchestrator.
+`TimberbotService` is the singleton orchestrator.
 
 It owns:
 
-- settings load from `settings.json`
+- settings load from `settings.json` and state load from `state.json`
 - cached settings state and debounced writeback to `settings.json`
 - HTTP server lifetime
 - event bus registration
 - `Registry.BuildAllIndexes()`
 - `ReadV2.BuildAll()`
-- `TimberbotAgent` creation and shutdown
+- the shared `TimberbotAgentState` instance exposed to the panel, the HTTP layer, and webhook dispatch
 - per-frame dispatch:
   - `DrainRequests()`
   - `ReadV2.ProcessPendingRefresh(now)`
@@ -80,72 +100,77 @@ Settings behavior:
 - writes to disk are debounced (~1 second after the last change)
 - `Unload()` forces a final flush
 
-Agent ownership:
+State behavior:
 
-- `Load()` instantiates `Agent = new TimberbotAgent(_tbotCommand)`
-- `Unload()` calls `Agent?.Stop()` before shutting down the HTTP server
-- the service does not run the agent logic itself; it owns the single agent instance and exposes it to the panel and HTTP routes
+- `Load()` reads `state.json` and seeds `mode`, `goal`, `lastError`. Ephemeral fields (`ready`, `pendingRequest`, `tbotWebhookUrl`, `lastAckedRequestId`) reset on every save load — the player must press Launch again after reloading a save.
+- `Unload()` flushes `state.json` before shutting down the HTTP server.
+- The service does not drive the agent itself; the connector does. The service just keeps state coherent.
 
-## TimberbotAgent
+## TimberbotAgentState — ready gate, modes, request slot
 
-[`TimberbotAgent`](../timberbot/src/TimberbotAgent.cs) is a thin in-process
-wrapper around the Python `tbot agent run` CLI.
+`TimberbotAgentState` is the thread-safe container that every other component reads and mutates.
 
-It owns:
+Persisted fields (written to `state.json`):
 
-- agent launch configuration: `binary` (backend name), `model`, `effort`,
-  `goal`, optional custom command template, and process timeout
-- agent state machine: `Idle`, `GatheringState`, `Interactive`, `Done`, `Error`
-- a background worker thread for session startup and process waiting
-- the currently launched process handle used by `Stop()`
+- `mode` — `request` (default) or `autonomous`
+- `goal` — autonomous-mode prompt
+- `lastError` — last connector-reported failure surfaced in the widget
 
-Launch flow:
+Ephemeral fields (reset on save load):
 
-1. `Start(...)` validates the agent is not already running and stores the launch settings.
-2. The agent enters `GatheringState` and starts a background thread.
-3. That thread builds `tbot agent run --backend <name> --goal "<goal>"`
-   (model/effort/command/terminal-prefix appended if set).
-4. The process is spawned via `ProcessStartInfo { UseShellExecute = true }`,
-   inheriting the user's shell so the agent CLI opens in its own terminal.
-5. While the process is running, the agent reports `Interactive`.
-6. When the process exits, the agent transitions to `Done`, or back to `Idle`
-   if `Stop()` requested cancellation.
+- `ready` — true after the player presses **Launch**; false on Stop or save load
+- `pendingRequest` — single-slot `{id, prompt, createdAt}` set by `POST /api/agent/request` and cleared when the connector acks (`acked_request_id ≥ pendingRequest.id`)
+- `tbotWebhookUrl` — connector's push URL from `POST /api/tbot/register`; cleared if heartbeats lapse > 6 s
+- `lastAckedRequestId` — for ack/clear bookkeeping; this is the same value the connector sends as `acked_request_id` in the heartbeat payload (snake_case on the wire, PascalCase in the C# field)
 
-Prompt loading, instructions merging, platform-specific terminal wrapping, and
-the actual agent-CLI invocation all live in the Python `tbot` package, not
-here. PR 4 removed the legacy C# terminal handling, the Python launcher
-auto-detection, and the in-process binary allowlist; argparse on the Python
-side validates `--backend` against the registered backends.
+### Ready gate
 
-The built-in agent is interactive, not an autonomous multi-turn executor. It
-prepares context and launches the external CLI for the player to drive.
+`TimberbotHttpServer` runs ready-gate middleware on every `/api/*` request. When `ready == false`, **both reads and writes** outside the carve-out return `409 {"error":"game_not_ready","hint":"player must press Launch in the Timberbot widget"}`.
+
+Carve-out (always live):
+
+- `/api/agent/*` — widget config + Launch trigger
+- `/api/ready` — Launch / Stop toggle
+- `/api/tbot/*` — connector heartbeat, register
+- `/api/ping` — liveness probe
+
+This is intentional. The gate is what makes the player the boss of the AI: nothing reads colony state, nothing places a building, nothing writes a save until the player explicitly opts in.
+
+### Modes
+
+- **Request mode** (default). Player types a prompt in the widget and presses Launch. The mod sets `pendingRequest` + fires the registered connector webhook (fast path). If the connector isn't reachable, it picks the request up via its next heartbeat (slow path).
+- **Autonomous mode**. Connector decides cadence using the persisted `goal`. The ready gate is still authoritative — pressing Stop instantly mutes the connector.
+
+The connector advances `acked_request_id` after each cycle so the mod can clear the single pending slot. Queueing is the connector's problem, not the mod's.
+
+### Bearer-token auth
+
+When `authToken` is set in `settings.json`, every `/api/*` route requires `Authorization: Bearer <token>` (constant-time compare). The mod **refuses to start** if `listenAddress` is non-localhost and `authToken` is empty — there's no path to ship the API over a LAN without a token. Tokens flow into the Python client via `[client].auth_token` in `config.toml`, the `TBOT_AUTH_TOKEN` env var, or `TimberbotClient(auth_token=...)`.
 
 ## TimberbotPanel
 
-[`TimberbotPanel`](../timberbot/src/TimberbotPanel.cs) is the in-game control surface.
+`TimberbotPanel` is the in-game control surface.
 
 It owns:
 
-- a movable bottom-right widget with status, `Start`, `Stop`, and `Settings`
-- a centered `Timberbot API - Settings` modal
-- agent launch settings: `agentBinary` (backend choice) and `agentGoal`
-- runtime settings editing for the same `settings.json` file
-- preset popups for the backend choice and boolean runtime fields
-- custom row-hover tooltips inside the settings modal
+- a movable bottom-right widget with a connection-state pill (`Disconnected` / `Not Ready` / `Idle` / `Running` / `Error`), a mode dropdown, a mode-aware textarea, and the **Launch / Stop** button
+- a centered `Timberbot API - Settings` modal for runtime + security settings
 - saved widget position via `widgetLeft` / `widgetTop`
 
 UI model:
 
 - the corner widget is always visible once loaded
-- `Settings` opens the centered modal; the widget remains available underneath
-- the Agent tab is intentionally minimal: Backend + Goal + Start. Model,
-  effort, and custom command templates live in `~/.config/timberbot/config.toml`
-  (consumed by the Python backends) rather than per-launch UI fields
-- `Start` and `Stop` operate on the shared `TimberbotAgent` owned by `TimberbotService`
+- `Launch` posts `{"ready": true}` to `/api/ready`. `Stop` posts `{"ready": false}`.
+- the mode dropdown writes `mode` via `POST /api/agent/config`
+- in **Autonomous** mode the textarea is bound to `goal` with debounced auto-save
+- in **Request** mode the textarea is a local buffer; pressing Launch posts the prompt to `/api/agent/request` and clears the field
+- a banner ("Connected to game session — waiting for player to Launch") appears when a connector is heartbeating but the gate is off
+
+The panel never spawns or knows about agent processes. It only talks to the local HTTP API.
 
 ## TimberbotReadV2
 
-[`TimberbotReadV2`](../timberbot/src/TimberbotReadV2.cs) is the read service for all GET endpoints.
+`TimberbotReadV2` is the read service for all GET endpoints.
 
 It owns:
 
@@ -164,7 +189,7 @@ Thread safety rule:
 
 ## TimberbotEntityRegistry
 
-[`TimberbotEntityRegistry`](../timberbot/src/TimberbotEntityRegistry.cs) is the entity lookup and ID translation layer.
+`TimberbotEntityRegistry` is the entity lookup and ID translation layer.
 
 It owns:
 
@@ -183,7 +208,7 @@ The public API uses short numeric IDs for human usability. The registry translat
 
 ## TimberbotWrite
 
-[`TimberbotWrite`](../timberbot/src/TimberbotWrite.cs) handles all mutations on the main thread.
+`TimberbotWrite` handles all mutations on the main thread.
 
 Write flow:
 
@@ -195,7 +220,7 @@ Write flow:
 
 ## TimberbotPlacement
 
-[`TimberbotPlacement`](../timberbot/src/TimberbotPlacement.cs) handles:
+`TimberbotPlacement` handles:
 
 - `find_placement`. search region for valid building spots with reachability/power/flood scoring
 - `place_building`. origin-correct, validate via `PreviewFactory`, place via `BlockObjectPlacerService`
@@ -205,7 +230,7 @@ Write flow:
 
 ## TimberbotWebhook
 
-[`TimberbotWebhook`](../timberbot/src/TimberbotWebhook.cs) batches event pushes and sends them out-of-band.
+`TimberbotWebhook` batches event pushes and sends them out-of-band.
 
 - events accumulate on the main thread via `[OnEvent]` handlers
 - `FlushWebhooks()` sends batches on a configurable cadence (default 200ms)
@@ -213,6 +238,8 @@ Write flow:
 - circuit breaker: N consecutive failures disables the webhook
 
 Settings: `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`.
+
+**Connector trigger channel.** When the connector calls `POST /api/tbot/register {webhook_url}`, the mod stores that URL in `tbotWebhookUrl`. On Launch in request mode, the mod fires a synthetic `agent.request` event at that URL as the fast path. Regular game-event webhooks still fire while `ready=false` — the ready gate only filters `/api/*` requests, not outbound webhooks. The connector registration is cleared if heartbeats lapse for 6 s.
 
 ## Read architecture
 
@@ -304,13 +331,18 @@ HTTP POST
 
 ### Agent control
 
-Agent control is split across GET and queued POST routes in [`TimberbotHttpServer`](../timberbot/src/TimberbotHttpServer.cs):
+Agent control is HTTP-only — the mod never spawns a process. The widget and the connector both speak `TimberbotHttpServer`:
 
-- `GET /api/agent/status` returns the current `TimberbotAgent.Status()` payload
-- `POST /api/agent/start` is queued and calls `Agent.Start(binary, model, effort, timeout, goal)` on the main-thread write path
-- `POST /api/agent/stop` is queued and calls `Agent.Stop()`
+| Route | Caller | Purpose |
+|---|---|---|
+| `GET /api/agent/state` | widget, connector | Read `{mode, goal, ready, pendingRequest, agentStatus, lastError}` |
+| `POST /api/agent/config` | widget | Debounced save of `mode` and/or `goal` |
+| `POST /api/agent/request` | widget (Launch in request mode) | Set `pendingRequest`; fire `tbotWebhookUrl` if registered |
+| `POST /api/ready` | widget | Launch / Stop the ready gate |
+| `POST /api/tbot/register` | connector | Register a webhook URL for push-mode triggering |
+| `POST /api/tbot/heartbeat` | connector | 2 s liveness ping with `{version, agent_status, acked_request_id}`; returns full state |
 
-The in-game panel uses the same shared `Agent` instance as the HTTP routes.
+The connector (`tbot watch`) owns the agent process lifetime. It dispatches `tbot agent run` (or `opencode run --attach <url>`) on each trigger, then advances `acked_request_id` so the mod can clear the pending slot.
 
 ## Serialization
 
@@ -352,7 +384,8 @@ Registry data (GUID-to-ID maps, webhook lifecycle hooks). Updated on `EntityInit
 {
   "debugEndpointEnabled": true,
   "httpPort": 8085,
-  "listenAddress": "localhost",
+  "listenAddress": "127.0.0.1",
+  "authToken": "",
   "webhooksEnabled": true,
   "webhookBatchMs": 200,
   "webhookCircuitBreaker": 30,
@@ -360,49 +393,41 @@ Registry data (GUID-to-ID maps, webhook lifecycle hooks). Updated on `EntityInit
   "webhookValidateUrls": true,
   "writeBudgetMs": 1.0,
   "maxBodyBytes": 1048576,
-  "agentBinary": "claude",
-  "agentGoal": "reach 50 beavers with 77 well-being",
   "widgetLeft": "123",
   "widgetTop": "456"
 }
 ```
 
-There are three categories of settings in the same file:
+There are three categories of settings:
 
-- runtime settings read by [`TimberbotService`](../timberbot/src/TimberbotService.cs):
-  - `debugEndpointEnabled`
-  - `httpPort`
-  - `webhooksEnabled`
-  - `webhookBatchMs`
-  - `webhookCircuitBreaker`
-  - `webhookMaxPendingEvents`
-  - `writeBudgetMs`
-- security settings (also read by `TimberbotService`, applied at load):
-  - `listenAddress` — bind address; default `localhost`. Use `+`/`0.0.0.0` for LAN
+- runtime, read by `TimberbotService`: `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `writeBudgetMs`
+- security, also applied at load:
+  - `listenAddress` — bind address; default `127.0.0.1`. Use `+`/`0.0.0.0` for LAN
+  - `authToken` — bearer token required on every `/api/*` request when set. **Required** if `listenAddress` is non-localhost; the mod refuses to start otherwise.
   - `webhookValidateUrls` — reject SSRF-shaped webhook targets before dispatch; default `true`
   - `maxBodyBytes` — POST body size cap before `413 body_too_large`; default `1048576`
-- UI/agent settings written by [`TimberbotPanel`](../timberbot/src/TimberbotPanel.cs):
-  - `agentBinary` — backend name (claude/codex/opencode/custom)
-  - `agentGoal`
-  - `widgetLeft`
-  - `widgetTop`
+- widget position written by `TimberbotPanel`: `widgetLeft`, `widgetTop`
 
-Deprecated keys (`terminal`, `pythonCommand`, `agentModel`, `agentEffort`,
-`agentCommandTemplate`, `agentAllowlistEnabled`, `agentAllowedBinaries`) are
-logged once at load and otherwise ignored — see
-[`TimberbotPure.DetectDeprecatedSettings`](../timberbot/src/TimberbotPure.cs).
-Per-backend model/effort/command defaults live in
-`~/.config/timberbot/config.toml` (consumed by the Python `tbot` CLI).
+Agent-shaped state lives in **`state.json`** alongside `settings.json`, not in settings:
+
+```json
+{
+  "mode": "request",
+  "goal": "reach 50 beavers with 77 wellbeing",
+  "lastError": null
+}
+```
+
+Deprecated `settings.json` keys (`terminal`, `pythonCommand`, `agentBinary`, `agentGoal`, `agentModel`, `agentEffort`, `agentCommandTemplate`, `agentAllowlistEnabled`, `agentAllowedBinaries`, `tbotCommand`) are logged once at load and otherwise ignored. Backend choice, model, effort, and custom command templates live in `~/.config/timberbot/config.toml` (consumed by `tbot watch` and `tbot agent run`).
 
 Important behavior:
 
-- runtime settings are applied on load; changing them in the modal updates `settings.json` immediately in memory but may require reloading the save/mod to fully apply
-- UI/agent settings are consumed live by the panel and agent launcher
+- runtime/security settings are applied on load; changing them in the modal updates `settings.json` immediately in memory but may require reloading the save/mod to fully apply
+- `state.json` is rewritten whenever the widget changes `mode`/`goal` or the connector reports a `lastError` (debounced)
 
 ## Path resolution (Python side)
 
-The Python `tbot` CLI discovers Timberborn's `Documents` folder via
-[`timberbot.paths.find_documents_dir`](../python/src/timberbot/paths.py):
+The Python `tbot` CLI discovers Timberborn's `Documents` folder via `timberbot.paths.find_documents_dir`:
 
 1. `$TBOT_DOCUMENTS_DIR` env var if set.
 2. `~/Documents/Timberborn` if it exists (Windows / macOS / native Linux).
@@ -414,9 +439,11 @@ value at call time.
 
 ## Test posture
 
-Primary live harness: [`python/tests/integration/v2_runner.py`](../python/tests/integration/v2_runner.py). Validates the `/api/*` surface against a running game.
+Primary live harness: `python/tests/integration/v2_runner.py`. Validates the `/api/*` surface against a running game.
 
 Modes: `smoke`, `freshness`, `write_to_read`, `performance`, `concurrency`, `all`. Invoke via `python -m pytest python/tests/integration/ -m integration` with `-k <mode>` to filter.
+
+The connector and webhook receiver (`tbot watch`, `tbot listen`) are unit-tested with `pytest-httpserver` stubs — they don't require a live game.
 
 ## Known debt
 

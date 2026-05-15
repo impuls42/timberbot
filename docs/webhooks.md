@@ -1,6 +1,34 @@
 # Webhooks
 
+> **v0.9 — architecture rework, in flight.** Behavior on `master` may briefly lag this page.
+
 Push notifications for game events. Instead of polling, the mod sends HTTP POST requests to your registered URLs when events happen in-game.
+
+Webhooks are unaffected by the [ready gate](architecture.md#ready-gate) — they keep firing whether the player has pressed Launch or not. That's deliberate: a game-event subscriber (a Discord bot, a dashboard, an alerting webhook) should still see what's happening in the colony even when the AI is muted.
+
+## Local listener quickstart (`tbot listen`)
+
+> **Not yet available on `master`.** `tbot listen` ships as part of the v0.9 architecture cutover (tracked in [unreleased.md](unreleased.md)). Until it lands, run your own aiohttp/Flask server on the registered URL.
+
+The fastest way to receive webhooks on your own machine is the bundled `tbot listen` reference receiver:
+
+```bash
+tbot listen --port 9000                       # one event per line as JSON
+tbot listen --port 9000 --pretty              # human-friendly rendering
+tbot listen --port 9000 --forward-to events.log
+tbot listen --port 9000 --forward-to https://example.com/hook
+```
+
+`tbot listen` accepts the same batched POST shape the mod sends and exits cleanly on `Ctrl-C`. It exists so users don't have to write an aiohttp server before they can debug webhook delivery.
+
+Pair it with `tbot register_webhook` to send live events to the local listener:
+
+```bash
+tbot listen --port 9000 &
+tbot register_webhook url:http://127.0.0.1:9000/events events:drought.start,beaver.died
+```
+
+If you're running `tbot watch` (the [agent connector](architecture.md#the-mod-connector-split)), it can host its own listener on the same port and register the URL via `POST /api/tbot/register` automatically — see [Connector triggers](#connector-triggers) below.
 
 ## Setup
 
@@ -11,7 +39,7 @@ Push notifications for game events. Instead of polling, the mod sends HTTP POST 
 
 2. Register a webhook:
 ```bash
-timberbot.py register_webhook url:http://localhost:9000/events events:drought.start,drought.end,beaver.died
+tbot register_webhook url:http://localhost:9000/events events:drought.start,drought.end,beaver.died
 ```
 
 Or via API:
@@ -61,11 +89,24 @@ tbot register_webhook url:http://127.0.0.1:9000/events events:drought.start,drou
 ## Management
 
 ```bash
-timberbot.py list_webhooks                         # GET /api/webhooks
-timberbot.py unregister_webhook id:wh_1    # POST /api/webhooks/delete
+tbot list_webhooks                         # GET /api/webhooks
+tbot unregister_webhook id:wh_1            # POST /api/webhooks/delete
 ```
 
 Webhooks are stored in memory. they reset on game restart. Re-register on startup.
+
+## Connector triggers
+
+The agent connector (`tbot watch`) uses a second, dedicated push channel — separate from the regular event webhooks above. On connect it calls:
+
+```
+POST /api/tbot/register
+{ "webhook_url": "http://127.0.0.1:9000/agent" }
+```
+
+The mod stores that URL in `tbotWebhookUrl` (cleared if heartbeats lapse for 6 s). When the player presses **Launch** in request mode, the mod fires a synthetic `agent.request` event at the registered URL as the *fast path* trigger. If the connector is offline or the URL is stale, the request still surfaces via the heartbeat poll response as the *slow path*.
+
+Connector triggers are not part of the 68-event game-event catalog below — they're a separate channel scoped to the agent.
 
 ## Events (68 total)
 
@@ -225,4 +266,4 @@ Webhooks are stored in memory. they reset on game restart. Re-register on startu
 
 After 30 consecutive delivery failures (configurable via `webhookCircuitBreaker`), a webhook is automatically disabled. Check status via `GET /api/webhooks`. disabled webhooks show `"disabled": true` and `"failures": 30`. Re-register to reset.
 
-For webhook internals (batching, threading, circuit breaker implementation) see [architecture.md](architecture.md#webhooks).
+For webhook internals (batching, threading, circuit breaker implementation) see [architecture.md](architecture.md#timberbotwebhook).

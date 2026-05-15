@@ -1,40 +1,50 @@
 # Timberbot
 
+> **v0.9 — architecture rework, in flight.** The mod is a pure HTTP server; agents are driven by an out-of-process connector (`tbot watch`) gated by the in-game Launch button.
+
 A C# mod + Python client that exposes a full read/write HTTP API for Timberborn, enabling AI agents (Claude, ChatGPT, or custom scripts) to manage a beaver colony.
 
 ## Quick Reference
 
 - **Build:** Open `timberbot/src/Timberbot.csproj` in an IDE with .NET support, or run `dotnet build` from that directory. The post-build target auto-deploys to the game's mod folder. Override the game DLL path with `-p:GameManagedDir=<path>` if the default doesn't match your install.
-- **Run (game side):** Launch Timberborn with the mod enabled. The HTTP server starts on the port configured in `settings.json` (default `8085`).
-- **Run (client side):** `tbot <command> [params]` (install with `pip install -e python/` from the repo, or `pipx install timberbot`).
+- **Run (game side):** Launch Timberborn with the mod enabled. The HTTP server starts on the port configured in `settings.json` (default `8085`). Player presses **Launch** in the widget to open the ready gate.
+- **Run (client side):** `tbot watch` is the long-running connector. `tbot <command>` and `tbot agent run` still work for one-shots. Install with `pipx install timberbot`.
 - **Tests:** Python unit tests via `python -m pytest python/tests/`; C# xUnit tests via `dotnet test timberbot/test/`.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Timberborn Game Process                            │
-│  ┌───────────────────────────────────────────────┐  │
-│  │ Timberbot.dll (C# mod, loaded via Bindito DI) │  │
-│  │  ├─ TimberbotHttpServer   (HTTP listener)     │  │
-│  │  ├─ TimberbotReadV2       (GET /api/*)        │  │
-│  │  ├─ TimberbotWrite        (POST /api/*)       │  │
-│  │  ├─ TimberbotPlacement    (building placement)│  │
-│  │  ├─ TimberbotAgent        (AI agent runner)   │  │
-│  │  └─ TimberbotWebhook      (outbound webhooks) │  │
-│  └───────────────────────────────────────────────┘  │
-│              ▲ HTTP :8085                           │
-└──────────────┼──────────────────────────────────────┘
-               │
-┌──────────────┼──────────────────────────────────────┐
-│  Python Client (`pip install timberbot`)            │
-│  ├─ `tbot` CLI (brain, buildings, place, etc.)      │
-│  ├─ `tbot agent run` — launches AI agent backends   │
-│  └─ Persistent state via brain.toon in memory/      │
-└─────────────────────────────────────────────────────┘
+┌─ Timberborn (game process) ────────────────┐         ┌─ tbot watch (host process) ────────────┐
+│  Timberbot.dll                             │         │                                        │
+│    TimberbotHttpServer  :8085              │◀───────▶│  reconnect + heartbeat (every 2 s)     │
+│    TimberbotAgentState  state.json         │   HTTP  │  registers webhook URL (push trigger)  │
+│    TimberbotReadV2 / TimberbotWrite        │         │  dispatches `tbot agent run` per cycle │
+│    TimberbotWebhook    (outbound + push)   │──push──▶│  optional local listener               │
+│    TimberbotPanel       Launch / Stop      │         │                                        │
+└────────────────────────────────────────────┘         └────────────────────────────────────────┘
 ```
 
 The mod runs **inside** the Unity game process. It uses Timberborn's `Bindito` DI framework (not BepInEx or Harmony). All game DLLs are referenced with `Publicize="true"` to access internal APIs without reflection.
+
+### Agent connector role
+
+The mod no longer spawns the agent. Instead, the player runs `tbot watch` — a long-running Python process that:
+
+1. Polls `/api/ping` with exponential backoff until the game is reachable.
+2. Optionally `POST /api/tbot/register {webhook_url}` to receive push-mode triggers on a local listener.
+3. Heartbeats `POST /api/tbot/heartbeat` every 2 s carrying `{version, agent_status, acked_request_id}`; the response is the full agent state.
+4. Dispatches an `agent run` cycle when a request arrives (via webhook fast path or heartbeat slow path) or when autonomous-mode cadence fires.
+5. Advances `acked_request_id` so the mod clears the single `pendingRequest` slot.
+
+`tbot watch` is the canonical place to add new orchestration logic (queueing, cadence, attach-to-`opencode serve`, multi-backend routing). The mod intentionally stays dumb.
+
+### Ready gate
+
+The widget's Launch / Stop button toggles `ready` on the mod. While `ready=false`, `TimberbotHttpServer` middleware returns `409 game_not_ready` for **every `/api/*` read and write** except the carve-out: `/api/agent/*`, `/api/ready`, `/api/tbot/*`, `/api/ping`. Webhooks keep firing — the gate only filters inbound `/api/*` requests, not outbound events.
+
+`ready` is **not persisted**: it resets to `false` on every save load. The player has to opt in every session. `mode`, `goal`, and `lastError` persist via `state.json`; `pendingRequest`, `tbotWebhookUrl`, and `lastAckedRequestId` are in-memory only.
+
+Bearer-token auth (`authToken` in `settings.json`) layers on top: when set, every `/api/*` request needs `Authorization: Bearer <token>` (constant-time compare). The mod refuses to start if `listenAddress` is non-localhost and `authToken` is empty.
 
 ## Project Structure
 
@@ -53,18 +63,18 @@ timberbot/
 │   ├── src/                     # C# mod source
 │   │   ├── Timberbot.csproj     # MSBuild project; manages game DLL refs & deploy
 │   │   ├── TimberbotConfigurator.cs      # Bindito DI registration
-│   │   ├── TimberbotHttpServer.cs        # HTTP listener, routing
+│   │   ├── TimberbotHttpServer.cs        # HTTP listener, routing, ready-gate + auth middleware
 │   │   ├── TimberbotReadV2.cs            # All GET endpoints (buildings, beavers, map)
 │   │   ├── TimberbotWrite.cs             # All POST endpoints (pause, recipes, floodgates)
 │   │   ├── TimberbotPlacement.cs         # Building/planting placement logic
-│   │   ├── TimberbotAgent.cs             # Thin wrapper: spawns `tbot agent run`
+│   │   ├── TimberbotAgentState.cs        # mode/goal/ready/pendingRequest container; state.json persistence
 │   │   ├── TimberbotEntityRegistry.cs    # Entity lookup by ID
-│   │   ├── TimberbotWebhook.cs           # Outbound webhook dispatch
+│   │   ├── TimberbotWebhook.cs           # Outbound webhook dispatch (game events + connector triggers)
 │   │   ├── TimberbotService.cs           # Main lifecycle (Load/Update)
-│   │   ├── TimberbotPanel.cs             # In-game UI panel
+│   │   ├── TimberbotPanel.cs             # In-game UI panel (Launch/Stop, mode dropdown)
 │   │   ├── TimberbotDebug.cs             # Debug/diagnostic endpoints
 │   │   ├── manifest.json                 # Mod metadata (name, version, min game version)
-│   │   └── settings.json                 # Default config (port, listen address)
+│   │   └── settings.json                 # Default config (port, listen address, authToken)
 │   └── test/                    # C# xUnit tests (Tier 1+2 pure helpers)
 ├── python/
 │   ├── pyproject.toml           # hatchling build; `tbot` console script
@@ -90,6 +100,8 @@ timberbot/
 - **Entity lookup:** Use `TimberbotEntityRegistry` to find entities by integer ID. The registry is populated on game load.
 - **State reading:** `TimberbotReadV2.cs` serializes game state to JSON. It uses `GetComponent<T>()` on entities to extract data from Timberborn's ECS-like component system.
 - **State writing:** `TimberbotWrite.cs` processes mutations. Each write method finds the target entity, gets the relevant component, and calls the game's own setter methods.
+- **Agent state:** `TimberbotAgentState` is the only source of truth for `mode`, `goal`, `ready`, `pendingRequest`, `tbotWebhookUrl`, `lastAckedRequestId`, `lastError`. Reads/writes go through the container — don't add ad-hoc fields elsewhere.
+- **Ready gate:** new `/api/*` endpoints must explicitly opt into the carve-out (`/api/agent/*`, `/api/ready`, `/api/tbot/*`, `/api/ping`) or accept that they 409 when `ready=false`. Default is gated.
 
 ### Python Client Side
 - **Persistent state:** The agent uses `brain.toon` files in `memory/` subdirectories, keyed by settlement name. The `goal` parameter is saved here for cross-session persistence.
