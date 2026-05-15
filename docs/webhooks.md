@@ -8,6 +8,8 @@ Webhooks are unaffected by the [ready gate](architecture.md#ready-gate) — they
 
 ## Local listener quickstart (`tbot listen`)
 
+> **Not yet available on `master`.** `tbot listen` ships as part of the v0.9 architecture cutover (tracked in [unreleased.md](unreleased.md)). Until it lands, run your own aiohttp/Flask server on the registered URL.
+
 The fastest way to receive webhooks on your own machine is the bundled `tbot listen` reference receiver:
 
 ```bash

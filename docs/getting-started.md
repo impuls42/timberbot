@@ -113,7 +113,7 @@ tbot watch --attach-url http://127.0.0.1:4096   # talk to a long-running opencod
 The widget exposes two modes via a dropdown.
 
 - **Request** *(default).* You type a prompt in the widget's textarea, press **Launch**, and the connector dispatches a single agent run for that prompt. Use this for "set up a plank chain", "place 3 farms near the river", or any discrete ask. Launching with an empty prompt is a no-op.
-- **Autonomous.** The widget's textarea binds to a persistent `goal` (saved in `state.json`). Press Launch and the connector keeps dispatching agent runs at its configured cadence until you press **Stop**. Use this for "reach 50 beavers with 77 well-being" — the long-running objective.
+- **Autonomous.** The widget's textarea binds to a persistent `goal` (saved in `state.json`). Press Launch and the connector keeps dispatching agent runs at its configured cadence until you press **Stop**. Use this for "reach 50 beavers with 77 wellbeing" — the long-running objective.
 
 Switching modes is instant and doesn't restart the connector. Stop is always one click away: it posts `{"ready": false}` to the mod, which **closes the gate** to every endpoint except `/api/agent/*`, `/api/ready`, `/api/tbot/*`, and `/api/ping`. The connector keeps heartbeating but won't drive any reads or writes until you Launch again.
 
@@ -307,7 +307,7 @@ Agent-shaped state lives in **`state.json`** alongside `settings.json`:
 ```json
 {
   "mode": "request",
-  "goal": "reach 50 beavers with 77 well-being",
+  "goal": "reach 50 beavers with 77 wellbeing",
   "lastError": null
 }
 ```

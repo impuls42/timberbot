@@ -121,7 +121,7 @@ Ephemeral fields (reset on save load):
 - `ready` — true after the player presses **Launch**; false on Stop or save load
 - `pendingRequest` — single-slot `{id, prompt, createdAt}` set by `POST /api/agent/request` and cleared when the connector acks (`acked_request_id ≥ pendingRequest.id`)
 - `tbotWebhookUrl` — connector's push URL from `POST /api/tbot/register`; cleared if heartbeats lapse > 6 s
-- `lastAckedRequestId` — for ack/clear bookkeeping
+- `lastAckedRequestId` — for ack/clear bookkeeping; this is the same value the connector sends as `acked_request_id` in the heartbeat payload (snake_case on the wire, PascalCase in the C# field)
 
 ### Ready gate
 
@@ -413,7 +413,7 @@ Agent-shaped state lives in **`state.json`** alongside `settings.json`, not in s
 ```json
 {
   "mode": "request",
-  "goal": "reach 50 beavers with 77 well-being",
+  "goal": "reach 50 beavers with 77 wellbeing",
   "lastError": null
 }
 ```

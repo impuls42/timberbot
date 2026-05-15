@@ -1,4 +1,4 @@
-## v2 architecture cutover
+## v0.9 architecture cutover (connector model)
 
 Hard cutover — no fallback path. The widget no longer spawns the agent; the connector does.
 
