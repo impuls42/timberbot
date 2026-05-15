@@ -42,7 +42,7 @@ from timberbot.cli.dispatcher import (
 
 # Built-in subcommands route their own argv (they own the rest after the name).
 # Anything not in this set falls through to TimberbotClient method dispatch.
-_BUILTIN_COMMANDS = {"top", "manager", "launch", "agent", "init", "listen"}
+_BUILTIN_COMMANDS = {"top", "manager", "launch", "agent", "init", "listen", "watch"}
 
 
 def _ensure_utf8_stdout() -> None:
@@ -60,6 +60,7 @@ def _build_registry() -> CommandRegistry:
     from timberbot.cli.commands import listen as listen_cmd
     from timberbot.cli.commands import manager as manager_cmd
     from timberbot.cli.commands import top as top_cmd
+    from timberbot.cli.commands import watch as watch_cmd
 
     registry = CommandRegistry()
     registry.register(Command(
@@ -100,6 +101,13 @@ def _build_registry() -> CommandRegistry:
         summary="reference webhook receiver (POST / or /events)",
         handler=listen_cmd.run,
         usage="  listen [--port 9000] [--pretty] [--forward-to PATH_OR_URL] [--quiet]",
+    ))
+    registry.register(Command(
+        name="watch",
+        summary="long-running connector: poll mod, heartbeat, dispatch agent runs",
+        handler=watch_cmd.run,
+        usage=("  watch [--backend NAME] [--model M] [--effort E] [--prompt NAME] \\\n"
+               "        [--listen-port N] [--autonomous-interval SEC] [--once]"),
     ))
     return registry
 
