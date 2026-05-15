@@ -68,6 +68,10 @@ namespace Timberbot
         private string _lastTextareaSavedValue;
         private float _goalDirtyTime = -1f;
         private string _currentMode = ModeAutonomous;
+        // Request-mode draft survives a mode flip-flop. Cleared only on
+        // Launch (the prompt has been sent) so the player never loses a
+        // typed prompt by accidentally toggling the dropdown.
+        private string _requestDraft = "";
 
         private TextField _debugEndpointField;
         private NineSliceButton _debugEndpointPresetBtn;
@@ -305,12 +309,12 @@ namespace Timberbot
 
             var state = _latestState;
             var pollOk = _lastPollOk;
-            var (text, color, gateOn) = ClassifyConnection(pollOk, state);
+            var (pill, gateOn) = TimberbotPure.ClassifyConnection(pollOk, state);
 
             if (_statusPill != null)
             {
-                _statusPill.text = text;
-                _statusPill.style.backgroundColor = color;
+                _statusPill.text = PillText(pill);
+                _statusPill.style.backgroundColor = PillColor(pill);
             }
             if (_statusBarLabel != null)
                 _statusBarLabel.text = "Timberbot API";
@@ -347,61 +351,29 @@ namespace Timberbot
             }
         }
 
-        // Maps (pollOk, state) to the connection-state pill.
-        // Returns (pill text, pill colour, gateOn=ready).
-        private static (string text, Color color, bool gateOn)
-            ClassifyConnection(bool pollOk, JObject state)
+        private static string PillText(TimberbotPure.ConnectionPillState pill)
         {
-            if (!pollOk || state == null)
-                return ("Disconnected", PillColorDisconnected, false);
-
-            var lastError = state.Value<string>("lastError");
-            if (!string.IsNullOrEmpty(lastError))
-                return ("Error", PillColorError, false);
-
-            var ready = state.Value<bool?>("ready") ?? false;
-            if (!ready)
-                return ("Not Ready", PillColorNotReady, false);
-
-            var pending = state["pendingRequest"];
-            var hasPending = pending != null && pending.Type != JTokenType.Null;
-            var agentStatus = ExtractAgentStatusString(state["agentStatus"]);
-            var running = hasPending || IsAgentStatusBusy(agentStatus);
-            return running
-                ? ("Running", PillColorRunning, true)
-                : ("Idle", PillColorIdle, true);
-        }
-
-        // /api/agent/state ships agentStatus as a free-form object (mirrors the
-        // openapi.yaml schema). We treat the connector's "status" field as the
-        // authoritative string when present, else fall back to a top-level
-        // string. Returns lowercased value or "" when absent.
-        private static string ExtractAgentStatusString(JToken agentStatus)
-        {
-            if (agentStatus == null || agentStatus.Type == JTokenType.Null) return "";
-            if (agentStatus.Type == JTokenType.String) return ((string)agentStatus ?? "").ToLowerInvariant();
-            if (agentStatus is JObject obj)
+            switch (pill)
             {
-                var s = obj.Value<string>("status");
-                if (!string.IsNullOrEmpty(s)) return s.ToLowerInvariant();
+                case TimberbotPure.ConnectionPillState.Disconnected: return "Disconnected";
+                case TimberbotPure.ConnectionPillState.NotReady:     return "Not Ready";
+                case TimberbotPure.ConnectionPillState.Idle:         return "Idle";
+                case TimberbotPure.ConnectionPillState.Running:      return "Running";
+                case TimberbotPure.ConnectionPillState.Error:        return "Error";
+                default:                                             return "Disconnected";
             }
-            return "";
         }
 
-        private static bool IsAgentStatusBusy(string lowercased)
+        private static Color PillColor(TimberbotPure.ConnectionPillState pill)
         {
-            // Treat anything that isn't an obviously-idle string as busy. Keeps
-            // the widget honest if the connector reports a new status name.
-            if (string.IsNullOrEmpty(lowercased)) return false;
-            switch (lowercased)
+            switch (pill)
             {
-                case "idle":
-                case "done":
-                case "ready":
-                case "disconnected":
-                    return false;
-                default:
-                    return true;
+                case TimberbotPure.ConnectionPillState.Disconnected: return PillColorDisconnected;
+                case TimberbotPure.ConnectionPillState.NotReady:     return PillColorNotReady;
+                case TimberbotPure.ConnectionPillState.Idle:         return PillColorIdle;
+                case TimberbotPure.ConnectionPillState.Running:      return PillColorRunning;
+                case TimberbotPure.ConnectionPillState.Error:        return PillColorError;
+                default:                                             return PillColorDisconnected;
             }
         }
 
@@ -627,7 +599,13 @@ namespace Timberbot
             var textareaInner = _textareaField.Q("unity-text-input");
             if (textareaInner != null)
                 textareaInner.style.whiteSpace = WhiteSpace.Normal;
-            _textareaField.RegisterValueChangedCallback(_ => _goalDirtyTime = Time.realtimeSinceStartup);
+            _textareaField.RegisterValueChangedCallback(evt =>
+            {
+                if (_currentMode == ModeRequest)
+                    _requestDraft = evt.newValue ?? "";
+                else
+                    _goalDirtyTime = Time.realtimeSinceStartup;
+            });
             _lastTextareaSavedValue = savedGoal;
             _agentSettingsContainer.Add(MakeFieldRow("Goal / Prompt:", _textareaField));
 
@@ -949,6 +927,7 @@ namespace Timberbot
                 PostJsonAsync("/api/agent/request", new JObject { ["prompt"] = prompt });
                 _textareaField.SetValueWithoutNotify("");
                 _lastTextareaSavedValue = "";
+                _requestDraft = "";
             }
             PostJsonAsync("/api/ready", new JObject { ["ready"] = true });
             TimberbotLog.Info("panel: launch (ready=true)");
@@ -1163,21 +1142,18 @@ namespace Timberbot
 
         private static string NormalizeDoubleString(string value, double fallback, double minValue) => TimberbotPure.NormalizeDoubleString(value, fallback, minValue);
 
-        private static string NormalizeMode(string raw)
-        {
-            var v = (raw ?? "").Trim().ToLowerInvariant();
-            return v == ModeRequest ? ModeRequest : ModeAutonomous;
-        }
+        private static string NormalizeMode(string raw) => TimberbotPure.NormalizeMode(raw);
 
         // Swap the textarea contents when the mode changes. Autonomous mode
         // shows the persisted goal (so the player can edit it); request mode
-        // starts empty because the buffer is per-prompt, cleared on Launch.
+        // restores the in-progress prompt draft if there is one, otherwise
+        // starts empty. The draft is cleared only on Launch.
         private void SyncTextareaForMode(string mode, JObject state)
         {
             if (_textareaField == null) return;
             if (mode == ModeRequest)
             {
-                _textareaField.SetValueWithoutNotify("");
+                _textareaField.SetValueWithoutNotify(_requestDraft ?? "");
                 _lastTextareaSavedValue = "";
             }
             else

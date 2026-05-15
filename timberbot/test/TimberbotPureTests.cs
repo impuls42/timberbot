@@ -589,4 +589,155 @@ namespace Timberbot.Tests
         }
     }
 
+    public class NormalizeModeTests
+    {
+        [Theory]
+        [InlineData("autonomous", "autonomous")]
+        [InlineData("request", "request")]
+        [InlineData("REQUEST", "request")]
+        [InlineData("  request  ", "request")]
+        [InlineData("Autonomous", "autonomous")]
+        [InlineData("", "autonomous")]
+        [InlineData(null, "autonomous")]
+        [InlineData("garbage", "autonomous")]
+        public void NormalizesMode(string input, string expected) =>
+            Assert.Equal(expected, TimberbotPure.NormalizeMode(input));
+    }
+
+    public class IsAgentStatusBusyTests
+    {
+        [Theory]
+        [InlineData("idle", false)]
+        [InlineData("done", false)]
+        [InlineData("ready", false)]
+        [InlineData("disconnected", false)]
+        [InlineData("", false)]
+        [InlineData(null, false)]
+        // Default-to-busy keeps the widget honest if the connector ships a
+        // new status verb (e.g. "thinking", "writing", "tool_use").
+        [InlineData("running", true)]
+        [InlineData("thinking", true)]
+        [InlineData("tool_use", true)]
+        public void ClassifiesBusyState(string status, bool expected) =>
+            Assert.Equal(expected, TimberbotPure.IsAgentStatusBusy(status));
+    }
+
+    public class ExtractAgentStatusStringTests
+    {
+        [Fact]
+        public void Null_ReturnsEmpty() =>
+            Assert.Equal("", TimberbotPure.ExtractAgentStatusString(null));
+
+        [Fact]
+        public void JsonNull_ReturnsEmpty() =>
+            Assert.Equal("", TimberbotPure.ExtractAgentStatusString(JValue.CreateNull()));
+
+        [Fact]
+        public void TopLevelString_Lowercased() =>
+            Assert.Equal("running", TimberbotPure.ExtractAgentStatusString(new JValue("RUNNING")));
+
+        [Fact]
+        public void ObjectWithStatus_ExtractsAndLowercases() =>
+            Assert.Equal("thinking",
+                TimberbotPure.ExtractAgentStatusString(JObject.Parse("{\"status\":\"Thinking\"}")));
+
+        [Fact]
+        public void ObjectWithoutStatus_ReturnsEmpty() =>
+            Assert.Equal("",
+                TimberbotPure.ExtractAgentStatusString(JObject.Parse("{\"other\":\"x\"}")));
+
+        [Fact]
+        public void EmptyObject_ReturnsEmpty() =>
+            Assert.Equal("",
+                TimberbotPure.ExtractAgentStatusString(new JObject()));
+    }
+
+    public class ClassifyConnectionTests
+    {
+        // No state poll yet -> always Disconnected, gate off.
+        [Fact]
+        public void PollFailed_Disconnected()
+        {
+            var (pill, gateOn) = TimberbotPure.ClassifyConnection(false, null);
+            Assert.Equal(TimberbotPure.ConnectionPillState.Disconnected, pill);
+            Assert.False(gateOn);
+        }
+
+        // pollOk=true but null state should still classify as Disconnected — the
+        // server gave us nothing useful.
+        [Fact]
+        public void NullState_Disconnected()
+        {
+            var (pill, gateOn) = TimberbotPure.ClassifyConnection(true, null);
+            Assert.Equal(TimberbotPure.ConnectionPillState.Disconnected, pill);
+            Assert.False(gateOn);
+        }
+
+        [Fact]
+        public void ReadyFalse_NotReady()
+        {
+            var state = JObject.Parse("{\"ready\":false}");
+            var (pill, gateOn) = TimberbotPure.ClassifyConnection(true, state);
+            Assert.Equal(TimberbotPure.ConnectionPillState.NotReady, pill);
+            Assert.False(gateOn);
+        }
+
+        [Fact]
+        public void ReadyTrue_IdleAgent_Idle()
+        {
+            var state = JObject.Parse("{\"ready\":true,\"agentStatus\":\"idle\"}");
+            var (pill, gateOn) = TimberbotPure.ClassifyConnection(true, state);
+            Assert.Equal(TimberbotPure.ConnectionPillState.Idle, pill);
+            Assert.True(gateOn);
+        }
+
+        [Fact]
+        public void ReadyTrue_PendingRequest_Running()
+        {
+            var state = JObject.Parse("{\"ready\":true,\"pendingRequest\":{\"id\":1,\"prompt\":\"hi\"}}");
+            var (pill, gateOn) = TimberbotPure.ClassifyConnection(true, state);
+            Assert.Equal(TimberbotPure.ConnectionPillState.Running, pill);
+            Assert.True(gateOn);
+        }
+
+        [Fact]
+        public void ReadyTrue_AgentBusy_Running()
+        {
+            var state = JObject.Parse("{\"ready\":true,\"agentStatus\":\"thinking\"}");
+            var (pill, gateOn) = TimberbotPure.ClassifyConnection(true, state);
+            Assert.Equal(TimberbotPure.ConnectionPillState.Running, pill);
+            Assert.True(gateOn);
+        }
+
+        // The lastError path must keep gateOn aligned with `ready` so the
+        // player can still click Stop to bail out of a stuck cycle. This was
+        // the key opencode-review finding.
+        [Fact]
+        public void Error_WhileReady_KeepsGateOn()
+        {
+            var state = JObject.Parse("{\"ready\":true,\"lastError\":\"boom\"}");
+            var (pill, gateOn) = TimberbotPure.ClassifyConnection(true, state);
+            Assert.Equal(TimberbotPure.ConnectionPillState.Error, pill);
+            Assert.True(gateOn);
+        }
+
+        [Fact]
+        public void Error_WhileNotReady_GateOff()
+        {
+            var state = JObject.Parse("{\"ready\":false,\"lastError\":\"boom\"}");
+            var (pill, gateOn) = TimberbotPure.ClassifyConnection(true, state);
+            Assert.Equal(TimberbotPure.ConnectionPillState.Error, pill);
+            Assert.False(gateOn);
+        }
+
+        // Missing `ready` field is treated as false (gate off, NotReady).
+        [Fact]
+        public void MissingReady_TreatedAsNotReady()
+        {
+            var state = JObject.Parse("{\"mode\":\"autonomous\"}");
+            var (pill, gateOn) = TimberbotPure.ClassifyConnection(true, state);
+            Assert.Equal(TimberbotPure.ConnectionPillState.NotReady, pill);
+            Assert.False(gateOn);
+        }
+    }
 }

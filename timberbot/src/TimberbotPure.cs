@@ -153,6 +153,87 @@ namespace Timberbot
         // in-game widget's Launch button (POST /api/ready). With the spawn
         // path gone, the argv builder and its display formatter went with it.
 
+        // Connection-state pill rendered by TimberbotPanel. Extracted here so
+        // the classification logic can be unit-tested without dragging Unity
+        // (Color, VisualElement) into the test project.
+        public enum ConnectionPillState
+        {
+            Disconnected,
+            NotReady,
+            Idle,
+            Running,
+            Error,
+        }
+
+        // Maps the /api/agent/state poll outcome to the pill state + whether
+        // the gate is open. `gateOn=true` means the Stop button is the active
+        // half of the Launch/Stop pair, including when the state is Error so
+        // the player can always Stop out of a stuck cycle.
+        public static (ConnectionPillState pill, bool gateOn) ClassifyConnection(
+            bool pollOk, JObject state)
+        {
+            if (!pollOk || state == null)
+                return (ConnectionPillState.Disconnected, false);
+
+            var ready = state.Value<bool?>("ready") ?? false;
+            var lastError = state.Value<string>("lastError");
+            if (!string.IsNullOrEmpty(lastError))
+                return (ConnectionPillState.Error, ready);
+
+            if (!ready)
+                return (ConnectionPillState.NotReady, false);
+
+            var pending = state["pendingRequest"];
+            var hasPending = pending != null && pending.Type != JTokenType.Null;
+            var agentStatus = ExtractAgentStatusString(state["agentStatus"]);
+            var running = hasPending || IsAgentStatusBusy(agentStatus);
+            return running
+                ? (ConnectionPillState.Running, true)
+                : (ConnectionPillState.Idle, true);
+        }
+
+        // /api/agent/state ships agentStatus as a free-form object (mirrors the
+        // openapi.yaml schema). We treat the connector's "status" field as the
+        // authoritative string when present, else fall back to a top-level
+        // string. Returns lowercased value or "" when absent.
+        public static string ExtractAgentStatusString(JToken agentStatus)
+        {
+            if (agentStatus == null || agentStatus.Type == JTokenType.Null) return "";
+            if (agentStatus.Type == JTokenType.String) return ((string)agentStatus ?? "").ToLowerInvariant();
+            if (agentStatus is JObject obj)
+            {
+                var s = obj.Value<string>("status");
+                if (!string.IsNullOrEmpty(s)) return s.ToLowerInvariant();
+            }
+            return "";
+        }
+
+        // Treat anything that isn't an obviously-idle status name as busy.
+        // Keeps the widget honest if the connector ships a new status verb.
+        public static bool IsAgentStatusBusy(string lowercased)
+        {
+            if (string.IsNullOrEmpty(lowercased)) return false;
+            switch (lowercased)
+            {
+                case "idle":
+                case "done":
+                case "ready":
+                case "disconnected":
+                    return false;
+                default:
+                    return true;
+            }
+        }
+
+        // Normalize the mode dropdown's text value to the openapi.yaml enum.
+        // Anything not exactly "request" (case-insensitive, trimmed) falls
+        // back to "autonomous".
+        public static string NormalizeMode(string raw)
+        {
+            var v = (raw ?? "").Trim().ToLowerInvariant();
+            return v == "request" ? "request" : "autonomous";
+        }
+
         public static bool ValidateWebhookUrlFormat(string url, out string error)
         {
             error = null;
