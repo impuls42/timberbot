@@ -72,7 +72,12 @@ log = logging.getLogger("timberbot.watch")
 
 
 def exp_backoff(attempt: int, *, base: float = 1.0, cap: float = 30.0) -> float:
-    """Exponential backoff capped at `cap`. attempt=0 → base, doubles each step."""
+    """Exponential backoff capped at `cap`.
+
+    attempt=0 → `base`; doubles each step until reaching `cap`. Negative
+    attempts are floored to `base` (defensive: keeps callers from getting a
+    sub-`base` value if they pass an underflowed counter).
+    """
     if attempt <= 0:
         return base
     return min(cap, base * (2 ** attempt))
@@ -100,7 +105,9 @@ class Trigger:
 class _WebhookHandler(BaseHTTPRequestHandler):
     """Minimal POST receiver that forwards `{goal, requestId}` to a `Queue`."""
 
-    # Populated per-instance by the listener factory.
+    # Class-level placeholder. `start_webhook_listener` builds a subclass via
+    # `type(..., {"trigger_queue": tq})` so each listener instance binds its
+    # own queue. Never read this directly without going through that factory.
     trigger_queue: queue.Queue[Trigger] | None = None
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
@@ -128,8 +135,12 @@ class _WebhookHandler(BaseHTTPRequestHandler):
                 goal=goal,
                 request_id=str(request_id) if request_id is not None else None,
             ))
+        body = json.dumps({"ok": True}).encode("utf-8")
         self.send_response(202)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
+        self.wfile.write(body)
 
 
 def start_webhook_listener(
@@ -254,6 +265,12 @@ class WatchLoop:
         self.triggers_fired = 0
 
     # -- HTTP helpers (kept thin so tests can read the call sequence) --
+    #
+    # These call `client._post` (the underscored internal) because the
+    # `/api/tbot/heartbeat` and `/api/tbot/register` endpoints land in Unit 1
+    # (#13) and don't yet have typed wrappers on `TimberbotClient`. Once Unit 1
+    # promotes them to public methods (e.g. `client.heartbeat(...)`,
+    # `client.register(...)`), this file should switch to those — see #15.
 
     def _heartbeat(self, agent_status: str = "idle") -> dict[str, Any]:
         body = {
@@ -406,7 +423,9 @@ def _parse(args: list[str]) -> argparse.Namespace:
     p.add_argument("--prompt", dest="prompt_name", default="timberbot",
                    help="Name of the base system prompt to load (default: timberbot).")
     p.add_argument("--listen-port", type=int, default=0,
-                   help="Optional port for a local webhook listener (default: off).")
+                   help=("Optional port for a local webhook listener. "
+                         "Default 0 disables the listener (no push-mode triggers, "
+                         "only heartbeat-driven dispatch)."))
     p.add_argument("--listen-host", default="127.0.0.1",
                    help="Bind host for --listen-port (default: 127.0.0.1).")
     p.add_argument("--autonomous-interval", type=float, default=60.0,
@@ -460,7 +479,13 @@ def run(args: list[str]) -> int:
 
 
 def _configure_logging(verbosity: int) -> None:
-    """Wire up a minimal stderr logger; respect repeat -v flags."""
+    """Wire up a minimal stderr logger for `timberbot.*` loggers.
+
+    Applies the verbosity-derived level to the whole `timberbot` package so
+    that sub-loggers used by `run_agent` (`timberbot.agent.*`) inherit it too.
+    Idempotent — won't double-attach the handler if already configured (e.g.
+    by a test harness).
+    """
     level = logging.WARNING
     if verbosity >= 2:
         level = logging.DEBUG
@@ -468,8 +493,7 @@ def _configure_logging(verbosity: int) -> None:
         level = logging.INFO
     handler = logging.StreamHandler(stream=sys.stderr)
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-    root = logging.getLogger("timberbot.watch")
-    # Only configure if not already configured (test harness sets its own).
-    if not root.handlers:
-        root.addHandler(handler)
-    root.setLevel(level)
+    pkg = logging.getLogger("timberbot")
+    if not pkg.handlers:
+        pkg.addHandler(handler)
+    pkg.setLevel(level)
