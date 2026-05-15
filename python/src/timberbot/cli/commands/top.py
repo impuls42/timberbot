@@ -56,9 +56,6 @@ def run(args: list[str]) -> int:
         print(f"  {DIM}start Timberborn with the mod loaded{RST}\n")
         return 1
 
-    agent_turns = 5
-    agent_model = "claude-haiku-4-5-20251001"
-
     old_settings = None
     if not is_win and termios_mod is not None and tty_mod is not None:
         old_settings = termios_mod.tcgetattr(sys.stdin)
@@ -71,13 +68,9 @@ def run(args: list[str]) -> int:
                 summary_dict = bot.summary().model_dump(exclude_none=True)
             except Exception:
                 summary_dict = None
-            try:
-                agent = bot._get_json("/api/agent/status")
-            except Exception:
-                agent = None
             print("\033[2J\033[H", end="")
             print()
-            print(render_top(summary_dict, interval=interval, agent_data=agent, agent_turns=agent_turns))
+            print(render_top(summary_dict, interval=interval))
 
             deadline = time.time() + interval
             while time.time() < deadline:
@@ -89,29 +82,7 @@ def run(args: list[str]) -> int:
                 if ch == b"q":
                     print(f"\n  {DIM}bye!{RST}\n")
                     return 0
-                if ch == b"s":
-                    agent_st = agent.get("status") if agent else "idle"
-                    if agent_st in ("idle", "done", "error", None):
-                        try:
-                            bot._post("/api/agent/start", {
-                                "binary": "claude", "turns": agent_turns,
-                                "model": agent_model, "interval": 5, "timeout": 300,
-                            })
-                            break
-                        except Exception:
-                            pass
-                elif ch == b"x":
-                    # network errors during the interactive loop shouldn't kill the dashboard
-                    with contextlib.suppress(Exception):
-                        bot._post("/api/agent/stop", {})
-                    break
-                elif ch in (b"+", b"="):
-                    agent_turns = min(agent_turns + 5, 100)
-                    break
-                elif ch == b"-":
-                    agent_turns = max(agent_turns - 5, 1)
-                    break
-                elif ch in (b"0", b"1", b"2", b"3"):
+                if ch in (b"0", b"1", b"2", b"3"):
                     with contextlib.suppress(Exception):
                         bot.set_speed(int(ch))
                     break

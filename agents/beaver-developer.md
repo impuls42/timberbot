@@ -17,7 +17,7 @@ permission:
     "wc *": allow
     "ls *": allow
     "python -m pytest*": allow
-    "python timberbot/script/timberbot.py*": ask
+    "tbot *": ask
     "git diff*": allow
     "git status*": allow
     "git log*": allow

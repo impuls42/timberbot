@@ -85,61 +85,54 @@ namespace Timberbot
             return "'" + value.Replace("'", "'\"'\"'") + "'";
         }
 
-        // Build the argv passed to `tbot agent run`. The C# launcher shells out
-        // to the Python `tbot` CLI for all agent orchestration; this is the one
-        // string-building step left on the C# side.
-        public static string BuildTbotAgentRunArgs(
+        // Build the argv list passed to `tbot agent run`. The C# launcher shells
+        // out to the Python `tbot` CLI for all agent orchestration; this is the
+        // one argv-building step left on the C# side. Returns an argv list so
+        // callers can pass it to ProcessStartInfo.ArgumentList directly
+        // (UseShellExecute=false) and avoid OS-shell quoting hazards.
+        public static List<string> BuildTbotAgentRunArgv(
             string backend,
             string goal,
             string model,
             string effort,
-            string commandTemplate,
-            string terminalPrefix)
+            string commandTemplate)
         {
-            var sb = new StringBuilder();
-            sb.Append("agent run");
-            sb.Append(" --backend ").Append(QuoteArg(backend ?? "claude"));
-            sb.Append(" --goal ").Append(QuoteArg(goal ?? ""));
+            var args = new List<string> { "agent", "run", "--backend", backend ?? "claude", "--goal", goal ?? "" };
             if (!string.IsNullOrEmpty(model))
-                sb.Append(" --model ").Append(QuoteArg(model));
+            {
+                args.Add("--model");
+                args.Add(model);
+            }
             if (!string.IsNullOrEmpty(effort))
-                sb.Append(" --effort ").Append(QuoteArg(effort));
+            {
+                args.Add("--effort");
+                args.Add(effort);
+            }
             if (!string.IsNullOrEmpty(commandTemplate))
-                sb.Append(" --command ").Append(QuoteArg(commandTemplate));
-            if (!string.IsNullOrEmpty(terminalPrefix))
-                sb.Append(" --terminal-prefix ").Append(QuoteArg(terminalPrefix));
-            return sb.ToString();
+            {
+                args.Add("--command");
+                args.Add(commandTemplate);
+            }
+            return args;
         }
 
-        // --- security helpers ---
-
-        private static readonly HashSet<string> BuiltinAllowedBinaries = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        // Human-readable rendering of `BuildTbotAgentRunArgv` for log lines and
+        // the in-game panel's `currentCmd` field. Quoting is best-effort and
+        // only used for display — the launched argv goes through ArgumentList.
+        public static string FormatArgvForDisplay(IReadOnlyList<string> argv)
         {
-            "claude", "codex"
-        };
-
-        public static bool IsAllowedBinary(string binary, HashSet<string> extraAllowed)
-        {
-            if (string.IsNullOrWhiteSpace(binary))
-                return false;
-
-            string name;
-            try
+            if (argv == null || argv.Count == 0) return "";
+            var sb = new StringBuilder();
+            for (int i = 0; i < argv.Count; i++)
             {
-                name = Path.GetFileNameWithoutExtension(binary.Trim());
+                if (i > 0) sb.Append(' ');
+                var a = argv[i] ?? "";
+                if (a.Length == 0 || a.IndexOfAny(new[] { ' ', '"', '\\' }) >= 0)
+                    sb.Append(QuoteArg(a));
+                else
+                    sb.Append(a);
             }
-            catch
-            {
-                return false;
-            }
-
-            if (string.IsNullOrEmpty(name))
-                return false;
-
-            if (BuiltinAllowedBinaries.Contains(name))
-                return true;
-
-            return extraAllowed != null && extraAllowed.Contains(name);
+            return sb.ToString();
         }
 
         public static bool ValidateWebhookUrlFormat(string url, out string error)

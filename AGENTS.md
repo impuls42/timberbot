@@ -6,9 +6,8 @@ A C# mod + Python client that exposes a full read/write HTTP API for Timberborn,
 
 - **Build:** Open `timberbot/src/Timberbot.csproj` in an IDE with .NET support, or run `dotnet build` from that directory. The post-build target auto-deploys to the game's mod folder. Override the game DLL path with `-p:GameManagedDir=<path>` if the default doesn't match your install.
 - **Run (game side):** Launch Timberborn with the mod enabled. The HTTP server starts on the port configured in `settings.json` (default `8085`).
-- **Run (client side):** `python timberbot/script/timberbot.py <command> [params]` or use the `tbot` alias if on PATH.
-- **Venv:** `venv/` at repo root, activate with `source venv/bin/activate`. Contains `requests` and `toons`.
-- **Tests:** `timberbot/test/` — run via `python -m pytest` from the `timberbot/test` directory.
+- **Run (client side):** `tbot <command> [params]` (install with `pip install -e python/` from the repo, or `pipx install timberbot`).
+- **Tests:** Python unit tests via `python -m pytest python/tests/`; C# xUnit tests via `dotnet test timberbot/test/`.
 
 ## Architecture
 
@@ -28,8 +27,9 @@ A C# mod + Python client that exposes a full read/write HTTP API for Timberborn,
 └──────────────┼──────────────────────────────────────┘
                │
 ┌──────────────┼──────────────────────────────────────┐
-│  Python Client (timberbot.py)                       │
-│  ├─ CLI commands (brain, buildings, place, etc.)    │
+│  Python Client (`pip install timberbot`)            │
+│  ├─ `tbot` CLI (brain, buildings, place, etc.)      │
+│  ├─ `tbot agent run` — launches AI agent backends   │
 │  └─ Persistent state via brain.toon in memory/      │
 └─────────────────────────────────────────────────────┘
 ```
@@ -48,7 +48,7 @@ timberbot/
 │   ├── architecture.md          # Internal design
 │   └── automation-plan.md       # Plan for automation wiring extension
 ├── agents/
-│   └── timberbot.md             # Runtime prompt injected into AI agents at launch
+│   └── beaver-developer.md      # Dev-agent prompt for working on this codebase
 ├── timberbot/
 │   ├── src/                     # C# mod source
 │   │   ├── Timberbot.csproj     # MSBuild project; manages game DLL refs & deploy
@@ -57,7 +57,7 @@ timberbot/
 │   │   ├── TimberbotReadV2.cs            # All GET endpoints (buildings, beavers, map)
 │   │   ├── TimberbotWrite.cs             # All POST endpoints (pause, recipes, floodgates)
 │   │   ├── TimberbotPlacement.cs         # Building/planting placement logic
-│   │   ├── TimberbotAgent.cs             # AI agent process management
+│   │   ├── TimberbotAgent.cs             # Thin wrapper: spawns `tbot agent run`
 │   │   ├── TimberbotEntityRegistry.cs    # Entity lookup by ID
 │   │   ├── TimberbotWebhook.cs           # Outbound webhook dispatch
 │   │   ├── TimberbotService.cs           # Main lifecycle (Load/Update)
@@ -65,11 +65,19 @@ timberbot/
 │   │   ├── TimberbotDebug.cs             # Debug/diagnostic endpoints
 │   │   ├── manifest.json                 # Mod metadata (name, version, min game version)
 │   │   └── settings.json                 # Default config (port, listen address)
-│   ├── script/
-│   │   └── timberbot.py          # Python CLI client (1800+ lines)
-│   └── test/                     # Test scripts
-├── mkdocs.yml                    # MkDocs config for documentation site
-├── venv/                         # Python virtual environment
+│   └── test/                    # C# xUnit tests (Tier 1+2 pure helpers)
+├── python/
+│   ├── pyproject.toml           # hatchling build; `tbot` console script
+│   ├── src/timberbot/           # Python package source
+│   │   ├── api/                 # TimberbotClient + Pydantic models
+│   │   ├── cli/                 # `tbot` CLI commands and dispatcher
+│   │   ├── agent/               # Pluggable backends + runner
+│   │   ├── agent_prompts/       # Runtime prompts shipped as package data
+│   │   ├── formatters/          # Map, dashboard, table renderers
+│   │   └── paths.py             # Documents/mod-dir resolver (incl. Proton)
+│   └── tests/                   # Unit + contract + integration suites
+├── openapi.yaml                 # Single source of truth for the HTTP contract
+├── mkdocs.yml                   # MkDocs config for documentation site
 └── README.md
 ```
 
@@ -85,14 +93,14 @@ timberbot/
 
 ### Python Client Side
 - **Persistent state:** The agent uses `brain.toon` files in `memory/` subdirectories, keyed by settlement name. The `goal` parameter is saved here for cross-session persistence.
-- **CLI pattern:** `timberbot.py <command> key:value key:value`. Parameters are colon-separated, not `--flags`.
+- **CLI pattern:** `tbot <command> key:value key:value`. Parameters are colon-separated, not `--flags`.
 - **Sequential mutations:** Always run mutating game API calls sequentially, never in parallel.
 - **Boot flow:** Run the `brain` command once at session start to establish settlement context.
 
 ### Documentation
 - `docs/timberbot.md` is the primary AI agent guide — always read first.
-- `docs/api-reference.md` is the definitive API contract — never improvise endpoint details.
-- `python/src/tbot/agent_prompts/timberbot.md` is the system prompt shipped as `tbot` package data and injected at runtime by `tbot agent run`.
+- `docs/api-reference.md` is the human-readable companion to `openapi.yaml` (which is the canonical contract).
+- `python/src/timberbot/agent_prompts/timberbot.md` is the system prompt shipped as `timberbot` package data and injected at runtime by `tbot agent run`.
 
 ## Game DLL Paths
 

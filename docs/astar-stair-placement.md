@@ -273,9 +273,9 @@ Keep single-case directional tests, and stop using `placed.paths` as a proxy for
   - `RoutePath()`. route emission and connector placement
   - `BuildCostGrid()`. connector generation and edge costs
   - `AStarPath()`. safe A* search core
-- `timberbot/script/test_validation.py`
+- `python/tests/integration/` (legacy `test_validation.py` content)
   - 1z / 2z / diagonal / obstacle validation
-- `timberbot/script/timberbot.py`
+- `python/src/timberbot/api/client.py`
   - client interface for `place_path()`
 
 ## Research sources

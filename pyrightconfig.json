@@ -1,6 +1,6 @@
 {
-  "include": ["timberbot/script"],
-  "extraPaths": ["timberbot/script"],
+  "include": ["python/src", "python/tests"],
+  "extraPaths": ["python/src"],
   "reportAny": false,
   "reportExplicitAny": false,
   "reportUnknownMemberType": false,

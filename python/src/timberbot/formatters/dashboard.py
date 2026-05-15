@@ -11,7 +11,6 @@ from timberbot.formatters.colors import (
     BBLU,
     BCYN,
     BGRN,
-    BMAG,
     BOLD,
     BRED,
     BYEL,
@@ -38,8 +37,6 @@ def render_top(
     trees_data: list[dict[str, Any]] | None = None,
     crops_data: list[dict[str, Any]] | None = None,
     interval: int = 5,
-    agent_data: dict[str, Any] | None = None,
-    agent_turns: int = 5,
 ) -> str:
     """Render the live dashboard. Returns the entire frame as one string."""
     if not summary:
@@ -266,74 +263,7 @@ def render_top(
                 f"Water {BBLU}{BOLD}{dw:>4}{RST}   Log {BOLD}{dl:>4}{RST}"
             ))
 
-    if agent_data and isinstance(agent_data, dict):
-        s = agent_data.get("status", "idle")
-        if s != "idle":
-            lines.append(hline())
-            status_colors = {
-                "gatheringstate": BYEL, "thinking": BMAG, "executing": BCYN,
-                "done": BGRN, "error": BRED,
-            }
-            sc = status_colors.get(s, DIM)
-            turn = agent_data.get("turn", 0)
-            total = agent_data.get("totalTurns", 0)
-            binary = agent_data.get("binary", "")
-            model = agent_data.get("model", "")
-            cur_cmd = agent_data.get("currentCmd", "")
-            turn_bar = bar(turn, total, 16) if total > 0 else ""
-            model_short = model.replace("claude-", "").replace("-20251001", "") if model else binary
-            goal = agent_data.get("goal", "")
-            lines.append(row(
-                f"{BMAG}{BOLD}AGENT{RST}  {sc}{BOLD}{s}{RST}  turn {BOLD}{turn}{RST}/{total}  {turn_bar}",
-                f"{DIM}{model_short}{RST}",
-            ))
-            if goal:
-                lines.append(row(f"  {DIM}goal:{RST} {BOLD}{goal[:65]}{RST}"))
-
-            if cur_cmd and s in ("gatheringstate", "thinking", "executing"):
-                lines.append(row(f"  {BYEL}> {cur_cmd}{RST}"))
-
-            history = agent_data.get("history", [])
-            visible = history[-8:]
-            for rec in visible:
-                tn = rec.get("turn", 0)
-                failed = rec.get("failed", 0)
-                secs = rec.get("seconds", 0)
-                cmds = rec.get("commands", [])
-                err = rec.get("error", "")
-                cmd_names: list[str] = []
-                for c in cmds:
-                    if c.startswith("ok: "):
-                        cmd_names.append(f"{BCYN}{c[4:]}{RST}")
-                    elif c.startswith("FAIL: "):
-                        cmd_names.append(f"{BRED}{c[6:]}{RST}")
-                    else:
-                        cmd_names.append(c)
-                summary_str = "  ".join(cmd_names[:4])
-                extra = f" {DIM}+{len(cmd_names)-4}{RST}" if len(cmd_names) > 4 else ""
-                fail_str = f" {BRED}{failed}fail{RST}" if failed else ""
-                time_str = f"{secs:.0f}s" if secs >= 1 else "<1s"
-                if err:
-                    lines.append(row(f"  {DIM}t{tn}{RST} {DIM}{time_str:>4}{RST}  {RED}{err[:60]}{RST}"))
-                else:
-                    lines.append(row(
-                        f"  {DIM}t{tn}{RST} {DIM}{time_str:>4}{RST}{fail_str}  {summary_str}{extra}"
-                    ))
-
-            err = agent_data.get("lastError", "")
-            if err and s == "error":
-                lines.append(row(f"  {RED}{err[:70]}{RST}"))
-
     lines.append(f" {DIM}{'─' * WIDTH}{RST}")
-    agent_running = (
-        agent_data
-        and isinstance(agent_data, dict)
-        and agent_data.get("status") not in ("idle", "done", "error", None)
-    )
-    if not agent_running:
-        keys = f"[s]tart({agent_turns}t)  [+/-]turns  [0-3]speed  [q]uit"
-    else:
-        keys = "[x]stop  [0-3]speed  [q]uit"
-    lines.append(f"  {DIM}{keys}  ·  refreshing every {interval}s{RST}")
+    lines.append(f"  {DIM}[0-3]speed  [q]uit  ·  refreshing every {interval}s{RST}")
 
     return "\n".join(lines)

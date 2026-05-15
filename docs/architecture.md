@@ -414,9 +414,9 @@ value at call time.
 
 ## Test posture
 
-Primary harness: [`test_v2.py`](../timberbot/script/test_v2.py). Validates the `/api/*` surface against a running game.
+Primary live harness: [`python/tests/integration/v2_runner.py`](../python/tests/integration/v2_runner.py). Validates the `/api/*` surface against a running game.
 
-Modes: `smoke`, `freshness`, `write_to_read`, `performance`, `concurrency`, `all`.
+Modes: `smoke`, `freshness`, `write_to_read`, `performance`, `concurrency`, `all`. Invoke via `python -m pytest python/tests/integration/ -m integration` with `-k <mode>` to filter.
 
 ## Known debt
 

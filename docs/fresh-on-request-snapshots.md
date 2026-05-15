@@ -27,7 +27,7 @@ Implemented:
 - fresh-on-request projection-backed reads for buildings, beavers, and natural-resource entity collections
 - native v2 value and derived endpoints for summary, districts, resources, population, alerts, power, wellbeing, notifications, science, distribution, time, weather, speed, workhours, tree clusters, and food clusters
 - staged refresh inside `TimberbotReadV2`: main-thread capture plus background finalize/publish
-- a dedicated v2 experiment harness at [`timberbot/script/test_v2.py`](../timberbot/script/test_v2.py)
+- a dedicated v2 experiment harness at [`python/tests/integration/v2_runner.py`](../python/tests/integration/v2_runner.py)
 
 Important implementation note:
 
@@ -557,7 +557,7 @@ The buildings spike has been implemented and measured against the live game.
 Dedicated parity test:
 
 ```powershell
-python timberbot/script/test_validation.py buildings_v2_parity
+python -m pytest python/tests/integration/ -m integration -k buildings_v2_parity
 ```
 
 Latest passing parity result file:
@@ -574,7 +574,7 @@ There are now two relevant perf entry points:
 Recommended command for this spike:
 
 ```powershell
-python timberbot/script/test_validation.py building_endpoint_perf -n 200
+python -m pytest python/tests/integration/ -m integration -k building_endpoint_perf
 ```
 
 Latest stable 200-iteration result:

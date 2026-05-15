@@ -51,7 +51,12 @@ cd timberbot/src
 dotnet build
 ```
 
-This compiles `Timberbot.dll` and auto-deploys to `Documents\Timberborn\Mods\Timberbot\`.
+This compiles `Timberbot.dll` and auto-deploys to:
+
+| Platform | Default `$(ModDir)` |
+|----------|--------------------|
+| Windows / macOS / native Linux | `~/Documents/Timberborn/Mods/Timberbot/` |
+| Linux + Proton (auto-detected) | `~/.steam/steam/steamapps/compatdata/1062090/pfx/drive_c/users/steamuser/Documents/Timberborn/Mods/Timberbot/` |
 
 Game DLLs are referenced from:
 ```
@@ -66,6 +71,13 @@ dotnet build /p:ModDir="C:\Users\<you>\Documents\Timberborn\Mods\Timberbot"
 ```
 
 On macOS, pass the platform-specific `GameManagedDir` and `ModDir` the same way.
+
+For Linux/Proton setups with non-`steamuser` Wine usernames or custom prefixes, the bundled helper resolves the right ModDir via the same Python logic the CLI uses:
+
+```bash
+scripts/deploy.sh                # auto-detect (honors $TBOT_DOCUMENTS_DIR)
+scripts/deploy.sh /custom/mods   # explicit override
+```
 
 ## How the mod works
 
@@ -83,8 +95,8 @@ The in-game `Settings` modal is the primary configuration surface for Timberbot.
 
 All settings persist to `settings.json`, including:
 
-- runtime settings such as `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `writeBudgetMs`, `terminal`, and `pythonCommand`
-- agent/UI settings such as `agentBinary`, `agentModel`, `agentEffort`, `agentGoal`, `widgetLeft`, and `widgetTop`
+- runtime settings such as `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, and `writeBudgetMs`
+- agent/UI settings such as `agentBinary`, `agentGoal`, `widgetLeft`, and `widgetTop` (per-backend model/effort/template now live in `~/.config/timberbot/config.toml`)
 
 `TimberbotService` keeps an in-memory settings object and debounces writes back to disk. Editing `settings.json` directly is supported, but it is the manual/advanced path rather than the default workflow.
 
@@ -93,7 +105,7 @@ All settings persist to `settings.json`, including:
 1. Add a `Collect*` method to `TimberbotReadV2.cs`
 2. Add the route to `RouteRequest()` in `TimberbotHttpServer.cs`
 3. If you need new game services, inject them via the `TimberbotReadV2` constructor
-4. Add a matching method to the `Timberbot` class in `timberbot/script/timberbot.py`
+4. Add a matching method to `TimberbotClient` in `python/src/timberbot/api/client.py`
 
 ## Adding a new POST endpoint
 
@@ -127,50 +139,25 @@ dotnet test timberbot/test/
 
 ### Test suite
 
-Primary live harness: `timberbot/script/test_v2.py`
+The legacy `timberbot/script/test_*.py` harnesses have been migrated into the
+pytest tree under `python/tests/`. Unit tests run without a game; the
+`integration` marker covers the live-game smoke, validation, and performance
+suites.
 
 ```bash
-python timberbot/script/test_v2.py smoke
-python timberbot/script/test_v2.py write_to_read
-python timberbot/script/test_v2.py performance -n 200
-python timberbot/script/test_v2.py concurrency
-python timberbot/script/test_v2.py all -n 200
+# unit tests only (default; no game required)
+python -m pytest python/tests/
+
+# integration tests against a running Timberborn + Timberbot mod
+python -m pytest python/tests/integration/ -m integration
+
+# specific integration subsets
+python -m pytest python/tests/integration/ -m "integration and write"
+python -m pytest python/tests/integration/ -m "integration and slow"
 ```
 
-Validation test suite: `timberbot/script/test_validation.py`
-
-Tests are organized into groups. Default run excludes `perf` and `wipe`.
-
-```bash
-# run all default groups (game must be running with mod loaded)
-python timberbot/script/test_validation.py
-
-# run a specific group
-python timberbot/script/test_validation.py path
-
-# run multiple groups
-python timberbot/script/test_validation.py read write placement
-
-# run individual tests
-python timberbot/script/test_validation.py blocker_tracking path_astar_diagonal
-
-# mix groups and individual tests
-python timberbot/script/test_validation.py path blocker_tracking
-
-# exclude groups or tests
-python timberbot/script/test_validation.py -x perf wipe
-
-# list groups and their tests
-python timberbot/script/test_validation.py --list
-
-# performance only (latency across 20 endpoints)
-python timberbot/script/test_validation.py --perf
-python timberbot/script/test_validation.py --perf -n 500
-
-# in-game benchmark endpoint
-python timberbot/script/test_validation.py --benchmark
-python timberbot/script/test_validation.py --benchmark -n 10000
-```
+See `python/tests/integration/README.md` for the runner-level options
+(group selection, performance budgets, benchmark iterations).
 
 | Group | Tests | Description |
 |---|---|---|

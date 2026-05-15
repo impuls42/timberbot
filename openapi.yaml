@@ -46,8 +46,6 @@ tags:
     description: Sensor/relay/memory wiring (`Automator`/`Automatable`).
   - name: webhooks
     description: Outbound HTTP push for game events.
-  - name: agent
-    description: Built-in interactive AI-agent launcher.
   - name: debug
     description: Reflection inspector + benchmark (gated by `debugEndpointEnabled`).
 

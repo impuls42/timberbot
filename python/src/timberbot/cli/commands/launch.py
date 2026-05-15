@@ -1,6 +1,16 @@
-"""`tbot launch settlement:<name>` — write autoload.json and (on Windows) launch Timberborn.
+"""`tbot launch settlement:<name>` — write autoload.json and launch Timberborn.
 
-Linux/Proton support arrives in PR 4.
+Per-platform launch strategy:
+
+* **Windows.** `taskkill` any running Timberborn.exe, then start Steam with
+  `-applaunch 1062090` (preferred) or `steam://rungameid/1062090`. Wait for
+  the process to come back up via `tasklist`.
+* **Linux/Proton & Steam Deck.** `pkill -f Timberborn` then
+  `steam steam://rungameid/1062090` (or `xdg-open` as a fallback). The mod
+  runs inside the Proton prefix; the Documents-dir resolver in
+  `timberbot.paths` already knows how to find it.
+* **macOS.** No headless launch (Apple doesn't ship Timberborn natively).
+  Prepare `autoload.json` and tell the user to open the game manually.
 """
 from __future__ import annotations
 
@@ -8,6 +18,7 @@ import contextlib
 import json
 import os
 import platform
+import shutil
 import subprocess
 import sys
 import time
@@ -16,6 +27,8 @@ from pathlib import Path
 from timberbot.api.client import TimberbotClient
 from timberbot.formatters.colors import BGRN, BOLD, DIM, RED, RST
 from timberbot.paths import mod_dir, saves_dir
+
+TIMBERBORN_APPID = "1062090"
 
 
 def _parse_args(args: list[str]) -> tuple[str | None, str | None, int]:
@@ -73,6 +86,101 @@ def _wait_for_api(timeout: int, settlement: str) -> int:
     return 1
 
 
+def _windows_kill_and_launch() -> bool:
+    """Kill any running Timberborn.exe and start it via Steam. Returns whether
+    the process is up afterwards."""
+    try:
+        r = subprocess.run(
+            ["taskkill", "/f", "/im", "Timberborn.exe"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        if r.returncode == 0:
+            print(f"  {DIM}waiting for Timberborn to exit...{RST}")
+            for _ in range(30):
+                time.sleep(1)
+                check = subprocess.run(
+                    ["tasklist", "/fi", "imagename eq Timberborn.exe"],
+                    capture_output=True, text=True,
+                )
+                if "Timberborn.exe" not in check.stdout:
+                    break
+            time.sleep(2)
+    except Exception:
+        pass
+
+    steam_exe = r"C:\Games\Steam\steam.exe"
+    if os.path.exists(steam_exe):
+        subprocess.Popen([steam_exe, "-applaunch", TIMBERBORN_APPID])
+    else:
+        subprocess.Popen(["cmd.exe", "/c", "start", f"steam://rungameid/{TIMBERBORN_APPID}"], shell=False)
+
+    print(f"  {DIM}waiting for Timberborn.exe to start...{RST}")
+    for _ in range(30):
+        time.sleep(2)
+        check = subprocess.run(
+            ["tasklist", "/fi", "imagename eq Timberborn.exe"],
+            capture_output=True, text=True,
+        )
+        if "Timberborn.exe" in check.stdout:
+            return True
+    return False
+
+
+def _linux_proton_kill_and_launch() -> bool:
+    """Kill any running Timberborn (Proton wraps it as `Timberborn.exe` under
+    Wine) and ask Steam to relaunch it. Returns whether the process comes back
+    up.
+
+    Steam's URL handler is the most portable trigger — `xdg-open` delegates to
+    it; calling `steam` directly also works if it's on PATH.
+    """
+    try:
+        r = subprocess.run(
+            ["pgrep", "-f", "Timberborn"],
+            capture_output=True, text=True,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            subprocess.run(
+                ["pkill", "-f", "Timberborn"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+            print(f"  {DIM}waiting for Timberborn to exit...{RST}")
+            for _ in range(30):
+                time.sleep(1)
+                check = subprocess.run(
+                    ["pgrep", "-f", "Timberborn"],
+                    capture_output=True, text=True,
+                )
+                if not check.stdout.strip():
+                    break
+            time.sleep(2)
+    except FileNotFoundError:
+        # No `pgrep`/`pkill` — Steam Deck and most distros ship them, but if
+        # they're missing, skip the kill and proceed to the launch step.
+        pass
+
+    url = f"steam://rungameid/{TIMBERBORN_APPID}"
+    launcher = shutil.which("steam") or shutil.which("xdg-open")
+    if launcher is None:
+        print(
+            f"  {RED}error: no steam or xdg-open on PATH; cannot launch Timberborn{RST}",
+            file=sys.stderr,
+        )
+        return False
+    subprocess.Popen([launcher, url])
+
+    print(f"  {DIM}waiting for Timberborn to start...{RST}")
+    for _ in range(45):
+        time.sleep(2)
+        check = subprocess.run(
+            ["pgrep", "-f", "Timberborn"],
+            capture_output=True, text=True,
+        )
+        if check.stdout.strip():
+            return True
+    return False
+
+
 def run(args: list[str]) -> int:
     settlement, save_name, timeout = _parse_args(args)
     if not settlement:
@@ -96,51 +204,24 @@ def run(args: list[str]) -> int:
     with open(md / "autoload.json", "w") as f:
         json.dump({"settlement": settlement, "save": save_name}, f)
 
+    print(f"  {BOLD}launching{RST} {settlement} / {save_name}")
+
     if platform.system() == "Darwin":
         print(f"  {BGRN}autoload prepared{RST}  {settlement} / {save_name}")
         print(f"  {DIM}open Timberborn manually on macOS and the mod will load this save from autoload.json{RST}")
         return 0
 
-    # Windows-only launch path; Linux/Proton arrives in PR 4.
-    try:
-        r = subprocess.run(
-            ["taskkill", "/f", "/im", "Timberborn.exe"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-        if r.returncode == 0:
-            print(f"  {DIM}waiting for Timberborn to exit...{RST}")
-            for _ in range(30):
-                time.sleep(1)
-                check = subprocess.run(
-                    ["tasklist", "/fi", "imagename eq Timberborn.exe"],
-                    capture_output=True, text=True,
-                )
-                if "Timberborn.exe" not in check.stdout:
-                    break
-            time.sleep(2)
-    except Exception:
-        pass
-
-    print(f"  {BOLD}launching{RST} {settlement} / {save_name}")
-    steam_exe = r"C:\Games\Steam\steam.exe"
-    if os.path.exists(steam_exe):
-        subprocess.Popen([steam_exe, "-applaunch", "1062090"])
+    if sys.platform == "win32":
+        started = _windows_kill_and_launch()
     else:
-        subprocess.Popen(["cmd.exe", "/c", "start", "steam://rungameid/1062090"], shell=False)
+        started = _linux_proton_kill_and_launch()
 
-    print(f"  {DIM}waiting for Timberborn.exe to start...{RST}")
-    exe_started = False
-    for _ in range(30):
-        time.sleep(2)
-        check = subprocess.run(
-            ["tasklist", "/fi", "imagename eq Timberborn.exe"],
-            capture_output=True, text=True,
+    if not started:
+        print(
+            f"  {RED}error: Timberborn did not start after the wait window. "
+            f"Is Steam running?{RST}",
+            file=sys.stderr,
         )
-        if "Timberborn.exe" in check.stdout:
-            exe_started = True
-            break
-    if not exe_started:
-        print(f"  {RED}error: Timberborn.exe did not start after 60s. Is Steam running?{RST}", file=sys.stderr)
         return 1
 
     return _wait_for_api(timeout, settlement)
