@@ -19,7 +19,7 @@ import sys
 
 import requests
 
-from tbot.api.client import TimberbotClient
+from timberbot.api.client import TimberbotClient
 
 OUT = pathlib.Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "openapi"
 

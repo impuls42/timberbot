@@ -33,7 +33,7 @@ from typing import Any
 
 import requests
 
-from tbot import Timberbot
+from timberbot import Timberbot
 
 from .v2_specs import ENDPOINT_SPECS, FRESHNESS_SCENARIOS, GROUP_NAMES, EndpointSpec
 

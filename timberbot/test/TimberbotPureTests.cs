@@ -1,8 +1,51 @@
 using Xunit;
 using Timberbot;
+using Newtonsoft.Json.Linq;
 
 namespace Timberbot.Tests
 {
+    public class DetectDeprecatedSettingsTests
+    {
+        [Fact]
+        public void NullInput_ReturnsEmptyList()
+        {
+            var got = TimberbotPure.DetectDeprecatedSettings(null);
+            Assert.NotNull(got);
+            Assert.Empty(got);
+        }
+
+        [Fact]
+        public void CleanInput_ReturnsEmptyList()
+        {
+            var json = JObject.Parse("{\"httpPort\": 8085, \"webhooksEnabled\": true}");
+            Assert.Empty(TimberbotPure.DetectDeprecatedSettings(json));
+        }
+
+        [Fact]
+        public void DetectsEveryDeprecatedKey()
+        {
+            var json = JObject.Parse("{\"terminal\":\"wt\",\"pythonCommand\":\"py3\",\"agentBinary\":\"claude\"," +
+                                    "\"agentModel\":\"sonnet\",\"agentEffort\":\"high\",\"agentCommandTemplate\":\"x\"," +
+                                    "\"agentAllowlistEnabled\":false,\"agentAllowedBinaries\":[\"opencode\"]," +
+                                    "\"httpPort\":8085}");
+            var got = TimberbotPure.DetectDeprecatedSettings(json);
+            Assert.Equal(TimberbotPure.DEPRECATED_SETTINGS_KEYS.Length, got.Count);
+            foreach (var key in TimberbotPure.DEPRECATED_SETTINGS_KEYS)
+                Assert.Contains(key, got);
+        }
+
+        [Fact]
+        public void DoesNotMutateInput()
+        {
+            var json = JObject.Parse("{\"terminal\":\"wt\"}");
+            TimberbotPure.DetectDeprecatedSettings(json);
+            // Detection is a one-release-grace policy: keys stay on disk so old
+            // tooling can still read them. The strip happens in a future release.
+            Assert.Equal("wt", json.Value<string>("terminal"));
+        }
+    }
+
+
     public class JsonEscapeTests
     {
         [Fact]

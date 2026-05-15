@@ -4,7 +4,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from tbot import config
+from timberbot import config
 
 
 def test_explicit_env_override(monkeypatch, tmp_path):

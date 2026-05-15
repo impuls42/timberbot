@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import re
 
-from tbot.formatters.dashboard import render_top
-from tbot.formatters.map import render_map
-from tbot.formatters.tables import bar, cv, hline, row
+from timberbot.formatters.dashboard import render_top
+from timberbot.formatters.map import render_map
+from timberbot.formatters.tables import bar, cv, hline, row
 
 ANSI = re.compile(r"\033\[[0-9;]*m")
 

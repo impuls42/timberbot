@@ -50,14 +50,10 @@ namespace Timberbot
         private int _webhookCircuitBreaker = 30;
         private int _webhookMaxPendingEvents = 1000;
         private double _writeBudgetMs = 1.0;
-        private string _terminal = "";           // terminal command prefix (e.g. "wezterm start --")
-        private string _pythonCommand = "";      // legacy: ignored. Kept for one release for settings.json backwards-compat.
         private string _tbotCommand = "";        // optional override for the `tbot` console-script path
         // security settings
         private string _listenAddress = "localhost";
         private string _corsOrigin = "";
-        private bool _agentAllowlistEnabled = true;
-        private System.Collections.Generic.HashSet<string> _agentAllowedBinaries;
         private bool _webhookValidateUrls = true;
         private int _maxBodyBytes = 1048576;
         private bool _actionLoggingEnabled = true;
@@ -107,7 +103,7 @@ namespace Timberbot
             WebhookMgr.MaxPendingEvents = _webhookMaxPendingEvents;
             WebhookMgr.ValidateUrls = _webhookValidateUrls;
             var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "unknown";
-            TimberbotLog.Info($"v{version} port={_httpPort} debug={_debugEnabled} webhooks={_webhooksEnabled} batchMs={_webhookBatchSeconds * 1000:F0} listen={_listenAddress} agentAllowlist={_agentAllowlistEnabled} webhookValidate={_webhookValidateUrls} maxBody={_maxBodyBytes}");
+            TimberbotLog.Info($"v{version} port={_httpPort} debug={_debugEnabled} webhooks={_webhooksEnabled} batchMs={_webhookBatchSeconds * 1000:F0} listen={_listenAddress} webhookValidate={_webhookValidateUrls} maxBody={_maxBodyBytes}");
             Registry.WebhookMgr = WebhookMgr;  // registry pushes webhook events on entity lifecycle
             DebugTool.Service = this;         // debug needs Service reference for endpoint benchmarks
             _eventBus.Register(this);
@@ -117,7 +113,7 @@ namespace Timberbot
             Placement.DetectFaction();          // detect faction suffix. must run before BuildAllIndexes
             Registry.BuildAllIndexes();        // populate indexes from existing entities
             ReadV2.BuildAll();          // populate v2 building trackers from existing entities
-            Agent = new TimberbotAgent(_terminal, _pythonCommand, _agentAllowlistEnabled, _agentAllowedBinaries, _tbotCommand);
+            Agent = new TimberbotAgent(_tbotCommand);
             _server = new TimberbotHttpServer(_httpPort, this, _debugEnabled, _listenAddress, _corsOrigin, _maxBodyBytes);
             TimberbotLog.Info($"HTTP server started on port {_httpPort}");
         }
@@ -157,10 +153,6 @@ namespace Timberbot
                         double budget = json.Value<double>("writeBudgetMs");
                         _writeBudgetMs = budget > 0 ? budget : 1.0;
                     }
-                    if (json["terminal"] != null)
-                        _terminal = json.Value<string>("terminal") ?? "";
-                    if (json["pythonCommand"] != null)
-                        _pythonCommand = json.Value<string>("pythonCommand") ?? "";
                     if (json["tbotCommand"] != null)
                         _tbotCommand = json.Value<string>("tbotCommand") ?? "";
                     // security settings
@@ -168,18 +160,6 @@ namespace Timberbot
                         _listenAddress = json.Value<string>("listenAddress") ?? "localhost";
                     if (json["corsOrigin"] != null)
                         _corsOrigin = json.Value<string>("corsOrigin") ?? "";
-                    if (json["agentAllowlistEnabled"] != null)
-                        _agentAllowlistEnabled = json.Value<bool>("agentAllowlistEnabled");
-                    if (json["agentAllowedBinaries"] is Newtonsoft.Json.Linq.JArray arr)
-                    {
-                        _agentAllowedBinaries = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
-                        foreach (var item in arr)
-                        {
-                            var val = item.Value<string>();
-                            if (!string.IsNullOrWhiteSpace(val))
-                                _agentAllowedBinaries.Add(val.Trim());
-                        }
-                    }
                     if (json["webhookValidateUrls"] != null)
                         _webhookValidateUrls = json.Value<bool>("webhookValidateUrls");
                     if (json["maxBodyBytes"] != null)

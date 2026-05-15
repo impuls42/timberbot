@@ -1,7 +1,7 @@
 """Unit tests for prompt loading and instruction merging."""
 from __future__ import annotations
 
-from tbot.agent.prompts import (
+from timberbot.agent.prompts import (
     build_merged_instructions,
     list_packaged_prompts,
     load_prompt,

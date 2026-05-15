@@ -1,7 +1,7 @@
-"""Unit tests for tbot.state."""
+"""Unit tests for timberbot.state."""
 from __future__ import annotations
 
-from tbot.state import SettlementContext, compact_locations, compact_summary
+from timberbot.state import SettlementContext, compact_locations, compact_summary
 
 
 def test_load_brain_returns_empty_when_no_file(tmp_path):

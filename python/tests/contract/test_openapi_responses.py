@@ -24,8 +24,8 @@ from typing import Any
 import pytest
 import requests
 
-from tbot.api import models
-from tbot.api.client import TimberbotClient
+from timberbot.api import models
+from timberbot.api.client import TimberbotClient
 
 FIXTURES_DIR = pathlib.Path(__file__).resolve().parents[1] / "fixtures" / "openapi"
 

@@ -1,9 +1,7 @@
 // TimberbotPanel.cs. In-game UI for agent start/stop/status.
 
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using Timberborn.CoreUI;
 using Timberborn.SingletonSystem;
 using Timberborn.UILayoutSystem;
@@ -40,12 +38,6 @@ namespace Timberbot
 
         private TextField _binaryField;
         private NineSliceButton _binaryPresetBtn;
-        private TextField _commandTemplateField;
-        private VisualElement _commandTemplateRow;
-        private TextField _modelField;
-        private NineSliceButton _modelPresetBtn;
-        private TextField _effortField;
-        private NineSliceButton _effortPresetBtn;
         private TextField _goalField;
         private TextField _debugEndpointField;
         private NineSliceButton _debugEndpointPresetBtn;
@@ -56,10 +48,6 @@ namespace Timberbot
         private TextField _webhookCircuitBreakerField;
         private TextField _webhookMaxPendingEventsField;
         private TextField _writeBudgetMsField;
-        private TextField _terminalField;
-        private NineSliceButton _terminalPresetBtn;
-        private Label _terminalStatusLabel;
-        private TextField _pythonCommandField;
 
         // security tab fields
         private TextField _listenAddressField;
@@ -101,61 +89,21 @@ namespace Timberbot
         private float _lastUpdate;
         private string _activeSettingsTab = "agent";
 
+        // Backend list mirrors the names registered in the Python `tbot agent`
+        // CLI. Model/effort defaults now live on each backend in Python; the
+        // in-game panel only chooses which backend to launch.
         private static readonly string[][] BinaryChoices = new[]
         {
             new[] { "claude", "claude" },
             new[] { "codex", "codex" },
+            new[] { "opencode", "opencode" },
             new[] { "custom", "custom" },
-        };
-
-        private static readonly string[][] ClaudeModelChoices = new[]
-        {
-            new[] { "claude-opus-4-6", "claude-opus-4-6" },
-            new[] { "claude-opus-4-5", "claude-opus-4-5" },
-            new[] { "claude-opus-4-1", "claude-opus-4-1" },
-            new[] { "claude-sonnet-4-6", "claude-sonnet-4-6" },
-            new[] { "claude-sonnet-4-5", "claude-sonnet-4-5" },
-            new[] { "claude-haiku-4-5", "claude-haiku-4-5" },
-        };
-
-        private static readonly string[][] CodexModelChoices = new[]
-        {
-            new[] { "gpt-5.4", "gpt-5.4" },
-            new[] { "gpt-5.4-mini", "gpt-5.4-mini" },
-            new[] { "gpt-5.3-codex", "gpt-5.3-codex" },
-            new[] { "gpt-5.2-codex", "gpt-5.2-codex" },
-            new[] { "gpt-5.2", "gpt-5.2" },
-            new[] { "gpt-5.1-codex-max", "gpt-5.1-codex-max" },
-            new[] { "gpt-5.1-codex-mini", "gpt-5.1-codex-mini" },
-        };
-
-        private static readonly string[][] ClaudeEffortChoices = new[]
-        {
-            new[] { "max", "max" },
-            new[] { "high", "high" },
-            new[] { "medium", "medium" },
-            new[] { "low", "low" },
-        };
-
-        private static readonly string[][] CodexEffortChoices = new[]
-        {
-            new[] { "xhigh", "xhigh" },
-            new[] { "high", "high" },
-            new[] { "medium", "medium" },
-            new[] { "low", "low" },
         };
 
         private static readonly string[][] BoolChoices = new[]
         {
             new[] { "true", "true" },
             new[] { "false", "false" },
-        };
-
-        private static readonly string[][] TerminalChoices = new[]
-        {
-            new[] { "(none)", "" },
-            new[] { "Windows Terminal", "wt -d {cwd} --" },
-            new[] { "WezTerm", "wezterm start --cwd {cwd} --" },
         };
 
         private static readonly string[][] ListenAddressChoices = new[]
@@ -171,10 +119,6 @@ namespace Timberbot
         };
 
         private const string DefaultBinary = "claude";
-        private const string DefaultClaudeModel = "claude-sonnet-4-6";
-        private const string DefaultClaudeEffort = "medium";
-        private const string DefaultCodexModel = "gpt-5.4";
-        private const string DefaultCodexEffort = "medium";
 
         private static readonly Dictionary<string, string> SettingTooltips = new Dictionary<string, string>
         {
@@ -414,9 +358,6 @@ namespace Timberbot
             _settingsContainer.Add(_securitySettingsContainer);
 
             var savedBinary = NormalizeValue(_service.GetUISetting("agentBinary"), DefaultBinary);
-            var savedCommandTemplate = _service.GetUISetting("agentCommandTemplate") ?? "";
-            var savedModel = _service.GetUISetting("agentModel");
-            var savedEffort = _service.GetUISetting("agentEffort");
             var savedGoal = _service.GetUISetting("agentGoal") ?? "reach 50 beavers with 77 well-being";
             var savedActionLoggingEnabled = NormalizeBoolString(_service.GetUISetting("actionLoggingEnabled"), true);
             var savedDebugEndpointEnabled = NormalizeBoolString(_service.GetUISetting("debugEndpointEnabled"), false);
@@ -426,50 +367,15 @@ namespace Timberbot
             var savedWebhookCircuitBreaker = NormalizeValue(_service.GetUISetting("webhookCircuitBreaker"), "30");
             var savedWebhookMaxPendingEvents = NormalizeValue(_service.GetUISetting("webhookMaxPendingEvents"), "1000");
             var savedWriteBudgetMs = NormalizeValue(_service.GetUISetting("writeBudgetMs"), "1.0");
-            var savedTerminal = NormalizeTerminalSetting(_service.GetUISetting("terminal"));
-            if (savedTerminal == null)
-            {
-                if (Application.platform == RuntimePlatform.WindowsPlayer && IsExeInPath("wt"))
-                    savedTerminal = "wt -d {cwd} --";
-                else
-                    savedTerminal = "";
-            }
-            else if (savedTerminal != (_service.GetUISetting("terminal") ?? ""))
-            {
-                _service.SaveUISetting("terminal", savedTerminal);
-            }
-            var savedPythonCommand = _service.GetUISetting("pythonCommand") ?? "";
 
             _binaryField = MakeTextField(savedBinary);
             _binaryField.RegisterValueChangedCallback(evt =>
             {
                 var binary = NormalizeValue(evt.newValue, DefaultBinary);
                 _service.SaveUISetting("agentBinary", binary);
-                SyncFieldsForBinary(binary);
             });
             _binaryPresetBtn = MakePresetButton("v", () => TogglePresetMenu(_binaryPresetBtn, _binaryField, BinaryChoices));
-            _agentSettingsContainer.Add(MakePresetFieldRow("Binary:", _binaryField, _binaryPresetBtn));
-
-            _commandTemplateField = MakeTextField(savedCommandTemplate);
-            _commandTemplateField.RegisterValueChangedCallback(evt =>
-                _service.SaveUISetting("agentCommandTemplate", evt.newValue ?? ""));
-            _commandTemplateRow = MakeFieldRow("Command:", _commandTemplateField);
-            _commandTemplateRow.style.display = savedBinary == "custom" ? DisplayStyle.Flex : DisplayStyle.None;
-            _agentSettingsContainer.Add(_commandTemplateRow);
-
-            var modelChoices = GetModelChoices(savedBinary);
-            _modelField = MakeTextField(GetInitialChoiceValue(savedBinary, modelChoices, savedModel));
-            _modelField.RegisterValueChangedCallback(evt =>
-                _service.SaveUISetting("agentModel", NormalizeValue(evt.newValue, modelChoices[0][0])));
-            _modelPresetBtn = MakePresetButton("v", () => TogglePresetMenu(_modelPresetBtn, _modelField, GetModelChoices(CurrentBinary())));
-            _agentSettingsContainer.Add(MakePresetFieldRow("Model:", _modelField, _modelPresetBtn));
-
-            var effortChoices = GetEffortChoices(savedBinary);
-            _effortField = MakeTextField(GetInitialChoiceValue(savedBinary, effortChoices, savedEffort));
-            _effortField.RegisterValueChangedCallback(evt =>
-                _service.SaveUISetting("agentEffort", NormalizeValue(evt.newValue, effortChoices[0][0])));
-            _effortPresetBtn = MakePresetButton("v", () => TogglePresetMenu(_effortPresetBtn, _effortField, GetEffortChoices(CurrentBinary())));
-            _agentSettingsContainer.Add(MakePresetFieldRow("Effort:", _effortField, _effortPresetBtn));
+            _agentSettingsContainer.Add(MakePresetFieldRow("Backend:", _binaryField, _binaryPresetBtn));
 
             _goalField = MakeTextField(savedGoal);
             _goalField.multiline = true;
@@ -570,28 +476,6 @@ namespace Timberbot
                 _service.SaveDoubleSetting("writeBudgetMs", double.Parse(value, System.Globalization.CultureInfo.InvariantCulture));
             });
             _runtimeSettingsContainer.Add(MakeFieldRow("writeBudgetMs:", _writeBudgetMsField));
-
-            _terminalField = MakeTextField(savedTerminal);
-            _terminalField.RegisterValueChangedCallback(evt =>
-            {
-                var val = NormalizeTerminalSetting(evt.newValue) ?? "";
-                _terminalField.SetValueWithoutNotify(val);
-                _service.SaveUISetting("terminal", val);
-                ValidateTerminalField(val);
-            });
-            _terminalPresetBtn = MakePresetButton("v", () => TogglePresetMenu(_terminalPresetBtn, _terminalField, TerminalChoices));
-            _runtimeSettingsContainer.Add(MakePresetFieldRow("terminal:", _terminalField, _terminalPresetBtn));
-
-            _terminalStatusLabel = new Label("");
-            _terminalStatusLabel.AddToClassList("game-text-small");
-            _terminalStatusLabel.style.marginLeft = 8;
-            _terminalStatusLabel.style.height = 16;
-            _runtimeSettingsContainer.Add(_terminalStatusLabel);
-            ValidateTerminalField(savedTerminal);
-
-            _pythonCommandField = MakeTextField(savedPythonCommand);
-            _pythonCommandField.RegisterValueChangedCallback(evt => _service.SaveUISetting("pythonCommand", evt.newValue ?? ""));
-            _runtimeSettingsContainer.Add(MakeFieldRow("pythonCommand:", _pythonCommandField));
 
             // --- Security tab ---
             _securitySettingsContainer.Add(MakeHintLabel("Controls network exposure and input validation. Reload save to apply."));
@@ -818,14 +702,14 @@ namespace Timberbot
                 return;
 
             var binary = NormalizeValue(_binaryField.value, "claude");
-            var model = NormalizeValue(_modelField.value, "");
-            var effort = NormalizeValue(_effortField.value, "");
             var goal = _goalField.value;
-            var command = binary == "custom" ? (_commandTemplateField?.value ?? "") : null;
-            var terminal = NormalizeTerminalSetting(_terminalField?.value) ?? "";
 
-            agent.Start(binary, model, effort, 120, goal, command, terminal);
-            TimberbotLog.Info($"panel: started agent binary={binary} model={model ?? "default"} effort={effort ?? "default"} custom={command != null} terminal={terminal ?? "(default)"}");
+            // Model, effort, and custom command template live in
+            // ~/.config/timberbot/config.toml (via the Python agent backends)
+            // since PR 4. Pass them as empty so each backend's own defaults
+            // kick in; the player can still override via `tbot agent run`.
+            agent.Start(binary, model: null, effort: null, timeout: 120, goal: goal);
+            TimberbotLog.Info($"panel: started agent binary={binary}");
             HidePresetMenu();
         }
 
@@ -1028,132 +912,6 @@ namespace Timberbot
                 if (_tooltipAnchor == row && _tooltipPopup != null && _tooltipPopup.resolvedStyle.display != DisplayStyle.None)
                     PositionTooltip(row);
             });
-        }
-
-        private static string[][] GetModelChoices(string binary)
-        {
-            return binary == "codex" ? CodexModelChoices : ClaudeModelChoices;
-        }
-
-        private static string[][] GetEffortChoices(string binary)
-        {
-            return binary == "codex" ? CodexEffortChoices : ClaudeEffortChoices;
-        }
-
-        private static string GetInitialChoiceValue(string binary, string[][] choices, string savedValue)
-        {
-            if (!string.IsNullOrWhiteSpace(savedValue))
-            {
-                foreach (var c in choices)
-                    if (c[0] == savedValue)
-                        return c[0];
-            }
-
-            var preferred = GetDefaultChoiceValue(binary, choices == CodexEffortChoices || choices == ClaudeEffortChoices);
-            if (!string.IsNullOrEmpty(preferred))
-            {
-                foreach (var c in choices)
-                    if (c[0] == preferred)
-                        return c[0];
-            }
-
-            return choices[0][0];
-        }
-
-        private static string GetDefaultChoiceValue(string binary, bool effort)
-        {
-            if (binary == "codex")
-                return effort ? DefaultCodexEffort : DefaultCodexModel;
-            return effort ? DefaultClaudeEffort : DefaultClaudeModel;
-        }
-
-        private string CurrentBinary()
-        {
-            return NormalizeValue(_binaryField?.value, DefaultBinary);
-        }
-
-        private void SyncFieldsForBinary(string binary)
-        {
-            // show/hide command template field for custom binary
-            if (_commandTemplateRow != null)
-                _commandTemplateRow.style.display = binary == "custom" ? DisplayStyle.Flex : DisplayStyle.None;
-
-            var modelChoices = GetModelChoices(binary);
-            if (!ChoiceContainsValue(modelChoices, _modelField?.value))
-                _modelField.value = GetInitialChoiceValue(binary, modelChoices, null);
-
-            var effortChoices = GetEffortChoices(binary);
-            if (!ChoiceContainsValue(effortChoices, _effortField?.value))
-                _effortField.value = GetInitialChoiceValue(binary, effortChoices, null);
-        }
-
-        private static bool IsExeInPath(string exeName)
-        {
-            try
-            {
-                var psi = new ProcessStartInfo("where", exeName)
-                {
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-                using var proc = Process.Start(psi);
-                proc.WaitForExit(3000);
-                return proc.ExitCode == 0;
-            }
-            catch { return false; }
-        }
-
-        private void ValidateTerminalField(string value)
-        {
-            if (_terminalStatusLabel == null) return;
-            value = NormalizeTerminalSetting(value);
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                _terminalStatusLabel.text = "";
-                return;
-            }
-            var exe = value.Trim().Split(' ')[0];
-            if (IsExeInPath(exe))
-            {
-                _terminalStatusLabel.text = exe + " found";
-                _terminalStatusLabel.style.color = new Color(0.5f, 1f, 0.5f);
-            }
-            else
-            {
-                _terminalStatusLabel.text = exe + " not found!";
-                _terminalStatusLabel.style.color = new Color(1f, 0.5f, 0.5f);
-            }
-        }
-
-        private static string NormalizeTerminalSetting(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return "";
-
-            var trimmed = value.Trim();
-            for (int i = 0; i < TerminalChoices.Length; i++)
-            {
-                var label = TerminalChoices[i][0];
-                var actual = TerminalChoices[i].Length > 1 ? TerminalChoices[i][1] : TerminalChoices[i][0];
-                if (string.Equals(trimmed, label, System.StringComparison.OrdinalIgnoreCase))
-                    return actual;
-            }
-
-            return trimmed;
-        }
-
-        private static bool ChoiceContainsValue(string[][] choices, string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return false;
-
-            foreach (var c in choices)
-                if (c[0] == value.Trim())
-                    return true;
-
-            return false;
         }
 
         private static string NormalizeValue(string value, string fallback) => TimberbotPure.NormalizeValue(value, fallback);

@@ -1,7 +1,7 @@
 """Tests for `tbot init`."""
 from __future__ import annotations
 
-from tbot.cli.commands import init_cmd
+from timberbot.cli.commands import init_cmd
 
 
 def test_init_materializes_all_prompts(monkeypatch, tmp_path, capsys):

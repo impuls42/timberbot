@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from tbot.cli.commands import agent as agent_cmd
+from timberbot.cli.commands import agent as agent_cmd
 
 
 def test_run_requires_backend(capsys):
