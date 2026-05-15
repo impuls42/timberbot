@@ -3,9 +3,9 @@ requires = ["hatchling>=1.21"]
 build-backend = "hatchling.build"
 
 [project]
-name = "tbot"
+name = "timberbot"
 version = "0.9.0"
-description = "Python client and CLI for the Timberbot Timberborn HTTP API"
+description = "Python client and `tbot` CLI for the Timberbot Timberborn HTTP API"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -45,14 +45,14 @@ Homepage = "https://github.com/impuls42/timberbot"
 Issues = "https://github.com/impuls42/timberbot/issues"
 
 [project.scripts]
-tbot = "tbot.cli:main"
+tbot = "timberbot.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tbot"]
+packages = ["src/timberbot"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "src/tbot",
+  "src/timberbot",
   "README.md",
   "pyproject.toml",
 ]

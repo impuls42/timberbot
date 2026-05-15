@@ -1,24 +1,37 @@
-"""Unit tests for tbot.paths."""
+"""Unit tests for timberbot.paths."""
 from __future__ import annotations
 
-from pathlib import Path
+import pytest
 
-from tbot import paths
+from timberbot import paths
 
 
-def test_documents_dir_under_home(monkeypatch, tmp_path):
-    monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    assert paths.documents_dir() == tmp_path / "Documents" / "Timberborn"
+@pytest.fixture(autouse=True)
+def _reset_paths_cache():
+    paths.reset_cache()
+    yield
+    paths.reset_cache()
+
+
+def test_documents_dir_from_env_override(monkeypatch, tmp_path):
+    monkeypatch.setenv("TBOT_DOCUMENTS_DIR", str(tmp_path / "Timberborn"))
+    assert paths.documents_dir() == tmp_path / "Timberborn"
 
 
 def test_mod_dir_layout(monkeypatch, tmp_path):
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("TBOT_DOCUMENTS_DIR", str(tmp_path / "Timberborn"))
     md = paths.mod_dir()
-    assert md == tmp_path / "Documents" / "Timberborn" / "Mods" / "Timberbot"
+    assert md == tmp_path / "Timberborn" / "Mods" / "Timberbot"
     assert paths.settings_path() == md / "settings.json"
     assert paths.memory_base() == md / "memory"
-    assert paths.saves_dir() == tmp_path / "Documents" / "Timberborn" / "Saves"
+    assert paths.saves_dir() == tmp_path / "Timberborn" / "Saves"
+
+
+def test_mod_dir_override_pins_path(tmp_path):
+    paths.set_mod_dir_override(tmp_path / "custom-mod")
+    assert paths.mod_dir() == tmp_path / "custom-mod"
+    assert paths.settings_path() == tmp_path / "custom-mod" / "settings.json"
+    assert paths.memory_base() == tmp_path / "custom-mod" / "memory"
 
 
 def test_sanitize_name_strips_filesystem_unsafe_chars():

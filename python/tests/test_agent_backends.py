@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from tbot.agent.backend import AgentContext, known_backend_names
-from tbot.agent.backends import claude, codex, custom, opencode  # noqa: F401  (registers)
-from tbot.agent.runner import resolve_backend
+from timberbot.agent.backend import AgentContext, known_backend_names
+from timberbot.agent.backends import claude, codex, custom, opencode  # noqa: F401  (registers)
+from timberbot.agent.runner import resolve_backend
 
 
 def _ctx(tmp_path: Path, **overrides) -> AgentContext:

@@ -16,34 +16,44 @@ C# mod + Python client that lets AI agents read and control a running Timberborn
 Timberborn (Unity)
   |-- Timberbot API mod (port 8085)   read and write game state
 
-Python client
-  |-- timberbot.py                   single-file API client + CLI + dashboard
+Python (PyPI: `timberbot`)
+  |-- `tbot` CLI                     dashboard, agent launcher, raw API client
+  |-- `from timberbot import …`      typed Pydantic client for scripts
 ```
 
 ## Quick start
 
 ```bash
+pipx install timberbot      # or: pip install timberbot
+tbot init                   # materialize agent prompts into ~/.config/timberbot
+```
+
+```bash
 # with Timberborn running + mod loaded
-timberbot.py summary                              # colony snapshot
-timberbot.py buildings                            # list all buildings
-timberbot.py beavers                              # beaver wellbeing + critical needs
-timberbot.py map x1:110 y1:130 x2:130 y2:150     # ASCII map with terrain + blockers
-timberbot.py place_building prefab:Path x:100 y:130 z:2 orientation:south
-timberbot.py place_path x1:110 y1:130 x2:130 y2:150       # A* pathfinding with auto-stairs
-timberbot.py set_speed speed:3                    # fast forward
-timberbot.py science                              # science points + unlockable buildings
-timberbot.py distribution                         # import/export settings per district
-timberbot.py link source_id:42 target_id:44 input:a       # wire sensor -> building
-timberbot.py configure_automation id:42 property:threshold value:50
-timberbot.py top                                  # live colony dashboard
-timberbot.py                                      # list all methods
+tbot summary                                       # colony snapshot
+tbot buildings                                     # list all buildings
+tbot beavers                                       # beaver wellbeing + critical needs
+tbot map x1:110 y1:130 x2:130 y2:150               # ASCII map with terrain + blockers
+tbot place_building prefab:Path x:100 y:130 z:2 orientation:south
+tbot place_path x1:110 y1:130 x2:130 y2:150        # A* pathfinding with auto-stairs
+tbot set_speed speed:3                             # fast forward
+tbot science                                       # science points + unlockable buildings
+tbot distribution                                  # import/export settings per district
+tbot link source_id:42 target_id:44 input:a        # wire sensor -> building
+tbot configure_automation id:42 property:threshold value:50
+tbot top                                           # live colony dashboard
+tbot                                               # list all commands
 ```
 
 Auto-launch a save directly:
 
 ```bash
-timberbot.py launch settlement:MyCastle save:day5
+tbot launch settlement:MyCastle save:day5
 ```
+
+On Linux/Steam Deck the mod's "Documents" lives inside a Proton Wine prefix.
+`tbot` autodiscovers it; set `TBOT_DOCUMENTS_DIR` (or pass `--documents-dir=PATH`)
+if your install is unusual.
 
 Or use raw HTTP. no Python needed:
 
@@ -71,7 +81,7 @@ curl -X POST http://localhost:8085/api/speed -d '{"speed": 3}'
 - [Timberbot AI](docs/timberbot.md). AI guide for agents playing Timberborn
 - [Architecture](docs/architecture.md). internals, thread model, read/write pipeline
 - [Automation Plan](docs/automation-plan.md). decompiled wiring API and `/api/automation/*` design
-- [Agent Prompts](python/src/tbot/agent_prompts/). drop-in prompts for `timberbot`, `scout`, `wirer`, `auditor`, and `beaver-developer` workflows. Materialize editable copies into your user config dir with `tbot init`.
+- [Agent Prompts](python/src/timberbot/agent_prompts/). drop-in gameplay prompts (`timberbot`, `scout`, `wirer`, `auditor`). Materialize editable copies into your user config dir with `tbot init`. The development-agent prompt for working on this codebase lives separately at [`agents/beaver-developer.md`](agents/beaver-developer.md).
 - [Repo Guide](AGENTS.md). project layout, build commands, conventions
 - [Developing](docs/developing.md). build from source, add endpoints, Workshop publishing
 
@@ -88,20 +98,25 @@ Drop a `settings.json` in your mod folder (`Documents/Timberborn/Mods/Timberbot/
   "webhookBatchMs": 200,
   "webhookCircuitBreaker": 30,
   "writeBudgetMs": 1.0,
-  "agentAllowlistEnabled": true,
   "webhookValidateUrls": true,
   "maxBodyBytes": 1048576
 }
 ```
 
-All fields are optional. missing keys use defaults. The server binds to `localhost` by default. set `listenAddress` to `+` or `0.0.0.0` to accept LAN connections.
+All fields are optional. missing keys use defaults. The server binds to
+`localhost` by default. set `listenAddress` to `+` or `0.0.0.0` to accept LAN
+connections.
+
+Older settings keys (`terminal`, `pythonCommand`, `agentBinary`, `agentModel`,
+`agentEffort`, `agentCommandTemplate`, `agentAllowlistEnabled`,
+`agentAllowedBinaries`) are ignored with a one-line warning at load — manage
+agent-side defaults via `~/.config/timberbot/config.toml` instead.
 
 ## Requirements
 
 - Timberborn (Steam)
 - .NET SDK 6+ (to build the mod)
-- Python 3.8+ with `requests` (for the client, optional)
-- `pip install toons` for compact TOON output (optional, falls back to JSON)
+- Python 3.10+ (for the `tbot` CLI; install via `pipx install timberbot`)
 
 ## Credits
 

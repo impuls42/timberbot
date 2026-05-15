@@ -53,74 +53,55 @@ http://localhost:8085/api/ping
 
 You should see `{"status": "ok", "ready": true}`. The API is only active while a game is loaded. it won't respond from the main menu.
 
+## Install the Timberbot CLI
+
+The Python CLI ships as the `timberbot` PyPI package. Install with `pipx` so it
+gets its own virtual environment:
+
+```bash
+pipx install timberbot         # or: pip install timberbot
+tbot init                      # materialize editable agent prompts under your config dir
+```
+
+This creates the `tbot` console command. The Python import is `timberbot`:
+
+```python
+from timberbot import TimberbotClient
+```
+
+### Linux / Steam Deck
+
+`tbot` autodiscovers Timberborn's "Documents" folder, including Proton/Wine
+prefixes under `~/.steam/steam/steamapps/compatdata/<appid>/pfx/...`. The
+scan assumes the standard Proton-managed Windows username `steamuser` — if
+you're running Timberborn under a custom Wine prefix with a different
+username, set `TBOT_DOCUMENTS_DIR` explicitly. To force a specific
+location:
+
+```bash
+export TBOT_DOCUMENTS_DIR=~/.steam/steam/steamapps/compatdata/1062090/pfx/drive_c/users/steamuser/Documents/Timberborn
+# or per-invocation:
+tbot --documents-dir=/path/to/Timberborn summary
+tbot --mod-dir=/path/to/Mods/Timberbot summary
+```
+
 ## Preferred AI workflow: in-game Timberbot UI
 
-The preferred way to use Timberbot with Claude or Codex is the in-game Timberbot widget.
+The preferred way to use Timberbot with Claude, Codex, or opencode is the
+in-game Timberbot widget.
 
 1. Start a game or load a save.
 2. Look for the green `Timberbot API` widget in the bottom-right corner.
 3. Click `Settings`.
-4. Set:
-   - `Binary`
-   - `Model`
-   - `Effort`
-   - `Goal`
+4. Pick a **Backend** (claude / codex / opencode / custom) and enter a **Goal**.
 5. Click `Start`.
 
-Timberbot gathers the current colony state, prepares the agent prompt, and launches the selected CLI interactively. You can then guide that Claude/Codex session in the terminal it opens.
-
-The widget is draggable. Its position and your settings persist automatically. Python 3 is still required because Timberbot uses `timberbot.py` during agent startup to gather live colony state. On macOS, Timberbot auto-detects a Python 3 launcher and opens the agent in Terminal.app by default, so you only need `Startup -> pythonCommand` or `Startup -> terminal` for non-standard setups.
-
-## Install Python and the Timberbot CLI (required)
-
-The CLI lives at `timberbot/script/timberbot.py` in your local clone (or in the mod folder alongside the DLL).
-
-Install dependencies:
-
-```bash
-pip install requests toons
-```
-
-!!! tip "What are these?"
-    `requests` is the HTTP client. `toons` formats the compact TOON output that most commands produce by default. Both are required.
-
-### Add to PATH (recommended)
-
-Add the script directory to your system PATH so you can run `timberbot.py` from anywhere:
-
-1. Add the folder containing `timberbot.py` to your **PATH** environment variable.
-   Windows Steam example: `C:\Users\<you>\Documents\Timberborn\Mods\Timberbot`
-   macOS example: `~/Documents/Timberborn/Mods/Timberbot`
-2. Add `.PY` to your **PATHEXT** environment variable if it isn't already. this tells Windows to treat `.py` files as executable without needing to type `python` first
-
-```powershell
-# check if .PY is already in PATHEXT
-echo $env:PATHEXT
-
-# add .PY to PATHEXT for the current user (persistent)
-[Environment]::SetEnvironmentVariable("PATHEXT", "$($env:PATHEXT);.PY", "User")
-```
-
-After this, commands work from any directory:
-
-```bash
-timberbot.py summary
-timberbot.py map x1:110 y1:130 x2:130 y2:150
-```
-
-!!! tip "Short alias: `tbot`"
-    Create a shell alias or wrapper so AI agents (and you) can type `tbot` instead of `timberbot.py`:
-
-    ```bash
-    # ~/.bashrc or ~/bin/tbot (make executable)
-    #!/usr/bin/env bash
-    exec timberbot.py "$@"
-    ```
-
-    The AI skill docs reference `tbot` to avoid typos. `timberbot.py` still works everywhere.
-
-!!! note "Shebang for Git Bash / WSL"
-    The script includes `#!/usr/bin/env python` so it runs correctly in Unix-style shells (Git Bash, WSL) when the file is on PATH.
+The mod shells out to `tbot agent run --backend <name> --goal "<goal>"`. The
+Python CLI loads the merged instructions file, talks to the running mod over
+HTTP to gather colony state, and spawns the selected agent CLI. Per-backend
+defaults (model, effort, custom command template) live in
+`~/.config/timberbot/config.toml` — the in-game panel only chooses goal +
+backend.
 
 ## Output formats
 
@@ -129,7 +110,7 @@ timberbot.py map x1:110 y1:130 x2:130 y2:150
     Compact tabular format designed for AI consumption and quick scanning:
 
     ```bash
-    timberbot.py summary
+    tbot summary
     ```
 
 === "JSON"
@@ -137,7 +118,7 @@ timberbot.py map x1:110 y1:130 x2:130 y2:150
     Full nested data for programmatic access:
 
     ```bash
-    timberbot.py --json summary
+    tbot --json summary
     ```
 
 The same applies to the HTTP API: add `?format=json` to GET requests, or `"format": "json"` in POST bodies. Without it, endpoints that support both formats default to TOON.
@@ -145,13 +126,13 @@ The same applies to the HTTP API: add `?format=json` to GET requests, or `"forma
 ## First API commands
 
 ```bash
-timberbot.py                                        # list all commands with usage
-timberbot.py summary                                # colony snapshot: population, resources, weather, alerts
-timberbot.py buildings                              # all buildings with workers, priority, power
-timberbot.py beavers                                # wellbeing and critical needs per beaver
-timberbot.py set_speed speed:3                      # fast forward (0=pause, 1/2/3)
-timberbot.py map x1:110 y1:130 x2:130 y2:150              # ASCII map with terrain height shading
-timberbot.py place_path x1:120 y1:140 x2:120 y2:150  # route a path with auto-stairs
+tbot                                        # list all commands with usage
+tbot summary                                # colony snapshot: population, resources, weather, alerts
+tbot buildings                              # all buildings with workers, priority, power
+tbot beavers                                # wellbeing and critical needs per beaver
+tbot set_speed speed:3                      # fast forward (0=pause, 1/2/3)
+tbot map x1:110 y1:130 x2:130 y2:150              # ASCII map with terrain height shading
+tbot place_path x1:120 y1:140 x2:120 y2:150  # route a path with auto-stairs
 ```
 
 !!! note "Pagination"
@@ -162,13 +143,13 @@ timberbot.py place_path x1:120 y1:140 x2:120 y2:150  # route a path with auto-st
 `map` renders a colored ASCII grid of your colony. Background shading shows terrain height, characters represent buildings, trees, water, and crops. A legend is printed below the grid.
 
 ```bash
-timberbot.py map x1:110 y1:130 x2:130 y2:150
+tbot map x1:110 y1:130 x2:130 y2:150
 ```
 
 ### Live dashboard
 
 ```bash
-timberbot.py top
+tbot top
 ```
 
 Live colony dashboard. Population, resources, weather, drought countdown, wellbeing breakdown, alerts. all updating in real time.
@@ -178,17 +159,19 @@ Live colony dashboard. Population, resources, weather, drought countdown, wellbe
 Commands that change game state use `key:value` arguments:
 
 ```bash
-timberbot.py place_building prefab:Path x:120 y:130 z:2 orientation:south
-timberbot.py set_priority id:12340 priority:VeryHigh
-timberbot.py plant_crop x1:110 y1:130 x2:115 y2:135 z:2 crop:Carrot
-timberbot.py mark_trees x1:100 y1:120 x2:110 y2:130 z:2
+tbot place_building prefab:Path x:120 y:130 z:2 orientation:south
+tbot set_priority id:12340 priority:VeryHigh
+tbot plant_crop x1:110 y1:130 x2:115 y2:135 z:2 crop:Carrot
+tbot mark_trees x1:100 y1:120 x2:110 y2:130 z:2
 ```
 
-Get building IDs from `timberbot.py buildings`. Get prefab names from `timberbot.py prefabs`.
+Get building IDs from `tbot buildings`. Get prefab names from `tbot prefabs`.
 
 ### Raw HTTP
 
-You don't need Python for raw HTTP calls alone. But Python is still required for the normal Timberbot workflow, including `timberbot.py` commands and built-in agent startup.
+You don't need Python for raw HTTP calls alone. But Python is required for the
+normal Timberbot workflow, including `tbot` commands and the in-game agent
+launcher (which shells out to `tbot agent run`).
 
 ```bash
 curl http://localhost:8085/api/summary
@@ -203,14 +186,14 @@ The mod also ships docs for AI play with Claude Code, OpenAI Codex, ChatGPT, or 
 
 The AI docs entrypoints are:
 
-- the Timberbot agent prompt ships inside the `tbot` Python package (`tbot.agent_prompts.timberbot`); `tbot init` writes editable copies under your config dir
+- the Timberbot agent prompt ships inside the `timberbot` Python package (`timberbot.agent_prompts.timberbot`); `tbot init` writes editable copies under your config dir
 - [timberbot.md](timberbot.md) is the Timberbot Guide, the full operating guide behind that prompt
 - [api-reference.md](api-reference.md) is the endpoint and response source of truth
 
 ### Launch via `tbot agent run`
 
 ```bash
-pip install tbot
+pipx install timberbot                               # console script: tbot
 tbot init                                            # materialize prompts into your user config dir
 tbot agent run --backend opencode --goal "reach 50 beavers"
 ```
@@ -230,7 +213,7 @@ Paste the contents of `docs/timberbot.md` as the system prompt. Keep `docs/api-r
 By default the Python client connects to `127.0.0.1:8085`. To connect to a game running on another machine:
 
 ```bash
-timberbot.py --host=192.168.1.50 --port=8085 summary
+tbot --host=192.168.1.50 --port=8085 summary
 ```
 
 Or set defaults in `settings.json` (mod folder):
@@ -250,17 +233,27 @@ The in-game `Settings` modal is the primary way to configure Timberbot.
 
 All settings persist to `settings.json`, including:
 
-- agent/UI settings such as `Binary`, `Model`, `Effort`, `Goal`, and widget position
-- runtime settings such as `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `writeBudgetMs`, `terminal`, and `pythonCommand`
-- security settings such as `listenAddress` (default `localhost`), `agentAllowlistEnabled` (default `true`), `webhookValidateUrls` (default `true`), and `maxBodyBytes` (default `1048576`)
+- agent UI settings: `agentBinary` (backend choice) and `agentGoal`; plus widget position
+- runtime settings: `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `writeBudgetMs`
+- security settings: `listenAddress` (default `localhost`), `webhookValidateUrls` (default `true`), `maxBodyBytes` (default `1048576`)
 
-Editing `settings.json` directly is the advanced/manual path. The normal path is to change settings in-game and let Timberbot save them for you.
+Editing `settings.json` directly is the advanced/manual path. The normal path
+is to change settings in-game and let Timberbot save them for you.
 
-Some runtime settings are applied on load, so changing them may require reloading the save or mod to fully apply.
+Some runtime settings are applied on load, so changing them may require
+reloading the save or mod to fully apply.
+
+!!! note "Deprecated settings keys"
+    `terminal`, `pythonCommand`, `agentBinary` (as a path), `agentModel`,
+    `agentEffort`, `agentCommandTemplate`, `agentAllowlistEnabled`, and
+    `agentAllowedBinaries` are no longer read by the mod. They are logged as
+    ignored on load. Manage per-backend model/effort/command defaults via
+    `~/.config/timberbot/config.toml` (Linux/macOS) or
+    `%APPDATA%/timberbot/config.toml` (Windows).
 
 ## macOS launch helper
 
-`timberbot.py launch settlement:<name>` still prepares `autoload.json` on macOS, but v1 does not auto-start Timberborn there. Run the command, then open Timberborn manually and the mod will auto-load the selected save from the main menu.
+`tbot launch settlement:<name>` still prepares `autoload.json` on macOS, but v1 does not auto-start Timberborn there. Run the command, then open Timberborn manually and the mod will auto-load the selected save from the main menu.
 
 ## Troubleshooting
 
@@ -269,8 +262,10 @@ Some runtime settings are applied on load, so changing them may require reloadin
     - Check that the mod is enabled in the Mod Manager.
     - Windows Firewall may block the port. The mod tries `http://+:8085/` first (all interfaces), then falls back to `http://localhost:8085/` if that fails.
 
-!!! warning "No module named 'toons' / 'requests'"
-    Run `pip install requests toons`. Both are required for the Python CLI.
+!!! warning "No module named 'requests' / 'toons'"
+    `pipx install timberbot` pulls these in automatically. If you installed via
+    `pip` into the system Python and dependencies are missing, reinstall via
+    `pipx` so the CLI gets its own environment.
 
 !!! bug "Building placement creates ghost buildings"
     Failed placements can sometimes create invisible entities. See [Known Issues](api-reference.md#known-issues) in the API reference.

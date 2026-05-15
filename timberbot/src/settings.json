@@ -2,6 +2,7 @@
   "debugEndpointEnabled": false,
   "webhooksEnabled": true,
   "httpPort": 8085,
-  "terminal": "wt -d {cwd} --",
-  "pythonCommand": ""
+  "listenAddress": "localhost",
+  "webhookValidateUrls": true,
+  "maxBodyBytes": 1048576
 }

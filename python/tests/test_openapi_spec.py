@@ -15,8 +15,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-import tbot
-from tbot.api.client import TimberbotClient
+import timberbot
+from timberbot.api.client import TimberbotClient
 
 OPENAPI_PATH = Path(__file__).resolve().parents[2] / "openapi.yaml"
 
@@ -58,10 +58,10 @@ def test_spec_validates_against_openapi_3(spec):
 
 
 def test_spec_version_matches_about_constant(spec):
-    """The spec's `info.version` must equal `tbot.OPENAPI_VERSION`."""
-    assert spec["info"]["version"] == tbot.OPENAPI_VERSION, (
+    """The spec's `info.version` must equal `timberbot.OPENAPI_VERSION`."""
+    assert spec["info"]["version"] == timberbot.OPENAPI_VERSION, (
         f"spec info.version={spec['info']['version']!r} but "
-        f"tbot.OPENAPI_VERSION={tbot.OPENAPI_VERSION!r}. Bump them together."
+        f"timberbot.OPENAPI_VERSION={timberbot.OPENAPI_VERSION!r}. Bump them together."
     )
 
 

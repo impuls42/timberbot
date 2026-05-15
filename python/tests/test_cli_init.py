@@ -1,7 +1,7 @@
 """Tests for `tbot init`."""
 from __future__ import annotations
 
-from tbot.cli.commands import init_cmd
+from timberbot.cli.commands import init_cmd
 
 
 def test_init_materializes_all_prompts(monkeypatch, tmp_path, capsys):
@@ -13,7 +13,9 @@ def test_init_materializes_all_prompts(monkeypatch, tmp_path, capsys):
     assert (prompts_dir / "wirer.md").exists()
     assert (prompts_dir / "auditor.md").exists()
     assert (prompts_dir / "scout.md").exists()
-    assert (prompts_dir / "beaver-developer.md").exists()
+    # beaver-developer lives at repo-root `agents/`, not in the shipped
+    # package — it targets working on this codebase itself.
+    assert not (prompts_dir / "beaver-developer.md").exists()
 
 
 def test_init_is_idempotent_without_force(monkeypatch, tmp_path, capsys):

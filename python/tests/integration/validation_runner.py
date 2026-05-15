@@ -24,7 +24,7 @@ import time
 from typing import Any
 from typing_extensions import override
 
-from tbot import Timberbot, TimberbotError
+from timberbot import Timberbot, TimberbotError
 
 NAVMESH_SETTLE_WAIT = 3.0  # extra settle time for navmesh-dependent reachability checks
 
@@ -4300,7 +4300,7 @@ class TestRunner:
             if p.port:
                 extra.append(f"--port={p.port}")
             return subprocess.run(
-                [py, "-m", "tbot.cli"] + extra + list(args),
+                [py, "-m", "timberbot.cli"] + extra + list(args),
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -5704,7 +5704,7 @@ class TestRunner:
 
     def test_brain_perf(self):
         print("\n=== brain perf (subprocess, real-world latency) ===\n")
-        import tbot as _tb
+        import timberbot as _tb
 
         iterations = getattr(self, "perf_iterations", 10)
 

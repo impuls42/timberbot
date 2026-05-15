@@ -8,8 +8,8 @@ import pytest
 
 pytest.importorskip("pytest_httpserver")
 
-from tbot.agent import runner  # noqa: E402
-from tbot.api.client import TimberbotClient  # noqa: E402
+from timberbot.agent import runner  # noqa: E402
+from timberbot.api.client import TimberbotClient  # noqa: E402
 
 
 def test_render_colony_state_uses_brain(monkeypatch, tmp_path):
@@ -44,7 +44,7 @@ def test_run_agent_pipeline_with_stub_backend(monkeypatch, tmp_path, httpserver)
             returncode = 0
         return _R()
 
-    monkeypatch.setattr("tbot.agent.backend.subprocess.run", fake_subprocess_run)
+    monkeypatch.setattr("timberbot.agent.backend.subprocess.run", fake_subprocess_run)
     monkeypatch.setenv("TBOT_CONFIG_DIR", str(tmp_path))
 
     client = TimberbotClient(host=httpserver.host, port=httpserver.port, json_mode=True)
@@ -77,7 +77,7 @@ def test_run_agent_returns_2_when_api_unreachable(monkeypatch, tmp_path, capsys)
     def never_call(*a, **kw):
         raise AssertionError("subprocess.run should not be called when API is unreachable")
 
-    monkeypatch.setattr("tbot.agent.backend.subprocess.run", never_call)
+    monkeypatch.setattr("timberbot.agent.backend.subprocess.run", never_call)
 
     client = TimberbotClient(host="127.0.0.1", port=1, json_mode=True)  # connection refused
     rc = runner.run_agent(

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using Newtonsoft.Json.Linq;
 
 namespace Timberbot
 {
@@ -13,8 +14,37 @@ namespace Timberbot
         // Major version of the HTTP contract authored at /openapi.yaml.
         // Surfaced via /api/ping for client-side version checks. Bump when a
         // breaking change ships. The Python side has the same constant in
-        // python/src/tbot/__about__.py - keep them in lockstep.
+        // python/src/timberbot/__about__.py - keep them in lockstep.
         public const string OPENAPI_VERSION = "1.0.0";
+
+        // Settings keys retired in PR 4. The mod still tolerates them on disk
+        // for one release but never reads their values; DetectDeprecatedSettings
+        // returns the subset present so the service can log a one-line warning.
+        // Keep in lockstep with timberbot.settings.DEPRECATED_KEYS in Python.
+        public static readonly string[] DEPRECATED_SETTINGS_KEYS = {
+            "terminal",
+            "pythonCommand",
+            "agentModel",
+            "agentEffort",
+            "agentCommandTemplate",
+            "agentAllowlistEnabled",
+            "agentAllowedBinaries",
+        };
+
+        // Returns the deprecated keys present in `settings`. Detection-only —
+        // does not mutate `settings`, so the values remain on disk for one
+        // release before being stripped.
+        public static List<string> DetectDeprecatedSettings(JObject settings)
+        {
+            var found = new List<string>();
+            if (settings == null) return found;
+            foreach (var key in DEPRECATED_SETTINGS_KEYS)
+            {
+                if (settings[key] != null)
+                    found.Add(key);
+            }
+            return found;
+        }
 
         // --- from TimberbotAgent ---
 

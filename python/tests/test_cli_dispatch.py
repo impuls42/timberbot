@@ -13,11 +13,11 @@ import pytest
 pytest.importorskip("pytest_httpserver")
 
 
-from tbot.cli import main as cli_main  # noqa: E402
+from timberbot.cli import main as cli_main  # noqa: E402
 
 
 def _run(monkeypatch, argv: list[str], host: str, port: int) -> int:
-    """Invoke `tbot.cli.main` against a stub server."""
+    """Invoke `timberbot.cli.main` against a stub server."""
     full = [f"--host={host}", f"--port={port}", "--json", *argv]
     monkeypatch.setattr("sys.argv", ["tbot", *full])
     return cli_main([f"--host={host}", f"--port={port}", "--json", *argv])

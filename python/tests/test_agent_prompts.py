@@ -1,7 +1,7 @@
 """Unit tests for prompt loading and instruction merging."""
 from __future__ import annotations
 
-from tbot.agent.prompts import (
+from timberbot.agent.prompts import (
     build_merged_instructions,
     list_packaged_prompts,
     load_prompt,
@@ -10,7 +10,10 @@ from tbot.agent.prompts import (
 
 def test_packaged_prompts_present():
     names = set(list_packaged_prompts())
-    assert names == {"timberbot", "wirer", "auditor", "scout", "beaver-developer"}
+    # beaver-developer is a repo-local dev-agent (under `agents/` at the
+    # repo root), not a shipped prompt — it targets this codebase, not
+    # gameplay, so it doesn't get packaged with the `timberbot` wheel.
+    assert names == {"timberbot", "wirer", "auditor", "scout"}
 
 
 def test_load_packaged_prompt_with_and_without_md_suffix():

@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-from tbot import Timberbot
+from timberbot import Timberbot
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

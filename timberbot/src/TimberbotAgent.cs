@@ -2,20 +2,16 @@
 //
 // PR 2 of the mod-distribution rework moved all agent orchestration into the
 // `tbot` Python package: prompt loading, instructions merging, platform
-// terminal wrapping, and the actual agent binary invocation. This file is now
-// a thin in-process wrapper that:
-//   1. Validates the binary against the allowlist.
-//   2. Spawns `tbot agent run --backend <binary> --goal "<goal>" ...` and waits.
-//   3. Tracks status / lastError / cancellation for the in-game panel.
-//
-// The public API (Start / Stop / Status + properties) is preserved so
-// `TimberbotPanel.cs` keeps working without changes.
+// terminal wrapping, and the actual agent binary invocation. PR 4 trims this
+// wrapper further: the per-launch `terminal` and `pythonCommand` knobs and the
+// in-process binary allowlist all went away because the Python `tbot` CLI
+// already validates `--backend` against its argparse choices. This file is now
+// a small wrapper that:
+//   1. Spawns `tbot agent run --backend <binary> --goal "<goal>" ...` and waits.
+//   2. Tracks status / lastError / cancellation for the in-game panel.
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Text;
 using System.Threading;
 
 namespace Timberbot
@@ -31,17 +27,13 @@ namespace Timberbot
 
     public class TimberbotAgent
     {
-        private readonly string _terminal;
         private readonly string _tbotCommand;
-        private readonly bool _allowlistEnabled;
-        private readonly HashSet<string> _allowedBinaries;
 
         private string _binary;
         private string _model;
         private string _effort;
         private string _goal;
         private string _commandTemplate;
-        private string _terminalOverride;
         private int _processTimeoutSeconds;
 
         private const string DEFAULT_GOAL = "reach 50 beavers with 77 well-being";
@@ -54,29 +46,9 @@ namespace Timberbot
         private volatile bool _cancelRequested;
         private volatile Process _activeProcess;
 
-        // `terminal` and `pythonCommand` are kept as constructor parameters for
-        // backward compatibility with `TimberbotService.Load()`. PR 4 trims the
-        // settings.json schema and removes both. Today `pythonCommand` is
-        // ignored entirely (Python lives behind the `tbot` console script);
-        // `terminal` is forwarded to `tbot agent run --terminal-prefix` so the
-        // existing Windows Terminal UX keeps working.
-        public TimberbotAgent(
-            string terminal,
-            string pythonCommand,
-            bool allowlistEnabled = true,
-            HashSet<string> allowedBinaries = null,
-            string tbotCommand = null)
+        public TimberbotAgent(string tbotCommand = null)
         {
-            _terminal = terminal ?? "";
             _tbotCommand = string.IsNullOrWhiteSpace(tbotCommand) ? DEFAULT_TBOT_COMMAND : tbotCommand;
-            _allowlistEnabled = allowlistEnabled;
-            _allowedBinaries = allowedBinaries;
-
-            // Warn (once) if the user still has the legacy `pythonCommand` setting in
-            // their settings.json. It's silently ignored now; the `tbotCommand` setting
-            // (or `tbot` on PATH) replaces it.
-            if (!string.IsNullOrWhiteSpace(pythonCommand))
-                TimberbotLog.Info($"agent.pythonCommand.legacy: ignoring pythonCommand='{pythonCommand}'; the `tbot` CLI now owns all agent orchestration. Use the `tbotCommand` setting to override the path.");
         }
 
         public AgentStatus CurrentStatus => _status;
@@ -89,21 +61,17 @@ namespace Timberbot
         private readonly TimberbotJw _jw = new TimberbotJw(1024);
         private readonly TimberbotJw _statusJw = new TimberbotJw(4096);
 
-        public string Start(string binary, string model, string effort, int timeout, string goal, string command = null, string terminal = null)
+        public string Start(string binary, string model, string effort, int timeout, string goal, string command = null)
         {
             if (_status != AgentStatus.Idle && _status != AgentStatus.Done && _status != AgentStatus.Error)
                 return _jw.Error("agent_busy", ("status", _status.ToString().ToLowerInvariant()));
 
             var resolvedBinary = string.IsNullOrWhiteSpace(binary) ? "claude" : binary;
-            if (_allowlistEnabled && !TimberbotPure.IsAllowedBinary(resolvedBinary, _allowedBinaries))
-                return _jw.Error("agent_binary_blocked: " + resolvedBinary + " is not in the allowlist. add it to agentAllowedBinaries in settings.json or set agentAllowlistEnabled=false");
 
             _binary = resolvedBinary;
             _model = model;
             _effort = effort;
             _commandTemplate = string.IsNullOrWhiteSpace(command) ? null : command;
-            // terminal override from HTTP is ignored for security. only settings.json value is used.
-            _terminalOverride = null;
             _processTimeoutSeconds = timeout > 0 ? timeout : 120;
             _goal = string.IsNullOrEmpty(goal) ? DEFAULT_GOAL : goal;
             _lastError = null;
@@ -161,9 +129,8 @@ namespace Timberbot
             {
                 _status = AgentStatus.GatheringState;
 
-                var effectiveTerminal = _terminalOverride ?? _terminal;
                 var args = TimberbotPure.BuildTbotAgentRunArgs(
-                    _binary, _goal, _model, _effort, _commandTemplate, effectiveTerminal);
+                    _binary, _goal, _model, _effort, _commandTemplate, terminalPrefix: null);
                 _currentCmd = $"{_tbotCommand} {args}";
 
                 TimberbotLog.Info($"agent.launch cmd={_tbotCommand} args={args}");
