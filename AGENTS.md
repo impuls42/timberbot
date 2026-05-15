@@ -102,6 +102,16 @@ timberbot/
 - `docs/api-reference.md` is the human-readable companion to `openapi.yaml` (which is the canonical contract).
 - `python/src/timberbot/agent_prompts/timberbot.md` is the system prompt shipped as `timberbot` package data and injected at runtime by `tbot agent run`.
 
+## Agent Tooling
+
+### Developer-Agent Prompt
+
+The repo ships [`agents/beaver-developer.md`](agents/beaver-developer.md) as a primary prompt for AI coding agents (Claude Code, Codex, etc.) working on this mod. It enforces the subagent-delegation pattern, the read-first list, and build/verify discipline.
+
+### Understudy (optional in-game verification)
+
+For behavioral changes where `dotnet build` and the Python smoke tests aren't enough, agents may install [Understudy](https://github.com/impuls42/understudy) — a Claude Code skill that runs Timberborn headless under `gamescope`/`sway`, injects synthetic input, and captures screenshots. Once installed per its README (`uv sync`, then `us stack install`), the agent can launch the game, exercise an endpoint, and verify the result without a human in the loop. Use it when the question is "did the game actually behave the way I expected?" — not as a replacement for unit tests.
+
 ## Game DLL Paths
 
 The project references Timberborn game DLLs via the `$(GameManagedDir)` MSBuild property in `Timberbot.csproj`. All game DLLs use `Publicize="true"` and `<Private>false</Private>` — they are never shipped with the mod.
