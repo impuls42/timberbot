@@ -16,10 +16,11 @@ info:
       document, asserts unique operationIds, and asserts every operationId
       has a corresponding `TimberbotClient` method.
 
-    **Response schemas are skeletal** in this revision — full body shapes
-    will be filled in once we capture real game responses and generate
-    Pydantic models from them. See the `responses-fixtures-needed.md` note
-    in the PR for the handoff to a future session with live-game access.
+    All 26 GET response schemas are fully typed with `required` constraints,
+    `$ref` composition, and `allOf` inheritance for paginated envelopes.
+    Golden JSON fixtures in `python/tests/fixtures/openapi/` are validated
+    against the spec by both Python (`test_openapi_responses.py`) and C#
+    (`OpenApiResponseShapeTests.cs`) contract tests.
   version: 1.0.0
   contact:
     name: Timberbot
