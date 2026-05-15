@@ -21,6 +21,8 @@ import requests
 from timberbot.__about__ import OPENAPI_VERSION
 from timberbot.api.exceptions import TimberbotError
 from timberbot.api.models._generated import (
+    AgentRequestAck,
+    AgentState,
     Alerts,
     BeaverList,
     BuildingList,
@@ -33,11 +35,13 @@ from timberbot.api.models._generated import (
     Population,
     PowerNetworks,
     Prefabs,
+    ReadyAck,
     Resources,
     Science,
     SettlementName,
     Speed,
     Summary,
+    TbotRegisterAck,
     Tiles,
     Time,
     TreeClusters,
@@ -151,6 +155,52 @@ class TimberbotClient:
     def settlement(self) -> SettlementName:
         """The current settlement's metadata (`{name: ...}`)."""
         return SettlementName.model_validate(self._get_json("/api/settlement"))
+
+    # ------------------------------------------------------------------
+    # Agent / connector surface (mod ↔ connector rework)
+    # ------------------------------------------------------------------
+    #
+    # These endpoints are gate-exempt -- they keep working while `ready=false`
+    # so the widget and the `tbot watch` connector can drive the gate
+    # themselves. See openapi.yaml -> `/api/agent/*`, `/api/ready`, and
+    # `/api/tbot/*` for the contract.
+
+    def agent_state(self) -> AgentState:
+        """Snapshot of widget/connector state: mode, goal, ready, pendingRequest, agentStatus, lastError."""
+        return AgentState.model_validate(self._get_json("/api/agent/state"))
+
+    def agent_config(
+        self, mode: str | None = None, goal: str | None = None,
+    ) -> AgentState:
+        """Update persisted agent config (mode and/or goal). Either argument may be omitted to leave it unchanged."""
+        body: dict[str, Any] = {}
+        if mode is not None:
+            body["mode"] = mode
+        if goal is not None:
+            body["goal"] = goal
+        return AgentState.model_validate(self._post("/api/agent/config", body))
+
+    def agent_request(self, prompt: str) -> AgentRequestAck:
+        """Submit a prompt to the pending-request slot. Overwrites any existing pending request."""
+        return AgentRequestAck.model_validate(self._post("/api/agent/request", {"prompt": prompt}))
+
+    def ready(self, ready: bool) -> ReadyAck:
+        """Toggle the Launch / Stop gate. `ready=false` closes the gate (409 on non-whitelisted /api/*)."""
+        return ReadyAck.model_validate(self._post("/api/ready", {"ready": ready}))
+
+    def tbot_register(self, webhook_url: str) -> TbotRegisterAck:
+        """Register the `tbot watch` connector's push URL with the mod."""
+        return TbotRegisterAck.model_validate(self._post("/api/tbot/register", {"webhook_url": webhook_url}))
+
+    def tbot_heartbeat(
+        self, version: str, agent_status: str, acked_request_id: int,
+    ) -> AgentState:
+        """Connector heartbeat. Keeps the push URL alive, records `agent_status`, and clears the pending slot when `acked_request_id` catches up."""
+        return AgentState.model_validate(self._post("/api/tbot/heartbeat", {
+            "version": version,
+            "agent_status": agent_status,
+            "acked_request_id": acked_request_id,
+        }))
 
     # ------------------------------------------------------------------
     # Webhooks

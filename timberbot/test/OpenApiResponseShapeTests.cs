@@ -67,6 +67,7 @@ namespace Timberbot.Tests
             ["crops"] = "crops.json",
             ["gatherables"] = "gatherables.json",
             ["list_webhooks"] = "list_webhooks.json",
+            ["agent_state"] = "agent_state.json",
         };
 
         public static IEnumerable<object[]> FixtureCases =>
