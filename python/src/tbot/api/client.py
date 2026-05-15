@@ -1,8 +1,11 @@
 """HTTP client for the Timberbot mod (port 8085 by default).
 
-All data processing happens server-side in the C# mod. This client sends a
-`format` query parameter (`toon` or `json`) and passes the response straight
-through. There is no client-side transformation of API data.
+The wire format is always JSON. The mod still understands `format=toon` for
+human/LLM-facing consumers, but the typed client is the contract layer and
+sticks to JSON so requests parse cleanly through the OpenAPI-derived Pydantic
+models. The CLI handles TOON for display (default) via
+`tbot.cli.main._format_output`; that's an output-rendering concern, not a
+wire-format concern.
 
 The class also exposes per-settlement persistent memory helpers (brain.toon,
 locations, tasks). Those methods delegate to a lazily-constructed
@@ -57,11 +60,15 @@ class TimberbotClient:
         write_timeout: int = 60,
         settlement_context: SettlementContext | None = None,
     ) -> None:
+        """Construct a client. `json_mode` is accepted for backwards
+        compatibility but ignored — the wire is always JSON. CLI display
+        format (TOON vs JSON) is handled in `tbot.cli.main._format_output`.
+        """
+        del json_mode  # see docstring
         host, port = resolve_endpoint(host, port)
         self.host = host
         self.port = port
         self.url = f"http://{host}:{port}"
-        self._format = "json" if json_mode else "toon"
         self._write_timeout = write_timeout
         self.s = requests.Session()
         self.s.headers["Accept"] = "application/json"
@@ -77,7 +84,7 @@ class TimberbotClient:
         return data
 
     def _get(self, path: str, params: dict[str, int | str] | None = None) -> dict[str, Any]:
-        p: dict[str, int | str] = {"format": self._format}
+        p: dict[str, int | str] = {"format": "json"}
         if params:
             p.update(params)
         r = self.s.get(f"{self.url}{path}", params=p, timeout=5)
@@ -85,24 +92,14 @@ class TimberbotClient:
         return self._check(r.json())
 
     def _post(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
-        data["format"] = self._format
-        r = self.s.post(f"{self.url}{path}", json=data, timeout=self._write_timeout)
-        return self._check(r.json())
-
-    def _post_json(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
-        """Force JSON format for internal programmatic use."""
         data["format"] = "json"
         r = self.s.post(f"{self.url}{path}", json=data, timeout=self._write_timeout)
         return self._check(r.json())
 
-    def _get_json(self, path: str, params: dict[str, int | str] | None = None) -> dict[str, Any]:
-        """Force JSON format for internal programmatic use."""
-        p: dict[str, int | str] = {"format": "json"}
-        if params:
-            p.update(params)
-        r = self.s.get(f"{self.url}{path}", params=p, timeout=5)
-        r.raise_for_status()
-        return self._check(r.json())
+    # Back-compat aliases: kept so external callers (integration tests, etc.)
+    # keep working. New code should call `_get` / `_post` directly.
+    _get_json = _get
+    _post_json = _post
 
     # ------------------------------------------------------------------
     # Connection
