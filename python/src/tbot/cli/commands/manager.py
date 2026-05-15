@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import time
-from typing import Any
 
 from tbot.api.client import TimberbotClient
+from tbot.api.models._generated import Building
 from tbot.formatters.colors import BGRN, BMAG, BOLD, BRED, BYEL, DIM, RED, RST, YEL
 
 ESSENTIAL = {
@@ -40,13 +40,11 @@ def run(_args: list[str]) -> int:
             try:
                 summary = bot.summary()
                 idle = sum(
-                    d.get("employment", {}).get("unemployed", 0)
-                    for d in summary.get("districts", [])
+                    (d.employment.unemployed or 0) if d.employment else 0
+                    for d in summary.districts
                 )
                 bldgs = bot.buildings()
-                blist: list[dict[str, Any]] = (
-                    bldgs.get("buildings", []) if isinstance(bldgs, dict) else bldgs
-                )
+                blist: list[Building] = bldgs.items or []
             except Exception:
                 print(f"  {RED}-- connection lost --{RST}")
                 time.sleep(10)
@@ -60,16 +58,16 @@ def run(_args: list[str]) -> int:
                 for prio_name in LOW_PRIORITY:
                     for b in blist:
                         if (
-                            prio_name in b.get("name", "")
-                            and not b.get("paused")
-                            and b.get("assignedWorkers", 0) > 0
-                            and not is_essential(b.get("name", ""))
+                            prio_name in b.name
+                            and not b.paused
+                            and (b.assignedWorkers or 0) > 0
+                            and not is_essential(b.name)
                         ):
-                            bot.pause_building(b["id"])
-                            paused_by_us.append(b["id"])
+                            bot.pause_building(b.id)
+                            paused_by_us.append(b.id)
                             print(
                                 f"  {ts}  {BRED}0 idle{RST}  paused "
-                                f"{BYEL}{b['name']}{RST} id:{b['id']}"
+                                f"{BYEL}{b.name}{RST} id:{b.id}"
                             )
                             acted = True
                             break
@@ -81,8 +79,8 @@ def run(_args: list[str]) -> int:
                 bid = paused_by_us.pop()
                 name = "?"
                 for b in blist:
-                    if b.get("id") == bid:
-                        name = b.get("name", "?")
+                    if b.id == bid:
+                        name = b.name
                         break
                 bot.unpause_building(bid)
                 print(

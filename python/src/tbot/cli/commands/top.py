@@ -4,6 +4,7 @@ from __future__ import annotations
 import contextlib
 import sys
 import time
+from typing import Any
 
 from tbot.api.client import TimberbotClient
 from tbot.formatters.colors import DIM, RED, RST
@@ -65,17 +66,18 @@ def run(args: list[str]) -> int:
 
     try:
         while True:
+            summary_dict: dict[str, Any] | None
             try:
-                summary = bot.summary()
+                summary_dict = bot.summary().model_dump(exclude_none=True)
             except Exception:
-                summary = None
+                summary_dict = None
             try:
                 agent = bot._get_json("/api/agent/status")
             except Exception:
                 agent = None
             print("\033[2J\033[H", end="")
             print()
-            print(render_top(summary, interval=interval, agent_data=agent, agent_turns=agent_turns))
+            print(render_top(summary_dict, interval=interval, agent_data=agent, agent_turns=agent_turns))
 
             deadline = time.time() + interval
             while time.time() < deadline:

@@ -1,0 +1,4453 @@
+{
+  "items": [
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 62953369,
+      "isBot": 0,
+      "lifeProgress": 0.58,
+      "liftingCapacity": 14,
+      "name": "BeaverAdult \u041a\u0456\u0432\u0456\u043b\u044c\u0442",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.91,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.72,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.57,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "",
+      "x": 75,
+      "y": 67,
+      "z": 5
+    },
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 579495610,
+      "isBot": 0,
+      "lifeProgress": 0.71,
+      "liftingCapacity": 14,
+      "name": "BeaverAdult \u0420\u043e\u043d\u0435\u043c\u043f",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.91,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.72,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.56,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "",
+      "x": 75,
+      "y": 69,
+      "z": 5
+    },
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 581609865,
+      "isBot": 0,
+      "lifeProgress": 0.38,
+      "liftingCapacity": 14,
+      "name": "BeaverAdult \u0414\u0436\u0443\u043b\u044c\u0442\u0456\u043d",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.91,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.72,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.57,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "",
+      "x": 77,
+      "y": 66,
+      "z": 5
+    },
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 702663514,
+      "isBot": 0,
+      "lifeProgress": 0.11,
+      "liftingCapacity": 0,
+      "name": "BeaverChild \u0414\u0436\u0430\u0432\u0456\u043d",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.91,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.72,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.56,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "",
+      "x": 72,
+      "y": 69,
+      "z": 5
+    },
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 772044292,
+      "isBot": 0,
+      "lifeProgress": 0.32,
+      "liftingCapacity": 14,
+      "name": "BeaverAdult \u0420\u043e\u043c\u0430\u0432\u0430\u043a\u0441",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.71,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.42,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.56,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "DistrictCenter.Folktails",
+      "x": 73,
+      "y": 70,
+      "z": 5
+    },
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 923055067,
+      "isBot": 0,
+      "lifeProgress": 0.06,
+      "liftingCapacity": 0,
+      "name": "BeaverChild \u041d\u0430\u043f\u043e\u043a\u0435",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.91,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.72,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.56,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "",
+      "x": 71,
+      "y": 69,
+      "z": 5
+    },
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 1219503427,
+      "isBot": 0,
+      "lifeProgress": 0.78,
+      "liftingCapacity": 14,
+      "name": "BeaverAdult \u0420\u0430\u0434\u0436\u0456\u043d",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.91,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.72,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.57,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "",
+      "x": 72,
+      "y": 67,
+      "z": 5
+    },
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 1264713344,
+      "isBot": 0,
+      "lifeProgress": 0.25,
+      "liftingCapacity": 14,
+      "name": "BeaverAdult \u0417\u0435\u0431\u0430\u0434\u0436\u0456\u043d",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.71,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.42,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.56,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "DistrictCenter.Folktails",
+      "x": 73,
+      "y": 70,
+      "z": 5
+    },
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 1476787661,
+      "isBot": 0,
+      "lifeProgress": 0.65,
+      "liftingCapacity": 14,
+      "name": "BeaverAdult \u0420\u0430\u043a\u0430\u0448",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.91,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.72,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.56,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "",
+      "x": 75,
+      "y": 69,
+      "z": 5
+    },
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 1482122560,
+      "isBot": 0,
+      "lifeProgress": 0.45,
+      "liftingCapacity": 14,
+      "name": "BeaverAdult \u0414\u043e\u0440\u043b\u0435\u0433\u0430\u043a\u0441",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.91,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.72,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.56,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "",
+      "x": 73,
+      "y": 68,
+      "z": 5
+    },
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 1758197726,
+      "isBot": 0,
+      "lifeProgress": 0.08,
+      "liftingCapacity": 0,
+      "name": "BeaverChild \u0419\u043e\u0437\u0430\u043b\u0430",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.91,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.72,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.57,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "",
+      "x": 72,
+      "y": 66,
+      "z": 5
+    },
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 1785883726,
+      "isBot": 0,
+      "lifeProgress": 0.14,
+      "liftingCapacity": 14,
+      "name": "BeaverAdult \u0423\u0434\u0443\u0435\u0431\u043e",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.91,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.72,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.56,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "",
+      "x": 73,
+      "y": 66,
+      "z": 5
+    },
+    {
+      "anyCritical": 1,
+      "carryAmount": 0,
+      "carrying": "",
+      "contaminated": 0,
+      "deterioration": 0.0,
+      "district": "\u0420\u0430\u0439\u043e\u043d 1",
+      "hasHome": 0,
+      "id": 1900732910,
+      "isBot": 0,
+      "lifeProgress": 0.52,
+      "liftingCapacity": 14,
+      "name": "BeaverAdult \u0415\u043b\u044c\u0431\u0430\u043a\u0430\u0441",
+      "needs": [
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "Nutrition",
+          "id": "Berries",
+          "points": 0.91,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Campfire",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Carrots",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Detailer",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FarmerMonument",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Hunger",
+          "points": 0.72,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Lido",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Shrub",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "BrazierOfBonding",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Carousel",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Lantern",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "RooftopTerrace",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "SunflowerSeeds",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Thirst",
+          "points": -0.56,
+          "wellbeing": -10
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "ContemplationSpot",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "FountainOfJoy",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledPotatoes",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "MudPit",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Roof",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Sleep",
+          "points": 0.56,
+          "wellbeing": 1
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "Agora",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Awe",
+          "id": "EarthRecultivator",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledChestnuts",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Scarecrow",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Shelter",
+          "points": -0.2,
+          "wellbeing": -3
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "Weathervane",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "SocialLife",
+          "id": "DanceHall",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "GrilledSpadderdock",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "WetFur",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BeaverStatue",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BeeSting",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Fun",
+          "id": "Books",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "Bread",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Aesthetics",
+          "id": "BulletinPole",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "CattailCracker",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "ChippedTeeth",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "BasicNeeds",
+          "id": "Antidote",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "Injury",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 0,
+          "favorable": 0,
+          "group": "Nutrition",
+          "id": "MaplePastry",
+          "points": 0.0,
+          "wellbeing": 0
+        },
+        {
+          "critical": 1,
+          "favorable": 1,
+          "group": "BasicNeeds",
+          "id": "BadwaterContamination",
+          "points": 0.0,
+          "wellbeing": 0
+        }
+      ],
+      "overburdened": 0,
+      "wellbeing": -10.0,
+      "workplace": "",
+      "x": 74,
+      "y": 65,
+      "z": 5
+    }
+  ],
+  "limit": 100,
+  "offset": 0,
+  "total": 13
+}

@@ -32,6 +32,10 @@
     <None Include="..\src\TimberbotHttpServer.cs" Link="TimberbotHttpServer.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\python\tests\fixtures\openapi\*.json"
+          Link="fixtures\openapi\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <!-- Stub out the Newtonsoft dependency used by TimberbotJw.Prop(string, object) -->

@@ -129,7 +129,11 @@ components:
       schema: { type: integer }
 
   schemas:
-    # --- Response envelopes (skeletal; real shapes filled in next session) ---
+    # Response shapes are derived from golden fixtures captured against a
+    # running mod (see python/tests/fixtures/openapi/). Object schemas keep
+    # `additionalProperties: true` so future server additions don't break
+    # clients; `required` lists fields the server is contracted to emit.
+
     ErrorResponse:
       type: object
       required: [error]
@@ -138,10 +142,11 @@ components:
       additionalProperties: true
     PingResponse:
       type: object
-      required: [status, ready]
+      required: [status, ready, openapiVersion]
       properties:
         status: { type: string, example: ok }
         ready: { type: boolean }
+        openapiVersion: { type: string, description: 'Spec version the server speaks.' }
       additionalProperties: false
     SettlementName:
       type: object
@@ -153,82 +158,609 @@ components:
       description: Generic mutation acknowledgement.
       type: object
       additionalProperties: true
-    Summary:
-      description: 'Aggregated snapshot: time + weather + districts + key totals.'
+
+    # --- Shared component schemas ---
+    Population:
+      type: array
+      items: { $ref: '#/components/schemas/PopulationItem' }
+    PopulationItem:
       type: object
+      required: [district, adults, children, bots]
+      properties:
+        district: { type: string }
+        adults: { type: integer, minimum: 0 }
+        children: { type: integer, minimum: 0 }
+        bots: { type: integer, minimum: 0 }
       additionalProperties: true
+    PopulationCounts:
+      type: object
+      required: [adults, children, bots]
+      properties:
+        adults: { type: integer, minimum: 0 }
+        children: { type: integer, minimum: 0 }
+        bots: { type: integer, minimum: 0 }
+      additionalProperties: true
+    GoodStock:
+      type: object
+      required: [available, all]
+      properties:
+        available: { type: integer }
+        all: { type: integer }
+      additionalProperties: true
+    DistrictResources:
+      description: Map of good name → stock counts.
+      type: object
+      additionalProperties: { $ref: '#/components/schemas/GoodStock' }
+    Resources:
+      description: Map of district name → DistrictResources.
+      type: object
+      additionalProperties: { $ref: '#/components/schemas/DistrictResources' }
+
     Time:
       type: object
+      required: [dayNumber, dayProgress, partialDayNumber]
+      properties:
+        dayNumber: { type: integer, minimum: 0 }
+        dayProgress: { type: number, minimum: 0, maximum: 1 }
+        partialDayNumber: { type: number, minimum: 0 }
       additionalProperties: true
     Weather:
       type: object
-      additionalProperties: true
-    Population:
-      type: array
-      items: { type: object, additionalProperties: true }
-    Resources:
-      type: object
-      additionalProperties: true
-    DistrictList:
-      type: array
-      items: { type: object, additionalProperties: true }
-    BuildingList:
-      type: object
-      additionalProperties: true
-    Building:
-      type: object
-      additionalProperties: true
-    BeaverList:
-      type: object
-      additionalProperties: true
-    EntityList:
-      description: Generic list payload used by trees/crops/gatherables.
-      type: object
+      required: [cycle, cycleDay, cycleLengthInDays, isHazardous, temperateWeatherDuration, hazardousWeatherDuration]
+      properties:
+        cycle: { type: integer, minimum: 0 }
+        cycleDay: { type: integer, minimum: 0 }
+        cycleLengthInDays: { type: integer, minimum: 1 }
+        isHazardous: { type: boolean }
+        temperateWeatherDuration: { type: integer, minimum: 0 }
+        hazardousWeatherDuration: { type: integer, minimum: 0 }
       additionalProperties: true
     WorkHours:
       type: object
+      required: [endHours, areWorkingHours]
+      properties:
+        endHours: { type: number, minimum: 0 }
+        areWorkingHours: { type: boolean }
       additionalProperties: true
-    Science:
-      type: object
-      additionalProperties: true
-    Wellbeing:
-      type: object
-      additionalProperties: true
-    Notifications:
-      type: array
-      items: { type: object, additionalProperties: true }
-    Alerts:
-      type: object
-      additionalProperties: true
-    Distribution:
-      type: array
-      items: { type: object, additionalProperties: true }
-    Prefabs:
-      type: array
-      items: { type: object, additionalProperties: true }
-    PowerNetworks:
-      type: array
-      items: { type: object, additionalProperties: true }
     Speed:
       type: object
       required: [speed]
       properties:
         speed: { type: integer, enum: [0, 1, 2, 3] }
+      additionalProperties: true
+
+    # --- Summary (aggregated snapshot) ---
+    Summary:
+      description: 'Aggregated snapshot: time + weather + districts + key totals.'
+      type: object
+      required: [settlement, faction, time, weather, districts, science]
+      properties:
+        settlement: { type: string }
+        faction: { type: string }
+        science: { type: integer, minimum: 0 }
+        alerts:
+          description: Map of alert type → count.
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+        buildings:
+          description: Building totals grouped by category.
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+        crops:
+          type: object
+          properties:
+            growing: { type: integer, minimum: 0 }
+            ready: { type: integer, minimum: 0 }
+            species:
+              type: array
+              items: { type: string }
+          additionalProperties: true
+        districts:
+          type: array
+          items: { $ref: '#/components/schemas/SummaryDistrict' }
+        foodClusters:
+          type: array
+          items: { $ref: '#/components/schemas/Cluster' }
+        treeClusters:
+          type: array
+          items: { $ref: '#/components/schemas/Cluster' }
+        time: { $ref: '#/components/schemas/SummaryTime' }
+        weather: { $ref: '#/components/schemas/SummaryWeather' }
+      additionalProperties: true
+    SummaryTime:
+      type: object
+      properties:
+        dayNumber: { type: integer, minimum: 0 }
+        dayProgress: { type: number, minimum: 0, maximum: 1 }
+        partialDayNumber: { type: number, minimum: 0 }
+        speed: { type: integer, enum: [0, 1, 2, 3] }
+      additionalProperties: true
+    SummaryWeather:
+      type: object
+      properties:
+        cycle: { type: integer, minimum: 0 }
+        cycleDay: { type: integer, minimum: 0 }
+        cycleLengthInDays: { type: integer, minimum: 1 }
+        isHazardous: { type: boolean }
+        temperateWeatherDuration: { type: integer, minimum: 0 }
+        hazardousWeatherDuration: { type: integer, minimum: 0 }
+      additionalProperties: true
+    SummaryDistrict:
+      type: object
+      required: [name, population]
+      properties:
+        name: { type: string }
+        population: { $ref: '#/components/schemas/PopulationCounts' }
+        resources:
+          description: Map of good → stock count (summary aggregate, simpler than /api/resources).
+          type: object
+          additionalProperties: { type: integer }
+        housing:
+          type: object
+          properties:
+            occupiedBeds: { type: integer, minimum: 0 }
+            totalBeds: { type: integer, minimum: 0 }
+            homeless: { type: integer, minimum: 0 }
+          additionalProperties: true
+        employment:
+          type: object
+          properties:
+            assigned: { type: integer, minimum: 0 }
+            vacancies: { type: integer, minimum: 0 }
+            unemployed: { type: integer, minimum: 0 }
+          additionalProperties: true
+        wellbeing:
+          type: object
+          properties:
+            average: { type: number }
+            critical: { type: integer, minimum: 0 }
+            miserable: { type: integer, minimum: 0 }
+          additionalProperties: true
+        dc:
+          description: District Center location/orientation.
+          type: object
+          properties:
+            x: { type: integer }
+            y: { type: integer }
+            z: { type: integer }
+            entranceX: { type: integer }
+            entranceY: { type: integer }
+            orientation: { type: string }
+          additionalProperties: true
+      additionalProperties: true
+
+    # --- Districts ---
+    DistrictList:
+      type: array
+      items: { $ref: '#/components/schemas/District' }
+    District:
+      type: object
+      required: [name, population]
+      properties:
+        name: { type: string }
+        population: { $ref: '#/components/schemas/PopulationCounts' }
+        resources: { $ref: '#/components/schemas/DistrictResources' }
+      additionalProperties: true
+
+    # --- Distribution ---
+    Distribution:
+      type: array
+      items: { $ref: '#/components/schemas/DistrictDistribution' }
+    DistrictDistribution:
+      type: object
+      required: [district, goods]
+      properties:
+        district: { type: string }
+        goods:
+          type: array
+          items: { $ref: '#/components/schemas/GoodDistribution' }
+      additionalProperties: true
+    GoodDistribution:
+      type: object
+      required: [good, importOption, exportThreshold]
+      properties:
+        good: { type: string }
+        importOption:
+          type: string
+          enum: [Forced, Auto, None]
+        exportThreshold: { type: number }
+      additionalProperties: true
+
+    # --- Science ---
+    Science:
+      type: object
+      required: [points, unlockables]
+      properties:
+        points: { type: integer, minimum: 0 }
+        unlockables:
+          type: array
+          items: { $ref: '#/components/schemas/Unlockable' }
+      additionalProperties: true
+    Unlockable:
+      type: object
+      required: [name, cost, unlocked]
+      properties:
+        name: { type: string }
+        cost: { type: integer, minimum: 0 }
+        unlocked: { type: integer, enum: [0, 1] }
+      additionalProperties: true
+
+    # --- Wellbeing ---
+    WellbeingReport:
+      type: object
+      required: [beavers, categories]
+      properties:
+        beavers: { type: integer, minimum: 0 }
+        categories:
+          type: array
+          items: { $ref: '#/components/schemas/WellbeingCategory' }
+      additionalProperties: true
+    WellbeingCategory:
+      type: object
+      required: [group, current, max, needs]
+      properties:
+        group: { type: string }
+        current: { type: number }
+        max: { type: number }
+        needs:
+          type: array
+          items: { $ref: '#/components/schemas/WellbeingNeed' }
+      additionalProperties: true
+    WellbeingNeed:
+      type: object
+      required: [id, favorableWellbeing, unfavorableWellbeing]
+      properties:
+        id: { type: string }
+        favorableWellbeing: { type: number }
+        unfavorableWellbeing: { type: number }
+      additionalProperties: true
+
+    # --- Notifications & alerts ---
+    Notifications:
+      type: array
+      items: { $ref: '#/components/schemas/Notification' }
+    Notification:
+      type: object
+      required: [subject, description, cycle, cycleDay]
+      properties:
+        subject: { type: string, description: 'Localization key or notification identifier.' }
+        description: { type: string }
+        cycle: { type: integer, minimum: 0 }
+        cycleDay: { type: integer, minimum: 0 }
+        entityId: { type: integer, description: 'Building/beaver entity this notification refers to, when applicable.' }
+      additionalProperties: true
+    Alerts:
+      type: array
+      items: { $ref: '#/components/schemas/Alert' }
+    Alert:
+      type: object
+      required: [type, id, name]
+      properties:
+        type: { type: string, description: 'Alert category (e.g. unstaffed, unpowered, unreachable, status).' }
+        id: { type: integer, description: 'Building entity ID raising the alert.' }
+        name: { type: string }
+        workers:
+          type: string
+          description: Optional context (e.g. assigned/desired counts for staffing alerts).
+      additionalProperties: true
+
+    # --- Prefabs ---
+    Prefabs:
+      type: array
+      items: { $ref: '#/components/schemas/Prefab' }
+    Prefab:
+      type: object
+      required: [name, sizeX, sizeY, sizeZ]
+      properties:
+        name: { type: string }
+        sizeX: { type: integer, minimum: 1 }
+        sizeY: { type: integer, minimum: 1 }
+        sizeZ: { type: integer, minimum: 1 }
+        scienceCost: { type: integer, minimum: 0 }
+        unlocked: { type: boolean }
+        cost:
+          type: array
+          items: { $ref: '#/components/schemas/PrefabCost' }
+      additionalProperties: true
+    PrefabCost:
+      type: object
+      required: [good, amount]
+      properties:
+        good: { type: string }
+        amount: { type: integer, minimum: 0 }
+      additionalProperties: true
+
+    # --- Power ---
+    PowerNetworks:
+      type: array
+      items: { $ref: '#/components/schemas/PowerNetwork' }
+    PowerNetwork:
+      type: object
+      required: [id, supply, demand, buildings]
+      properties:
+        id: { type: integer }
+        supply: { type: number }
+        demand: { type: number }
+        buildings:
+          type: array
+          items: { $ref: '#/components/schemas/PowerBuilding' }
+      additionalProperties: true
+    PowerBuilding:
+      type: object
+      required: [id, name, isGenerator, nominalInput, nominalOutput]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        isGenerator: { type: integer, enum: [0, 1] }
+        nominalInput: { type: number }
+        nominalOutput: { type: number }
+      additionalProperties: true
+
+    # --- Tiles ---
     Tiles:
       type: object
+      required: [mapSize]
+      properties:
+        mapSize:
+          type: object
+          required: [x, y, z]
+          properties:
+            x: { type: integer, minimum: 1 }
+            y: { type: integer, minimum: 1 }
+            z: { type: integer, minimum: 1 }
+          additionalProperties: true
+        tiles:
+          description: Per-tile data for the requested rectangle (when bounds are provided).
+          type: array
+          items: { type: object, additionalProperties: true }
       additionalProperties: true
+
+    # --- Clusters (tree_clusters / food_clusters) ---
     TreeClusters:
       type: array
-      items: { type: object, additionalProperties: true }
+      items: { $ref: '#/components/schemas/Cluster' }
     FoodClusters:
       type: array
-      items: { type: object, additionalProperties: true }
+      items: { $ref: '#/components/schemas/Cluster' }
+    Cluster:
+      type: object
+      required: [x, y, z, total, grown, species]
+      properties:
+        x: { type: integer }
+        y: { type: integer }
+        z: { type: integer }
+        total: { type: integer, minimum: 0 }
+        grown: { type: integer, minimum: 0 }
+        species:
+          description: Map of species name → count.
+          type: object
+          additionalProperties: { type: integer, minimum: 0 }
+      additionalProperties: true
+
+    # --- Webhooks ---
     Webhook:
       type: object
+      required: [Id, Url, events, disabled, failures]
+      properties:
+        Id: { type: string, description: 'Webhook ID (returned to clients as `id` on register).' }
+        Url: { type: string, format: uri }
+        events:
+          description: Event names subscribed to, or the literal "all".
+          oneOf:
+            - type: array
+              items: { type: string }
+            - { type: string, enum: [all] }
+        disabled: { type: boolean }
+        failures: { type: integer, minimum: 0 }
       additionalProperties: true
     WebhookList:
       type: array
       items: { $ref: '#/components/schemas/Webhook' }
+
+    # --- Paginated list envelopes ---
+    PaginatedEnvelope:
+      type: object
+      required: [total, offset, limit, items]
+      properties:
+        total: { type: integer, minimum: 0 }
+        offset: { type: integer, minimum: 0 }
+        limit: { type: integer, minimum: 0 }
+        items:
+          type: array
+          items: { type: object, additionalProperties: true }
+      additionalProperties: true
+    BuildingList:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Building' }
+    BeaverList:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Beaver' }
+    TreeList:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Plant' }
+    CropList:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Plant' }
+    GatherableList:
+      allOf:
+        - $ref: '#/components/schemas/PaginatedEnvelope'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Gatherable' }
+    EntityList:
+      description: Deprecated alias for the paginated envelope; concrete list endpoints have their own typed envelopes (BuildingList, BeaverList, TreeList, CropList, GatherableList).
+      allOf:
+        - $ref: '#/components/schemas/PaginatedEnvelope'
+
+    # --- Entities ---
+    Building:
+      type: object
+      required: [id, name, x, y, z, orientation, finished, paused]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        x: { type: integer }
+        y: { type: integer }
+        z: { type: integer }
+        orientation:
+          type: string
+          enum: [south, west, north, east]
+        finished: { type: integer, enum: [0, 1] }
+        paused: { type: integer, enum: [0, 1] }
+        pausable: { type: integer, enum: [0, 1] }
+        constructionPriority: { type: string, enum: [VeryLow, Low, Normal, High, VeryHigh] }
+        workplacePriority: { type: string, enum: [VeryLow, Low, Normal, High, VeryHigh] }
+        maxWorkers: { type: integer, minimum: 0 }
+        desiredWorkers: { type: integer, minimum: 0 }
+        assignedWorkers: { type: integer, minimum: 0 }
+        reachable: { type: integer, enum: [0, 1] }
+        powered: { type: integer, enum: [0, 1] }
+        isGenerator: { type: integer, enum: [0, 1] }
+        isConsumer: { type: integer, enum: [0, 1] }
+        nominalPowerInput: { type: number }
+        nominalPowerOutput: { type: number }
+        powerDemand: { type: number }
+        powerSupply: { type: number }
+        buildProgress: { type: number, minimum: 0, maximum: 1 }
+        materialProgress: { type: number, minimum: 0, maximum: 1 }
+        hasMaterials: { type: integer, enum: [0, 1] }
+        stock: { type: integer }
+        capacity: { type: integer }
+        storageMode: { type: string }
+        allowedGood: { type: string }
+        dwellers: { type: integer, minimum: 0 }
+        maxDwellers: { type: integer, minimum: 0 }
+        floodgate: { type: integer, enum: [0, 1] }
+        height: { type: number }
+        maxHeight: { type: number }
+        isClutch: { type: integer, enum: [0, 1] }
+        clutchEngaged: { type: integer, enum: [0, 1] }
+        currentRecipe: { type: string }
+        productionProgress: { type: number, minimum: 0, maximum: 1 }
+        readyToProduce: { type: integer, enum: [0, 1] }
+        needsNutrients: { type: integer, enum: [0, 1] }
+        nutrients: { type: integer }
+        effectRadius: { type: integer, minimum: 0 }
+        isWonder: { type: integer, enum: [0, 1] }
+        wonderActive: { type: integer, enum: [0, 1] }
+        alerts: { type: string, description: 'Comma-joined alert types active on this building.' }
+        inventory:
+          type: object
+          additionalProperties: { type: integer }
+        recipes:
+          type: array
+          items: { type: string }
+        automation: { $ref: '#/components/schemas/BuildingAutomation' }
+      additionalProperties: true
+    BuildingAutomation:
+      type: object
+      properties:
+        type: { type: string }
+        hasAutomator: { type: integer, enum: [0, 1] }
+        automatorName: { type: string }
+        isAutomated: { type: integer, enum: [0, 1] }
+        isTransmitter: { type: integer, enum: [0, 1] }
+        state: { type: string }
+        inputName: { type: string }
+        inputs:
+          type: array
+          items: { type: object, additionalProperties: true }
+        outputs:
+          type: array
+          items: { type: object, additionalProperties: true }
+        config:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    Beaver:
+      type: object
+      required: [id, name, x, y, z, district, isBot]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        district: { type: string }
+        x: { type: integer }
+        y: { type: integer }
+        z: { type: integer }
+        isBot: { type: integer, enum: [0, 1] }
+        contaminated: { type: integer, enum: [0, 1] }
+        deterioration: { type: number }
+        hasHome: { type: integer, enum: [0, 1] }
+        lifeProgress: { type: number, minimum: 0, maximum: 1 }
+        liftingCapacity: { type: integer, minimum: 0 }
+        carryAmount: { type: integer, minimum: 0 }
+        carrying: { type: string }
+        overburdened: { type: integer, enum: [0, 1] }
+        anyCritical: { type: integer, enum: [0, 1] }
+        workplace: { type: string }
+        wellbeing: { type: integer }
+        needs:
+          type: array
+          items: { $ref: '#/components/schemas/BeaverNeed' }
+      additionalProperties: true
+    BeaverNeed:
+      type: object
+      required: [id, group, points, wellbeing, favorable, critical]
+      properties:
+        id: { type: string }
+        group: { type: string }
+        points: { type: number, description: "Fulfillment level; negative for unfavorable needs that drain wellbeing." }
+        wellbeing: { type: integer }
+        favorable: { type: integer, enum: [0, 1] }
+        critical: { type: integer, enum: [0, 1] }
+      additionalProperties: true
+
+    Plant:
+      description: Tree or planted crop entity (shared shape).
+      type: object
+      required: [id, name, x, y, z, alive]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        x: { type: integer }
+        y: { type: integer }
+        z: { type: integer }
+        alive: { type: integer, enum: [0, 1] }
+        grown: { type: integer, enum: [0, 1] }
+        growth: { type: number, minimum: 0, maximum: 1 }
+        marked: { type: integer, enum: [0, 1] }
+      additionalProperties: true
+
+    Gatherable:
+      type: object
+      required: [id, name, x, y, z, alive]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        x: { type: integer }
+        y: { type: integer }
+        z: { type: integer }
+        alive: { type: integer, enum: [0, 1] }
+      additionalProperties: true
+
     AgentStatus:
       type: object
       additionalProperties: true
@@ -372,7 +904,7 @@ paths:
       responses:
         '200':
           description: Wellbeing.
-          content: { application/json: { schema: { $ref: '#/components/schemas/Wellbeing' } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/WellbeingReport' } } }
 
   /api/workhours:
     get:
@@ -617,7 +1149,7 @@ paths:
       responses:
         '200':
           description: Trees.
-          content: { application/json: { schema: { $ref: '#/components/schemas/EntityList' } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/TreeList' } } }
 
   /api/crops:
     get:
@@ -641,7 +1173,7 @@ paths:
       responses:
         '200':
           description: Crops.
-          content: { application/json: { schema: { $ref: '#/components/schemas/EntityList' } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/CropList' } } }
 
   /api/gatherables:
     get:
@@ -665,7 +1197,7 @@ paths:
       responses:
         '200':
           description: Gatherables.
-          content: { application/json: { schema: { $ref: '#/components/schemas/EntityList' } } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/GatherableList' } } }
 
   # ---------------------------------------------------------------------------
   # write actions

@@ -1,0 +1,16 @@
+[
+  {
+    "name": "\u0420\u0430\u0439\u043e\u043d 1",
+    "population": {
+      "adults": 10,
+      "bots": 0,
+      "children": 3
+    },
+    "resources": {
+      "Berries": {
+        "all": 67,
+        "available": 67
+      }
+    }
+  }
+]

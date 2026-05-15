@@ -24,12 +24,17 @@ def _run(monkeypatch, argv: list[str], host: str, port: int) -> int:
 
 
 def test_summary_dispatch(monkeypatch, capsys, httpserver):
-    httpserver.expect_request("/api/summary").respond_with_json({"day": 7, "pop": 42})
+    stub = {
+        "settlement": "Test", "faction": "Folktails", "science": 7,
+        "districts": [], "time": {}, "weather": {},
+    }
+    httpserver.expect_request("/api/summary").respond_with_json(stub)
     rc = _run(monkeypatch, ["summary"], httpserver.host, httpserver.port)
     out = capsys.readouterr().out
     assert rc == 0
     parsed = json.loads(out)
-    assert parsed == {"day": 7, "pop": 42}
+    assert parsed["settlement"] == "Test"
+    assert parsed["science"] == 7
 
 
 def test_help_lists_commands(monkeypatch, capsys, httpserver):

@@ -1,0 +1,207 @@
+[
+  {
+    "district": "\u0420\u0430\u0439\u043e\u043d 1",
+    "goods": [
+      {
+        "exportThreshold": 0.0,
+        "good": "Badwater",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Berries",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Log",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Potato",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Water",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Carrot",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Chestnut",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Plank",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Gear",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Spadderdock",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "SunflowerSeeds",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "GrilledPotato",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Paper",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Wheat",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Book",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "GrilledChestnut",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "WheatFlour",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "CattailRoot",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "GrilledSpadderdock",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "PineResin",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Bread",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "CattailFlour",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "TreatedPlank",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "CattailCracker",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Dandelion",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "MapleSyrup",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Antidote",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "MaplePastry",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "ScrapMetal",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "MetalBlock",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Explosives",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Fireworks",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Extract",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "BotChassis",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "BotLimb",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "BotHead",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Biofuel",
+        "importOption": "Forced"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "PunchCard",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Catalyst",
+        "importOption": "Auto"
+      },
+      {
+        "exportThreshold": 0.0,
+        "good": "Dirt",
+        "importOption": "Auto"
+      }
+    ]
+  }
+]

@@ -1,0 +1,705 @@
+{
+  "points": 0,
+  "unlockables": [
+    {
+      "cost": 150,
+      "name": "Chronometer.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "ContaminationSensor.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 200,
+      "name": "DepthSensor.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1400,
+      "name": "Detonator.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 700,
+      "name": "FireworkLauncher.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 100,
+      "name": "FlowSensor.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 200,
+      "name": "Gate.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 7500,
+      "name": "HttpAdapter.Folktails",
+      "unlocked": 1
+    },
+    {
+      "cost": 5000,
+      "name": "HttpLever.Folktails",
+      "unlocked": 1
+    },
+    {
+      "cost": 400,
+      "name": "Indicator.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 50,
+      "name": "Lever.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1000,
+      "name": "Memory.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 200,
+      "name": "PopulationCounter.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 600,
+      "name": "PowerMeter.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 80,
+      "name": "Relay.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 250,
+      "name": "ResourceCounter.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 300,
+      "name": "ScienceCounter.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 500,
+      "name": "Speaker.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 600,
+      "name": "Timer.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 300,
+      "name": "WeatherStation.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 500,
+      "name": "BeaverStatue.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 80,
+      "name": "Bench.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 600,
+      "name": "BulletinPole.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 120,
+      "name": "Hammock.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 150,
+      "name": "Hedge.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 100,
+      "name": "Lantern.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 700,
+      "name": "PoleBanner.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 60,
+      "name": "Roof1x1.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 80,
+      "name": "Roof1x2.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 120,
+      "name": "Roof2x2.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 150,
+      "name": "Roof2x3.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 150,
+      "name": "Roof3x2.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 200,
+      "name": "Scarecrow.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 150,
+      "name": "StreamGauge.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 700,
+      "name": "SquareBanner.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 250,
+      "name": "Weathervane.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 150,
+      "name": "WoodFence.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 100,
+      "name": "BuildersHut.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 600,
+      "name": "DistrictCrossing.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 150,
+      "name": "AquaticFarmhouse.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 160,
+      "name": "Bakery.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "Beehive.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 180,
+      "name": "Gristmill.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 150,
+      "name": "DoubleLodge.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 50,
+      "name": "MiniLodge.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 250,
+      "name": "TripleLodge.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "ContaminationBarrier.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 2000,
+      "name": "DirtExcavator.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 900,
+      "name": "DoubleDynamite.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 250,
+      "name": "DoubleFloodgate.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 600,
+      "name": "Dynamite.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "ExplosivesFactory.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 150,
+      "name": "Floodgate.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 200,
+      "name": "ImpermeableFloor.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 120,
+      "name": "Levee.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "Sluice.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1000,
+      "name": "TerrainBlock.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1200,
+      "name": "TripleDynamite.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 500,
+      "name": "TripleFloodgate.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 2000,
+      "name": "Tunnel.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 500,
+      "name": "Valve.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 300,
+      "name": "FillValve.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 4000,
+      "name": "Mine.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 250,
+      "name": "ScavengerFlag.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 300,
+      "name": "Smelter.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 3000,
+      "name": "BrazierOfBonding.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 20000,
+      "name": "EarthRecultivator.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1000,
+      "name": "FarmerMonument.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 12000,
+      "name": "FountainOfJoy.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 150,
+      "name": "DoublePlatform.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1000,
+      "name": "MetalPlatform3x3.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 2000,
+      "name": "MetalPlatform5x5.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 350,
+      "name": "Overhang2x1.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 550,
+      "name": "Overhang3x1.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1000,
+      "name": "Overhang4x1.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1800,
+      "name": "Overhang5x1.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 3000,
+      "name": "Overhang6x1.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 100,
+      "name": "Platform.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 350,
+      "name": "SpiralStairs.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 70,
+      "name": "Stairs.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 150,
+      "name": "SuspensionBridge1x1.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 250,
+      "name": "SuspensionBridge2x1.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "SuspensionBridge3x1.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 600,
+      "name": "SuspensionBridge4x1.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1000,
+      "name": "SuspensionBridge5x1.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1800,
+      "name": "SuspensionBridge6x1.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 200,
+      "name": "TriplePlatform.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 600,
+      "name": "ZiplineBeam.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 500,
+      "name": "ZiplinePylon.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 700,
+      "name": "ZiplineStation.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "Clutch.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 160,
+      "name": "GeothermalEngine.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "GravityBattery.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1400,
+      "name": "LargeWindTurbine.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 40,
+      "name": "VerticalPowerShaft.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 120,
+      "name": "WindTurbine.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 750,
+      "name": "BotAssembler.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 500,
+      "name": "BotPartFactory.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1000,
+      "name": "Observatory.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "Refinery.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 600,
+      "name": "LargeTank.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 250,
+      "name": "LargeWarehouse.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 120,
+      "name": "MediumTank.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1000,
+      "name": "UndergroundPile.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "AquiferDrill.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 2000,
+      "name": "BadwaterDome.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 250,
+      "name": "BadwaterPump.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 4000,
+      "name": "BadwaterRig.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 600,
+      "name": "Centrifuge.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 250,
+      "name": "FluidDump.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "LargeWaterPump.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 2500,
+      "name": "MechanicalFluidPump.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "Agora.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 700,
+      "name": "Carousel.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 100,
+      "name": "ContemplationSpot.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1200,
+      "name": "DanceHall.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1000,
+      "name": "Detailer.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 300,
+      "name": "Herbalist.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 250,
+      "name": "Lido.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 80,
+      "name": "MedicalBed.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1800,
+      "name": "MudPit.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 50,
+      "name": "Shower.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 30,
+      "name": "Forester.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 100,
+      "name": "GearWorkshop.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 250,
+      "name": "PaperMill.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 400,
+      "name": "PrintingPress.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 500,
+      "name": "TappersShack.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 800,
+      "name": "WoodWorkshop.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 500,
+      "name": "GigargantuanWarehouseFT",
+      "unlocked": 0
+    },
+    {
+      "cost": 500,
+      "name": "GigargantuanPileFT",
+      "unlocked": 0
+    },
+    {
+      "cost": 300,
+      "name": "SmallFlywheel.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 800,
+      "name": "SmallVerticalFramedFlywheel.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 800,
+      "name": "SmallHorizontalFramedFlywheel.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 1000,
+      "name": "MediumFlywheel.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 2500,
+      "name": "MediumVerticalFramedFlywheel.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 2500,
+      "name": "MediumHorizontalFramedFlywheel.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 5000,
+      "name": "LargeFlywheel.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 10000,
+      "name": "LargeVerticalFramedFlywheel.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 10000,
+      "name": "LargeHorizontalFramedFlywheel.Folktails",
+      "unlocked": 0
+    },
+    {
+      "cost": 250,
+      "name": "Ladder",
+      "unlocked": 0
+    }
+  ]
+}

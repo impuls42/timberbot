@@ -21,6 +21,8 @@ import platform
 import sys
 from typing import Any
 
+from pydantic import BaseModel
+
 from tbot.api.client import TimberbotClient
 from tbot.api.exceptions import TimberbotError
 from tbot.cli.args import (
@@ -132,6 +134,8 @@ def _format_output(result: Any, json_mode: bool) -> None:
     if isinstance(result, str):
         print(result)
         return
+    if isinstance(result, BaseModel):
+        result = result.model_dump()
     if json_mode:
         print(json.dumps(result, indent=2))
         return
