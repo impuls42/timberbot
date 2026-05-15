@@ -619,18 +619,6 @@ class TimberbotClient:
         """Remove tasks with given status (default: done). Returns count cleared."""
         return self.settlement_context().clear_tasks(status)
 
-    # ------------------------------------------------------------------
-    # Agent control (server-side endpoints; will be reworked in PR 2)
-    # ------------------------------------------------------------------
-
-    def agent_status(self) -> dict[str, Any]:
-        """Get AI agent loop status."""
-        return self._get("/api/agent/status")
-
-    def agent_stop(self) -> dict[str, Any]:
-        """Stop AI agent loop."""
-        return self._post("/api/agent/stop", {})
-
     def find(
         self, source: str, name: str | None = None,
         x: int | None = None, y: int | None = None, radius: int = 20, limit: int = 0,

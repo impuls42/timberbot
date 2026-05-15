@@ -9,6 +9,12 @@
 // a small wrapper that:
 //   1. Spawns `tbot agent run --backend <binary> --goal "<goal>" ...` and waits.
 //   2. Tracks status / lastError / cancellation for the in-game panel.
+//
+// Spawn uses UseShellExecute=false + ArgumentList so the goal string is passed
+// as a single argv entry rather than concatenated into a shell command line.
+// This avoids OS-shell quoting differences (cmd.exe vs POSIX) and keeps shell
+// metacharacters in the goal text from being interpreted before they reach
+// the Python CLI.
 
 using System;
 using System.Diagnostics;
@@ -129,19 +135,19 @@ namespace Timberbot
             {
                 _status = AgentStatus.GatheringState;
 
-                var args = TimberbotPure.BuildTbotAgentRunArgs(
-                    _binary, _goal, _model, _effort, _commandTemplate, terminalPrefix: null);
-                _currentCmd = $"{_tbotCommand} {args}";
+                var argv = TimberbotPure.BuildTbotAgentRunArgv(
+                    _binary, _goal, _model, _effort, _commandTemplate);
+                _currentCmd = $"{_tbotCommand} {TimberbotPure.FormatArgvForDisplay(argv)}";
 
-                TimberbotLog.Info($"agent.launch cmd={_tbotCommand} args={args}");
+                TimberbotLog.Info($"agent.launch cmd={_tbotCommand} args={TimberbotPure.FormatArgvForDisplay(argv)}");
 
                 var psi = new ProcessStartInfo
                 {
                     FileName = _tbotCommand,
-                    Arguments = args,
-                    UseShellExecute = true,
+                    UseShellExecute = false,
                     WorkingDirectory = TimberbotPaths.ModDir,
                 };
+                foreach (var a in argv) psi.ArgumentList.Add(a);
 
                 _status = AgentStatus.Interactive;
 

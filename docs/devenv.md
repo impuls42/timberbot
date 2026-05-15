@@ -231,12 +231,13 @@ The test project references pure utility classes (`TimberbotJw.cs`, `TimberbotPu
 ### Run the Python CLI
 
 ```bash
-source venv/bin/activate
-python timberbot/script/timberbot.py ping
-python timberbot/script/timberbot.py buildings
-python timberbot/script/timberbot.py brain goal:"Keep beavers alive"
+pip install -e python/      # editable install from the repo
+tbot ping
+tbot buildings
+tbot brain goal:"Keep beavers alive"
 ```
 
+(Or `pipx install timberbot` to install the published wheel without a venv.)
 The game must be running with the mod loaded for the CLI to connect (default: `http://localhost:8085`).
 
 ---

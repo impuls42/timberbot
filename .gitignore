@@ -20,4 +20,6 @@ docs/reachability-investigation.md
 .claude/
 venv/
 venv-*/
+.venv/
+.venv-*/
 .pytest_cache/

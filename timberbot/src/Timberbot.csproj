@@ -15,6 +15,12 @@
     <GameManagedDir Condition="'$(GameManagedDir)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">C:\Games\Steam\steamapps\common\Timberborn\Timberborn_Data\Managed</GameManagedDir>
     <GameManagedDir Condition="'$(GameManagedDir)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">$(HOME)/Library/Application Support/Steam/steamapps/common/Timberborn/Timberborn.app/Contents/Resources/Data/Managed</GameManagedDir>
     <GameManagedDir Condition="'$(GameManagedDir)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">$(HOME)/.local/share/Steam/steamapps/common/Timberborn/Timberborn_Data/Managed</GameManagedDir>
+    <!-- Default ModDir resolves Proton/Wine first on Linux: the canonical Steam
+         AppID 1062090 compatdata prefix, if it exists, wins over the native
+         ~/Documents/Timberborn path. Override with -p:ModDir=<path> for custom
+         Wine prefixes or non-steamuser usernames; or run scripts/deploy.sh. -->
+    <ProtonModDir Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(HOME)/.steam/steam/steamapps/compatdata/1062090/pfx/drive_c/users/steamuser/Documents/Timberborn/Mods/Timberbot</ProtonModDir>
+    <ModDir Condition="'$(ModDir)' == '' and $([MSBuild]::IsOSPlatform('Linux')) and Exists('$(HOME)/.steam/steam/steamapps/compatdata/1062090/pfx/drive_c/users/steamuser/Documents/Timberborn')">$(ProtonModDir)</ModDir>
     <ModDir Condition="'$(ModDir)' == ''">$(UserHome)/Documents/Timberborn/Mods/Timberbot</ModDir>
   </PropertyGroup>
 

