@@ -220,6 +220,32 @@ def test_invalid_json_returns_400(server_factory):
     assert resp.status_code == 400
 
 
+def test_dropped_non_dict_entries_logged_to_stderr(server_factory, capsys):
+    _, base_url = server_factory(quiet=True)
+    # Two valid events flanking two garbage entries.
+    payload = [SAMPLE_BATCH[0], None, "not an object", SAMPLE_BATCH[1]]
+    resp = requests.post(base_url + "/", json=payload, timeout=5)
+    assert resp.status_code == 200
+    assert resp.json() == {"received": 2}
+    err = capsys.readouterr().err
+    assert "dropped 2 non-object" in err
+
+
+def test_forward_to_file_error_does_not_500(server_factory, capsys, tmp_path):
+    # Point --forward-to at a path whose parent already exists as a file —
+    # mkdir(parents=True) will raise NotADirectoryError. Receiver should
+    # log and still respond 200.
+    blocker = tmp_path / "blocker"
+    blocker.write_text("not a directory")
+    bad_sink = blocker / "out.jsonl"
+    _, base_url = server_factory(quiet=True, forward_to=str(bad_sink))
+
+    resp = requests.post(base_url + "/", json=SAMPLE_BATCH, timeout=5)
+    assert resp.status_code == 200
+    assert resp.json() == {"received": 2}
+    assert "forward error" in capsys.readouterr().err
+
+
 def test_registered_in_main_registry():
     import importlib
     cli_main = importlib.import_module("timberbot.cli.main")

@@ -30,6 +30,7 @@ import asyncio
 import contextlib
 import datetime as _dt
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -52,9 +53,18 @@ def _format_pretty(event: dict[str, Any]) -> str:
 
 
 def _normalize_payload(body: Any) -> list[dict[str, Any]]:
-    """Accept either a list of events or a single event object."""
+    """Accept either a list of events or a single event object.
+
+    Non-dict entries in a list payload are dropped and announced on stderr so
+    that the caller can see the discrepancy without the receiver dying.
+    """
     if isinstance(body, list):
-        return [e for e in body if isinstance(e, dict)]
+        good = [e for e in body if isinstance(e, dict)]
+        dropped = len(body) - len(good)
+        if dropped:
+            print(f"listen: dropped {dropped} non-object entr{'y' if dropped == 1 else 'ies'} from batch",
+                  file=sys.stderr)
+        return good
     if isinstance(body, dict):
         return [body]
     return []
@@ -69,15 +79,20 @@ async def _forward(events: list[dict[str, Any]], target: str, session: ClientSes
             async with session.post(target, json=events, timeout=10) as resp:
                 await resp.read()
         except Exception as exc:  # pragma: no cover - network errors logged, not fatal
-            print(f"listen: forward error: {exc}")
+            print(f"listen: forward error: {exc}", file=sys.stderr)
         return
 
-    # file:// or bare path → append one JSON line per event.
+    # file:// or bare path → append one JSON line per event. Errors here
+    # (full disk, missing permissions) are logged rather than propagated so a
+    # transient sink failure doesn't bubble a 500 back to the mod.
     path = Path(target.removeprefix("file://")).expanduser()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        for ev in events:
-            f.write(json.dumps(ev) + "\n")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            for ev in events:
+                f.write(json.dumps(ev) + "\n")
+    except OSError as exc:
+        print(f"listen: forward error: {exc}", file=sys.stderr)
 
 
 def build_app(*, pretty: bool = False, forward_to: str | None = None, quiet: bool = False) -> web.Application:
