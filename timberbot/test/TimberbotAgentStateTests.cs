@@ -4,6 +4,7 @@
 // (issue #13); the tests run pure (no Unity/Timberborn deps).
 
 using System;
+using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
@@ -318,6 +319,53 @@ namespace Timberbot.Tests
             var parsed = JObject.Parse(TimberbotAgentState.GameNotReadyJson);
             Assert.Equal("game_not_ready", parsed.Value<string>("error"));
             Assert.False(string.IsNullOrEmpty(parsed.Value<string>("hint")));
+        }
+
+        // --- concurrency smoke test --------------------------------------
+
+        // `GET /api/agent/state` runs inline on the listener thread while
+        // write handlers drain on the Unity main thread. The container's
+        // single lock makes this safe, but we want a coverage probe so any
+        // future refactor that removes the lock fails loudly.
+        [Fact]
+        public void Concurrent_ReadersAndWriters_LeaveStateConsistent()
+        {
+            var s = new TimberbotAgentState();
+            s.SetMode("autonomous");
+            s.SetGoal("stress");
+
+            const int iterations = 1000;
+            Parallel.Invoke(
+                () =>
+                {
+                    for (int i = 0; i < iterations; i++)
+                        s.EnqueueRequest("p" + i);
+                },
+                () =>
+                {
+                    for (int i = 0; i < iterations; i++)
+                        s.Heartbeat("running", i, DateTime.UtcNow);
+                },
+                () =>
+                {
+                    for (int i = 0; i < iterations; i++)
+                    {
+                        var json = s.ToStateResponseJson();
+                        // ToStateResponseJson() must always produce parseable
+                        // output (no torn writes / missing braces).
+                        var parsed = JObject.Parse(json);
+                        Assert.Equal("autonomous", parsed.Value<string>("mode"));
+                    }
+                },
+                () =>
+                {
+                    for (int i = 0; i < iterations; i++)
+                        s.ExpireWebhookIfStale(DateTime.UtcNow);
+                });
+
+            // Sanity: persisted fields were not stomped by the parallel race.
+            Assert.Equal("autonomous", s.Mode);
+            Assert.Equal("stress", s.Goal);
         }
     }
 }

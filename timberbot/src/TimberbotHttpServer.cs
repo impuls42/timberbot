@@ -642,8 +642,14 @@ namespace Timberbot
 
         private void FireTbotRequestWebhook(string url, int requestId, string prompt)
         {
-            var payload = "{\"event\":\"agent.request\",\"id\":" + requestId
-                + ",\"prompt\":\"" + TimberbotPure.JsonEscape(prompt) + "\"}";
+            // Build through JObject so future fields (auth headers, etc.) can
+            // be added without growing a fragile string-interpolation block.
+            var payload = new JObject
+            {
+                ["event"] = "agent.request",
+                ["id"] = requestId,
+                ["prompt"] = prompt ?? "",
+            }.ToString(Newtonsoft.Json.Formatting.None);
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 try

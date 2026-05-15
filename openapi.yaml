@@ -21,6 +21,16 @@ info:
     Golden JSON fixtures in `python/tests/fixtures/openapi/` are validated
     against the spec by both Python (`test_openapi_responses.py`) and C#
     (`OpenApiResponseShapeTests.cs`) contract tests.
+
+    ## Ready gate (HTTP 409)
+
+    The mod ships with a Launch / Stop gate. Until the player presses
+    Launch in the in-game widget (or a client toggles `POST /api/ready`
+    with `{"ready": true}`), **every `/api/*` route returns HTTP 409**
+    with the `GameNotReady` body documented in `components/responses`,
+    except the carve-out: `/api/agent/*`, `/api/ready`, `/api/tbot/*`,
+    and `/api/ping`. Operations in this spec do not enumerate the 409
+    individually — it is a uniform gate. Webhook delivery is unaffected.
   version: 1.0.0
   contact:
     name: Timberbot
@@ -1012,9 +1022,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [version, agent_status, acked_request_id]
+              required: [agent_status, acked_request_id]
               properties:
-                version: { type: string, description: 'Connector version string for compat checks.' }
+                version: { type: string, description: 'Connector version string. Optional today; reserved for future compatibility checks.' }
                 agent_status: { type: string, description: 'Free-form connector-reported status.' }
                 acked_request_id: { type: integer, minimum: 0, description: 'Highest pending-request id the connector has handled.' }
               additionalProperties: false
