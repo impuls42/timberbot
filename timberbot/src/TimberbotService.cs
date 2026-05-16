@@ -196,8 +196,9 @@ namespace Timberbot
 
                     // PR 4: detect deprecated keys and log once. Values stay
                     // on disk this release so a future PR can strip them
-                    // cleanly. Mirrors timberbot.settings.DEPRECATED_KEYS on
-                    // the Python side.
+                    // cleanly. The Python client no longer reads settings.json
+                    // (impuls42/timberbot#43 PR 2), so the canonical list lives
+                    // on the C# side at TimberbotPure.DEPRECATED_SETTINGS_KEYS.
                     var deprecated = TimberbotPure.DetectDeprecatedSettings(json);
                     if (deprecated.Count > 0)
                     {

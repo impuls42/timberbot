@@ -20,8 +20,9 @@ namespace Timberbot
         // Settings keys retired across the v0.9 architecture rework. The mod
         // tolerates them on disk but never reads their values;
         // DetectDeprecatedSettings returns the subset present so the service
-        // can log a one-line warning. Keep in lockstep with
-        // timberbot.settings.DEPRECATED_KEYS in Python.
+        // can log a one-line warning. The Python client no longer reads this
+        // file (impuls42/timberbot#43 PR 2), so this list is the sole owner
+        // of the deprecation set.
         public static readonly string[] DEPRECATED_SETTINGS_KEYS = {
             "terminal",
             "pythonCommand",
