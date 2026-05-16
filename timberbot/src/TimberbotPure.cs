@@ -360,6 +360,71 @@ namespace Timberbot
             return msg;
         }
 
+        // RFC 6455 §1.3 — compute `Sec-WebSocket-Accept` from the client-sent
+        // `Sec-WebSocket-Key`. The spec mandates:
+        //
+        //     base64(SHA1(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))
+        //
+        // We implement the handshake by hand because Mono's
+        // `HttpListenerContext.AcceptWebSocketAsync` throws
+        // `NotImplementedException` under the Unity runtime — see
+        // `TimberbotWebSocketServer.HandleConnectionAsync`.
+        public static string ComputeWebSocketAccept(string key)
+        {
+            const string GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+            var combined = (key ?? "") + GUID;
+            using var sha1 = System.Security.Cryptography.SHA1.Create();
+            var hash = sha1.ComputeHash(System.Text.Encoding.ASCII.GetBytes(combined));
+            return Convert.ToBase64String(hash);
+        }
+
+        // RFC 6455 §4.2.1 — manual check for a WebSocket upgrade request.
+        //
+        // Why not just use `HttpListenerRequest.IsWebSocketRequest`? Because
+        // under Mono's HttpListener (the runtime Timberborn ships with) that
+        // property returns false even for valid upgrade requests, so the
+        // WS handshake never reaches `AcceptWebSocketAsync` and clients see
+        // `HTTP/1.1 426 Upgrade Required` instead of `101 Switching Protocols`.
+        //
+        // The required headers are:
+        //   Connection: <list including "Upgrade", case-insensitive>
+        //   Upgrade: websocket (case-insensitive)
+        //   Sec-WebSocket-Key: <non-empty>
+        //   Sec-WebSocket-Version: 13
+        public static bool IsWebSocketUpgradeRequest(
+            string connectionHeader,
+            string upgradeHeader,
+            string secWebSocketKey,
+            string secWebSocketVersion)
+        {
+            if (string.IsNullOrWhiteSpace(connectionHeader)) return false;
+            if (string.IsNullOrWhiteSpace(upgradeHeader)) return false;
+            if (string.IsNullOrEmpty(secWebSocketKey)) return false;
+            if (string.IsNullOrEmpty(secWebSocketVersion)) return false;
+
+            // Connection header is a comma-separated list of tokens; we need
+            // "upgrade" to be one of them, case-insensitive.
+            bool hasUpgradeToken = false;
+            foreach (var part in connectionHeader.Split(','))
+            {
+                if (part.Trim().Equals("upgrade", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasUpgradeToken = true;
+                    break;
+                }
+            }
+            if (!hasUpgradeToken) return false;
+
+            if (!upgradeHeader.Trim().Equals("websocket", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // Sec-WebSocket-Version: RFC mandates 13. Trim whitespace
+            // defensively; some intermediaries leave a leading space.
+            if (secWebSocketVersion.Trim() != "13") return false;
+
+            return true;
+        }
+
         // --- from TimberbotPlacement ---
 
         public static int ParseOrientation(string orient)
