@@ -434,15 +434,15 @@ Important behavior:
 
 ## Path resolution (Python side)
 
-The Python `tbot` CLI discovers Timberborn's `Documents` folder via `timberbot.paths.find_documents_dir`:
+The Python `tbot` CLI does not consult the game's `Documents/` tree at runtime — every endpoint goes over HTTP/WS, and per-settlement `brain.toon` files live under the OS user-data dir (`config.data_dir() / "memory"`):
 
-1. `$TBOT_DOCUMENTS_DIR` env var if set.
-2. `~/Documents/Timberborn` if it exists (Windows / macOS / native Linux).
-3. On Linux only: scan `~/.steam/steam/steamapps/compatdata/*/pfx/drive_c/users/steamuser/{My ,}Documents/Timberborn`, preferring the Timberborn Steam AppID `1062090`.
-4. Otherwise raise `TimberbotPathError`.
+- Linux: `$XDG_DATA_HOME/timberbot/memory/` (default `~/.local/share/timberbot/memory/`)
+- macOS: `~/Library/Application Support/timberbot/memory/`
+- Windows: `%LOCALAPPDATA%\timberbot\memory\`
 
-CLI flags `--documents-dir=PATH` and `--mod-dir=PATH` override the resolved
-value at call time.
+Override with `TBOT_DATA_DIR`.
+
+The legacy Proton/Documents resolver still lives at `scripts/_paths.py` for the sole benefit of the build-time `scripts/deploy.sh`, which copies freshly built DLLs into the mod folder. It honours `TBOT_DOCUMENTS_DIR` / `TBOT_MOD_DIR` for non-standard Wine prefixes.
 
 ## Test posture
 

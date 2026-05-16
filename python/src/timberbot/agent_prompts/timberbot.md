@@ -29,7 +29,7 @@ ALWAYS use `tbot` directly.
 NEVER infer repo paths from Workshop paths or Workshop paths from repo paths.
 
 - Install: `pipx install timberbot` provides the `tbot` console script (import path is `timberbot`)
-- Linux/Steam Deck: `tbot` autodiscovers Timberborn's Documents folder inside Proton prefixes. If discovery fails, set `TBOT_DOCUMENTS_DIR=<path>` or pass `--documents-dir=<path>` on the command line.
+- `tbot` talks to the mod purely over HTTP/WS; nothing under the game's `Documents/Timberborn/` tree is read or written. If the mod runs on another host, set `TBOT_HOST=<host>` or pass `--host=<host>`.
 
 ALWAYS read `docs/timberbot.md` first.
 NEVER read another doc before the AI guide.

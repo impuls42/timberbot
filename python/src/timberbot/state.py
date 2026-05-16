@@ -3,11 +3,12 @@
 Replaces the module-level `_memory_dir` global from the legacy `timberbot.py`.
 Each `SettlementContext` is bound to one settlement and one disk directory.
 
-Storage lives under the OS user-data dir (`config.data_dir() / "memory"`),
-not under the game's `Documents/Timberborn/Mods/Timberbot/memory/` tree —
-that move happened in impuls42/timberbot#43 PR 3. A one-shot migration on
-SettlementContext construction copies any existing legacy `brain.toon` to the
-new location.
+Storage lives under the OS user-data dir (`config.data_dir() / "memory"`).
+The pre-#43 location under the game's `Documents/Timberborn/Mods/Timberbot/`
+tree is no longer consulted (PR 4 deleted the resolver). Users upgrading
+through PR 3 had their `brain.toon` files auto-migrated; users skipping that
+window can run `cp -r <old-mods>/Timberbot/memory/ <data-dir>/memory/`
+manually.
 
 This module also owns the `compact_summary` / `compact_locations` formatters
 used to render brain output, since they're tightly coupled to the brain data
@@ -17,7 +18,6 @@ from __future__ import annotations
 
 import re
 import shutil
-import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -44,8 +44,6 @@ class SettlementContext:
     def __init__(self, settlement: str, base: Path | None = None) -> None:
         self.settlement = sanitize_name(settlement)
         self._base_override = base
-        self._migrated = False
-        self._migrate_legacy_brain()
 
     @property
     def base(self) -> Path:
@@ -63,56 +61,6 @@ class SettlementContext:
 
     def ensure_dir(self) -> None:
         self.memory_dir.mkdir(parents=True, exist_ok=True)
-
-    def _migrate_legacy_brain(self) -> None:
-        """One-shot copy of `brain.toon` from the legacy mod-folder location.
-
-        Issue #43 PR 3 moved per-settlement memory from
-        `<mod_dir>/memory/<settlement>/brain.toon` (inside the game's
-        Documents tree) to the OS user-data dir. If a legacy file exists and
-        the new location is empty, copy it across and emit a one-time
-        `UserWarning`. The legacy file is left in place so users can verify
-        and delete it themselves.
-
-        The `_migrated` flag is intentionally instance-scoped, not
-        process-scoped: short-circuits repeated migration checks on a single
-        SettlementContext while staying inexpensive across instances. The
-        `target.exists()` guard below makes the migration safe even without
-        the flag, so reconstructing a SettlementContext can't double-copy.
-
-        We use `shutil.copy` rather than `copy2` so the migrated file's mtime
-        reflects "just migrated", not whatever the legacy file's mtime was —
-        any "is this brain.toon fresh?" heuristic should treat the new file
-        as newly written.
-
-        Best-effort: any resolver failure (no Timberborn install, no path
-        access) makes this a no-op. PR 4 deletes `paths.py`; this helper
-        catches the resulting `ImportError` and stays a no-op then too.
-        """
-        if self._migrated:
-            return
-        self._migrated = True
-        target = self.brain_path
-        if target.exists():
-            return
-        try:
-            from timberbot.paths import memory_base  # legacy resolver
-            legacy = memory_base() / self.settlement / "brain.toon"
-        except Exception:
-            return
-        if not legacy.is_file():
-            return
-        try:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy(legacy, target)
-        except OSError:
-            return
-        warnings.warn(
-            f"timberbot: migrated brain.toon from {legacy} to {target}; "
-            "the old file is left in place — you can delete it after confirming.",
-            UserWarning,
-            stacklevel=2,
-        )
 
     def load_brain(self) -> dict[str, Any]:
         """Load brain.toon or return an empty dict."""

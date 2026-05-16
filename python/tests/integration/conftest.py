@@ -31,13 +31,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group.addoption(
         "--tbot-host",
         default=None,
-        help="Host where the Timberbot mod is listening (overrides settings.json).",
+        help="Host where the Timberbot mod is listening (overrides config.toml / env).",
     )
     group.addoption(
         "--tbot-port",
         type=int,
         default=None,
-        help="Port where the Timberbot mod is listening (overrides settings.json).",
+        help="Port where the Timberbot mod is listening (overrides config.toml / env).",
     )
 
 

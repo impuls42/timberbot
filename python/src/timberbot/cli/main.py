@@ -19,12 +19,10 @@ import io
 import json
 import platform
 import sys
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
 
-from timberbot import paths
 from timberbot.api.client import TimberbotClient
 from timberbot.api.exceptions import TimberbotError
 from timberbot.cli.args import (
@@ -117,15 +115,13 @@ def _build_registry() -> CommandRegistry:
 def _print_help_index(registry: CommandRegistry) -> None:
     """Print the no-args help screen listing every command."""
     print("usage: tbot [--json] [--host=HOST] [--port=PORT] [--auth-token=TOKEN]")
-    print("            [--documents-dir=DIR] [--mod-dir=DIR] <command> key:value ...")
+    print("            <command> key:value ...")
     print()
     print("global flags:")
     print("  --json                output JSON instead of TOON")
     print("  --host=HOST           override target host (env: TBOT_HOST)")
     print("  --port=PORT           override target port (env: TBOT_PORT)")
     print("  --auth-token=TOKEN    bearer token for mod auth (env: TBOT_AUTH_TOKEN)")
-    print("  --documents-dir=DIR   override Timberborn Documents dir (env: TBOT_DOCUMENTS_DIR)")
-    print("  --mod-dir=DIR         override Timberbot mod dir (env: TBOT_MOD_DIR)")
     print()
     print("methods:")
     for name in public_method_names(TimberbotClient):
@@ -253,11 +249,6 @@ def main(argv: list[str] | None = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     flags = parse_flags(raw)
     registry = _build_registry()
-
-    if flags.documents_dir is not None:
-        paths.set_documents_dir_override(Path(flags.documents_dir))
-    if flags.mod_dir is not None:
-        paths.set_mod_dir_override(Path(flags.mod_dir))
 
     if not flags.positional:
         _print_help_index(registry)
