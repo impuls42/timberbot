@@ -150,7 +150,7 @@ namespace Timberbot
         {
             IndexEntity(e.Entity);
 
-            if (!HasWebhookSubscribers()) return;
+            if (!HasSubscribers()) return;
 
             var ec = e.Entity;
             if (ec.GetComponent<Timberborn.Buildings.Building>() != null)
@@ -162,7 +162,7 @@ namespace Timberbot
         [OnEvent]
         public void OnEntityDeleted(EntityDeletedEvent e)
         {
-            if (HasWebhookSubscribers())
+            if (HasSubscribers())
             {
                 var ec = e.Entity;
                 if (ec.GetComponent<Timberborn.Buildings.Building>() != null)
@@ -176,7 +176,7 @@ namespace Timberbot
 
         // No subscribers ⇒ skip the DataEntity JW allocation. The check is
         // ~free (volatile read + ConcurrentDictionary.Count).
-        private bool HasWebhookSubscribers()
+        private bool HasSubscribers()
         {
             var b = Events?.Broadcaster;
             return b != null && b.ConnectionCount > 0;

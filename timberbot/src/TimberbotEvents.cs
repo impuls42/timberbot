@@ -4,7 +4,7 @@
 // into JSON frames pushed over the WebSocket. When `Broadcaster` is null
 // (pre-Load wiring, or tests) every `PushEvent` call is a no-op.
 //
-// History: this class was named TimberbotEvents before the WS rework
+// History: this class was named TimberbotWebhook before the WS rework
 // (issue #28). It used to maintain a registry of outbound HTTP URLs and
 // batch event payloads on a 200ms cadence with a circuit breaker. After
 // the cutover the WS broadcaster owns per-connection delivery and
@@ -80,7 +80,7 @@ namespace Timberbot
             _jw.BeginObj().Prop("id", id).Prop("name", name).Prop("isBot", isBot).CloseObj().ToString();
 
         // ================================================================
-        // WEBHOOK EVENT HANDLERS
+        // GAME EVENT HANDLERS
         // ================================================================
 
         // weather
@@ -96,7 +96,7 @@ namespace Timberbot
         [OnEvent] public void OnNightStart(Timberborn.TimeSystem.NighttimeStartEvent e) => PushEvent("night.start", DataInt("day", _dayNightCycle.DayNumber));
 
         // buildings
-        [OnEvent] public void OnBuildingFinished(EnteredFinishedStateEvent e) { try { var go = e.BlockObject?.GetComponent<EntityComponent>()?.GameObject; PushEvent("building.finished", DataEntity(go?.GetInstanceID() ?? 0, go != null ? CanonicalName(go.name) : "")); } catch (Exception _ex) { TimberbotLog.Error("webhook.building_finished", _ex); } }
+        [OnEvent] public void OnBuildingFinished(EnteredFinishedStateEvent e) { try { var go = e.BlockObject?.GetComponent<EntityComponent>()?.GameObject; PushEvent("building.finished", DataEntity(go?.GetInstanceID() ?? 0, go != null ? CanonicalName(go.name) : "")); } catch (Exception _ex) { TimberbotLog.Error("events.building_finished", _ex); } }
         [OnEvent] public void OnDistrictChanged(Timberborn.GameDistricts.DistrictCenterRegistryChangedEvent e) => PushEvent("district.changed");
 
         // population

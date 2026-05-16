@@ -11,7 +11,7 @@ TimberbornMods/
       TimberbotReadV2.cs                All GET read endpoints, tracked refs, and published snapshots
       TimberbotWrite.cs                 All POST write endpoints (22 DI params)
       TimberbotPlacement.cs             Building placement, path routing, terrain (14 DI params)
-      TimberbotEvents.cs               Batched push event notifications, circuit breaker (5 DI params)
+      TimberbotEvents.cs                [OnEvent] publishers → WS broadcaster (5 DI params)
       TimberbotDebug.cs                 Reflection inspector and benchmark (1 DI param)
       ITimberbotWriteJob.cs              Write job interface for budgeted main-thread execution
       TimberbotHttpServer.cs            HttpListener, routing, request/response handling

@@ -101,7 +101,7 @@ namespace Timberbot
         // Startup sequence:
         //   1. Load settings.json from mod folder (Documents/Timberborn/Mods/Timberbot/)
         //   2. Initialize logging (fresh log file per session)
-        //   3. Wire up cross-references between subsystems (Registry<->Webhooks, Debug<->Service)
+        //   3. Wire up cross-references between subsystems (Registry<->Events, Debug<->Service)
         //   4. Register EventBus listeners (entity lifecycle, weather, buildings, etc)
         //   5. Build entity indexes from existing game state (all buildings/beavers/trees)
         //   6. Start HTTP server on configured port
