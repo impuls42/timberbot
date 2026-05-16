@@ -1,67 +1,65 @@
-"""`tbot watch` — long-running connector that polls the mod and dispatches `agent run`.
+"""`tbot watch` — long-running connector backed by a single WebSocket.
 
-Architecture:
+Architecture (post-WS rework — see parent issue #27 and sub-issue #30)::
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│  tbot watch (this process)                                             │
-│                                                                        │
-│    ┌──────────────┐    ping with exp backoff (1s→30s cap)              │
-│    │ reconnect    │───────────────────────────────────────────►  /api/ping
-│    └──────┬───────┘                                                    │
-│           │ connected                                                  │
-│           ▼                                                            │
-│    ┌──────────────┐    POST {webhook_url} (optional)                   │
-│    │ register     │───────────────────────────────────────────►  /api/tbot/register
-│    └──────┬───────┘                                                    │
-│           ▼                                                            │
-│    ┌──────────────┐    every 2s; carries acked_request_id              │
-│    │ heartbeat    │◄──────────────────────────────────────────►  /api/tbot/heartbeat
-│    └──────┬───────┘    response: {ready, mode, pendingRequest, ...}    │
-│           │                                                            │
-│           ▼                                                            │
-│    ┌──────────────┐    triggers: pending request | webhook | autonomous│
-│    │ dispatch     │   ─►  run_agent(goal=...)  ─►  advance ack         │
-│    └──────────────┘                                                    │
-└────────────────────────────────────────────────────────────────────────┘
-```
+    ┌────────────────────────────────────────────────────────────────────────┐
+    │  tbot watch (this process)                                             │
+    │                                                                        │
+    │   ┌────────────────┐    WS connect /api/ws on ws_port (default 8086)   │
+    │   │ TimberbotWs    │◄──────────────────────────────────────────►  mod  │
+    │   │ Client         │    reconnect via exp_backoff(1s→30s)              │
+    │   └──────┬─────────┘                                                   │
+    │          │ frames {type, payload}                                      │
+    │          ▼                                                             │
+    │   ┌────────────────┐    state → update view → maybe dispatch           │
+    │   │ message pump   │    event → log (consumed by tbot listen too)      │
+    │   └──────┬─────────┘                                                   │
+    │          │                                                             │
+    │   ┌──────┴─────────┐    every 30s; carries acked_request_id            │
+    │   │ heartbeat tick │────►  send_message("heartbeat", {...})            │
+    │   └──────┬─────────┘                                                   │
+    │          │                                                             │
+    │   ┌──────┴─────────┐    triggers: pendingRequest | autonomous cadence  │
+    │   │ dispatch       │────►  run_agent(goal=...) → advance ack           │
+    │   └────────────────┘                                                   │
+    └────────────────────────────────────────────────────────────────────────┘
 
-The control loop is `WatchLoop.run_once_iteration`, which:
+The HTTP polling loop, the `/api/tbot/heartbeat` and `/api/tbot/register`
+calls, and the embedded webhook listener are all gone. Events arrive over the
+same WebSocket as state pushes, so `tbot watch` no longer needs to host its
+own HTTP receiver.
 
-  - on disconnect: backs off and reconnects;
-  - on connect: registers webhook URL (if a local listener was configured);
-  - sends a heartbeat;
-  - applies dispatch policy on the response;
-  - sleeps until the next heartbeat tick.
+The WS client is `timberbot.api.wsclient.TimberbotWsClient` (lands in
+Unit 2 / sub-issue #29). Until that module is importable, `_default_ws_client`
+falls back to a thin local wrapper around `aiohttp.ClientSession.ws_connect()`
+that implements the same minimal protocol — `connect / send_message /
+messages / close`. Once #29 merges to master, the fallback is dead code and
+the import can be tightened.
 
-All time-related calls go through `time_source` and `sleep` callables so tests
-can drive the loop deterministically without real sleeps.
-
-The endpoints `/api/tbot/heartbeat`, `/api/tbot/register`, `/api/agent/state`,
-`/api/agent/request`, and `/api/ready` are defined by Unit 1 (#13). Until that
-unit lands, calls will fail at runtime — but the unit tests for this command
-stub them with `pytest-httpserver`, so the PR is self-verifying.
+All time-dependent behavior goes through `time_source` / `asyncio.sleep` /
+`monotonic()` so tests can drive cadence without real timers. Tests stub the
+WS client entirely; no real network is opened.
 """
 from __future__ import annotations
 
 import argparse
+import asyncio
 import contextlib
 import json
 import logging
-import queue
-import socket
+import os
 import sys
-import threading
 import time
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import Any, Protocol
 
 from timberbot.__about__ import __version__
 from timberbot.agent.runner import run_agent
 from timberbot.api.client import TimberbotClient
 from timberbot.config import config_dir
+from timberbot.settings import resolve_auth_token, resolve_endpoint
+from timberbot.user_config import client_config
 from timberbot.utils import exp_backoff
 
 log = logging.getLogger("timberbot.watch")
@@ -73,6 +71,83 @@ __all__ = ["exp_backoff"]
 
 
 # ---------------------------------------------------------------------------
+# WS port resolution
+# ---------------------------------------------------------------------------
+
+
+def _env_ws_port() -> int | None:
+    """Parse `TBOT_WS_PORT` as int, or None if unset/malformed."""
+    raw = os.environ.get("TBOT_WS_PORT")
+    if not raw:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        import warnings
+        warnings.warn(
+            f"TBOT_WS_PORT='{raw}' is not an integer; ignoring",
+            UserWarning, stacklevel=3,
+        )
+        return None
+
+
+def resolve_ws_port(
+    ws_port: int | None = None,
+    user_config: dict[str, Any] | None = None,
+) -> int:
+    """Resolve the WebSocket port per the same precedence chain as `resolve_endpoint`.
+
+    Order (first wins): explicit arg → `TBOT_WS_PORT` env var → `[client].ws_port`
+    in `~/.config/timberbot/config.toml` → built-in default 8086.
+
+    The default matches the mod-side `wsPort` setting decided in #27 (8085
+    remains HTTP-only; the WS server listens on a sibling port). `user_config`
+    is injectable for tests; production callers leave it None.
+    """
+    if ws_port is not None:
+        return ws_port
+    env_port = _env_ws_port()
+    if env_port is not None:
+        return env_port
+    uc = user_config if user_config is not None else client_config()
+    cfg_port = uc.get("ws_port")
+    if isinstance(cfg_port, int):
+        return cfg_port
+    return 8086
+
+
+# ---------------------------------------------------------------------------
+# WS client protocol + envelope
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class WsMessage:
+    """One frame received from the mod.
+
+    The on-wire shape is `{type, payload}`. We accept missing/non-dict
+    `payload` defensively so a malformed server frame becomes a logged
+    `error` rather than a crashed pump.
+    """
+
+    type: str
+    payload: dict[str, Any]
+
+
+class WsClientProtocol(Protocol):
+    """Minimum surface the watch loop needs from a WS client.
+
+    `TimberbotWsClient` (#29) satisfies this naturally. Tests pass a
+    `FakeWsClient` that drains an `asyncio.Queue`.
+    """
+
+    async def connect(self) -> None: ...
+    async def send_message(self, type: str, payload: dict[str, Any]) -> None: ...
+    def messages(self) -> AsyncIterator[WsMessage]: ...
+    async def close(self) -> None: ...
+
+
+# ---------------------------------------------------------------------------
 # Trigger queue
 # ---------------------------------------------------------------------------
 
@@ -81,82 +156,9 @@ __all__ = ["exp_backoff"]
 class Trigger:
     """Source-tagged request to dispatch an agent cycle."""
 
-    source: str  # "webhook" | "pending" | "autonomous"
+    source: str  # "pending" | "autonomous"
     goal: str
     request_id: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Local webhook listener
-# ---------------------------------------------------------------------------
-
-
-class _WebhookHandler(BaseHTTPRequestHandler):
-    """Minimal POST receiver that forwards `{goal, requestId}` to a `Queue`."""
-
-    # Class-level placeholder. `start_webhook_listener` builds a subclass via
-    # `type(..., {"trigger_queue": tq})` so each listener instance binds its
-    # own queue. Never read this directly without going through that factory.
-    trigger_queue: queue.Queue[Trigger] | None = None
-
-    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
-        # Silence the default stderr access log; we log via `log` instead.
-        log.debug("webhook %s %s", self.address_string(), format % args)
-
-    def do_POST(self) -> None:  # noqa: N802 (BaseHTTPRequestHandler protocol)
-        length = int(self.headers.get("Content-Length", "0") or 0)
-        raw = self.rfile.read(length) if length else b""
-        try:
-            payload = json.loads(raw.decode("utf-8") or "{}")
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            self.send_response(400)
-            self.end_headers()
-            return
-        goal = str(payload.get("goal") or payload.get("prompt") or "").strip()
-        if not goal:
-            self.send_response(400)
-            self.end_headers()
-            return
-        request_id = payload.get("requestId") or payload.get("id")
-        if self.trigger_queue is not None:
-            self.trigger_queue.put(Trigger(
-                source="webhook",
-                goal=goal,
-                request_id=str(request_id) if request_id is not None else None,
-            ))
-        body = json.dumps({"ok": True}).encode("utf-8")
-        self.send_response(202)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-
-def start_webhook_listener(
-    port: int,
-    trigger_queue: queue.Queue[Trigger],
-    *,
-    host: str = "127.0.0.1",
-) -> tuple[ThreadingHTTPServer, str]:
-    """Start a background HTTP server. Returns `(server, webhook_url)`.
-
-    The server is bound to localhost only; the connector is meant to run on
-    the same host as the game. Caller is responsible for `server.shutdown()`.
-    """
-    handler_cls = type("_BoundWebhookHandler", (_WebhookHandler,), {
-        "trigger_queue": trigger_queue,
-    })
-    server = ThreadingHTTPServer((host, port), handler_cls)
-    # If port=0 the OS picked one; reflect it in the URL.
-    bound_host, bound_port = server.server_address[0], server.server_address[1]
-    if bound_host in ("0.0.0.0", "::"):
-        bound_host = socket.gethostname()
-    thread = threading.Thread(target=server.serve_forever, daemon=True,
-                              name="timberbot-watch-webhook")
-    thread.start()
-    webhook_url = f"http://{bound_host}:{bound_port}/trigger"
-    log.info("watch: webhook listener bound on %s", webhook_url)
-    return server, webhook_url
 
 
 # ---------------------------------------------------------------------------
@@ -173,12 +175,14 @@ class WatchConfig:
     effort: str | None = None
     prompt_name: str = "timberbot"
     extra_prompt_names: list[str] = field(default_factory=lambda: ["connector-mode"])
-    heartbeat_interval: float = 2.0
+    heartbeat_interval: float = 30.0
     autonomous_interval: float = 60.0
     backoff_base: float = 1.0
     backoff_cap: float = 30.0
     once: bool = False
-    webhook_url: str | None = None
+    host: str = "127.0.0.1"
+    ws_port: int = 8086
+    auth_token: str | None = None
 
 
 # Function-call abstraction used by the loop. Tests override with a stub.
@@ -208,93 +212,94 @@ def default_dispatch_factory(
 
 
 class WatchLoop:
-    """The connector's main control loop.
+    """The connector's main control loop, driven by a single WebSocket.
 
-    Lifecycle (one full pass = `step()`):
+    Public sync helpers (testable without an event loop):
 
-    1. If not connected, attempt `client.ping()` with exponential backoff.
-    2. On first successful connect, optionally POST `/api/tbot/register`.
-    3. Send `POST /api/tbot/heartbeat`, parse response.
-    4. Apply trigger policy:
-       (a) drain `trigger_queue` (webhook fast path) — highest priority;
-       (b) `state.pendingRequest` from the heartbeat;
-       (c) autonomous cadence when `mode == "autonomous"` and `ready` is True.
-    5. Sleep `heartbeat_interval` (driven by `sleep` callable).
+      - `pick_trigger(state)`: returns the next `Trigger` derived from the
+        in-place state view, accounting for the autonomous cadence clock.
+      - `note_dispatch(trigger)`: advances `acked_request_id` and the cycle
+        counter after a successful dispatch.
+      - `build_heartbeat_payload()`: the body sent every `heartbeat_interval`.
 
-    Returns False from `step()` when the loop should stop (e.g. `--once`
-    and one trigger has fired).
+    Async lifecycle:
+
+      - `run()`: connect, then concurrently pump messages and tick heartbeats,
+        until `stop()` is called or `cfg.once` fires.
     """
 
     def __init__(
         self,
         client: TimberbotClient,
         cfg: WatchConfig,
+        ws_client: WsClientProtocol,
         *,
         dispatch_fn: DispatchFn | None = None,
-        trigger_queue: queue.Queue[Trigger] | None = None,
-        sleep: Callable[[float], None] = time.sleep,
         time_source: Callable[[], float] = time.monotonic,
-        stop_event: threading.Event | None = None,
     ) -> None:
         self.client = client
         self.cfg = cfg
+        self.ws = ws_client
         self.dispatch_fn = dispatch_fn or default_dispatch_factory(cfg, client)
-        self.trigger_queue = trigger_queue or queue.Queue()
-        self._sleep = sleep
         self._now = time_source
-        self._stop = stop_event or threading.Event()
 
         # State carried across iterations:
-        self.connected = False
-        self.registered = False
-        self.reconnect_attempts = 0
-        self.last_autonomous_run: float = -1.0  # time of last autonomous fire
+        self.last_autonomous_run: float = -1.0  # monotonic time of last autonomous fire
         self.acked_request_id: str | None = None
+        self.last_pending_id: str | None = None  # de-dupe identical pendingRequest pushes
         self.last_state: dict[str, Any] | None = None
         self.triggers_fired = 0
+        self.agent_status = "idle"
+        # `_stop` is bound in `run()` once we're sure an event loop is running.
+        # `stop()` is a no-op before then (e.g. if a test forgets to await run).
+        self._stop: asyncio.Event | None = None
+        self._should_exit = False  # flips when --once and a cycle ran
 
-    # -- HTTP helpers (kept thin so tests can read the call sequence) --
-    #
-    # These call `client._post` (the underscored internal) because the
-    # `/api/tbot/heartbeat` and `/api/tbot/register` endpoints land in Unit 1
-    # (#13) and don't yet have typed wrappers on `TimberbotClient`. Once Unit 1
-    # promotes them to public methods (e.g. `client.heartbeat(...)`,
-    # `client.register(...)`), this file should switch to those — see #15.
+    # ------------------------------------------------------------------
+    # Heartbeat
+    # ------------------------------------------------------------------
 
-    def _heartbeat(self, agent_status: str = "idle") -> dict[str, Any]:
-        body = {
+    def build_heartbeat_payload(self) -> dict[str, Any]:
+        """The body sent in every WS `heartbeat` frame."""
+        return {
             "version": __version__,
-            "agent_status": agent_status,
+            "agent_status": self.agent_status,
             "acked_request_id": self.acked_request_id,
         }
-        return self.client._post("/api/tbot/heartbeat", body)
 
-    def _register(self) -> dict[str, Any]:
-        assert self.cfg.webhook_url is not None
-        return self.client._post(
-            "/api/tbot/register",
-            {"webhook_url": self.cfg.webhook_url},
-        )
+    # ------------------------------------------------------------------
+    # Trigger selection
+    # ------------------------------------------------------------------
 
-    # -- Trigger picking --
+    def pick_trigger(self, state: dict[str, Any]) -> Trigger | None:
+        """Inspect a freshly-pushed state and decide whether to dispatch.
 
-    def _pick_trigger(self, state: dict[str, Any]) -> Trigger | None:
-        # Webhook (fast path) drains first.
-        with contextlib.suppress(queue.Empty):
-            return self.trigger_queue.get_nowait()
+        Priorities:
 
-        # Pending request from heartbeat.
-        pending = state.get("pendingRequest") if isinstance(state, dict) else None
+          1. `state.pendingRequest` — explicit request mode. De-duped by id so
+             a re-push of the same pending slot doesn't re-fire.
+          2. Autonomous cadence — `mode == "autonomous"` and `ready == True`,
+             gated by `autonomous_interval` elapsed since the last fire.
+
+        Returns None if neither condition fires; that just means the message
+        pump goes back to awaiting the next frame.
+        """
+        if not isinstance(state, dict):
+            return None
+
+        pending = state.get("pendingRequest")
         if isinstance(pending, dict) and pending.get("goal"):
-            return Trigger(
-                source="pending",
-                goal=str(pending["goal"]),
-                request_id=str(pending.get("id")) if pending.get("id") is not None else None,
-            )
+            pid = str(pending.get("id")) if pending.get("id") is not None else None
+            if pid != self.last_pending_id:
+                self.last_pending_id = pid
+                return Trigger(
+                    source="pending",
+                    goal=str(pending["goal"]),
+                    request_id=pid,
+                )
 
-        # Autonomous cadence.
-        mode = state.get("mode") if isinstance(state, dict) else None
-        ready = bool(state.get("ready")) if isinstance(state, dict) else False
+        mode = state.get("mode")
+        ready = bool(state.get("ready"))
         if mode == "autonomous" and ready:
             now = self._now()
             if (self.last_autonomous_run < 0
@@ -305,97 +310,226 @@ class WatchLoop:
 
         return None
 
-    # -- One step of the loop --
-    #
-    # Each call advances exactly one phase: reconnect → register → heartbeat.
-    # This keeps the control flow trivial to test step-by-step and matches the
-    # observable wall-clock cadence (one HTTP round-trip per tick).
+    def note_dispatch(self, trigger: Trigger) -> None:
+        """Bookkeeping after a dispatch returns. Always called even on crash."""
+        self.triggers_fired += 1
+        if trigger.request_id:
+            self.acked_request_id = trigger.request_id
+        if self.cfg.once:
+            self._should_exit = True
 
-    def step(self) -> bool:
-        """Run one iteration. Returns True to keep looping, False to exit."""
-        if self._stop.is_set():
-            return False
+    # ------------------------------------------------------------------
+    # Async lifecycle
+    # ------------------------------------------------------------------
 
-        if not self.connected:
-            return self._step_connect()
-
-        if not self.registered and self.cfg.webhook_url:
-            return self._step_register()
-
-        return self._step_heartbeat()
-
-    def _step_connect(self) -> bool:
-        try:
-            up = self.client.ping()
-        except Exception as exc:  # noqa: BLE001 - any HTTP error is a "down" signal
-            log.warning("watch: ping failed (%s); attempt=%d", exc, self.reconnect_attempts)
-            up = False
-        if not up:
-            delay = exp_backoff(self.reconnect_attempts,
-                                base=self.cfg.backoff_base, cap=self.cfg.backoff_cap)
-            log.info("watch: reconnect attempt %d, sleeping %.1fs",
-                     self.reconnect_attempts, delay)
-            self.reconnect_attempts += 1
-            self._sleep(delay)
-            return True
-        log.info("watch: connected after %d attempt(s)", self.reconnect_attempts + 1)
-        self.connected = True
-        self.reconnect_attempts = 0
-        self.registered = False  # re-register on every fresh connect
-        return True
-
-    def _step_register(self) -> bool:
-        try:
-            self._register()
-        except Exception as exc:  # noqa: BLE001
-            log.warning("watch: register failed (%s); will retry next tick", exc)
-            # Treat register failure as a transient connection problem.
-            self.connected = False
-            self.reconnect_attempts = 0
-            self._sleep(self.cfg.backoff_base)
-            return True
-        self.registered = True
-        log.info("watch: registered webhook %s", self.cfg.webhook_url)
-        return True
-
-    def _step_heartbeat(self) -> bool:
-        try:
-            state = self._heartbeat()
-        except Exception as exc:  # noqa: BLE001
-            log.warning("watch: heartbeat failed (%s); marking disconnected", exc)
-            self.connected = False
-            return True
-        self.last_state = state
-
-        trigger = self._pick_trigger(state)
-        if trigger is not None:
-            log.info("watch: trigger source=%s goal=%r", trigger.source, trigger.goal)
-            self.triggers_fired += 1
+    async def _heartbeat_task(self) -> None:
+        """Send `heartbeat` frames at `heartbeat_interval`. Stops on `_stop`."""
+        assert self._stop is not None
+        while not self._stop.is_set():
             try:
-                rc = self.dispatch_fn(trigger.goal)
-                log.info("watch: cycle done rc=%d", rc)
-            except Exception as exc:  # noqa: BLE001
-                log.exception("watch: dispatch crashed (%s)", exc)
-            if trigger.request_id:
-                # Advance the ack so the next heartbeat clears the pending slot.
-                self.acked_request_id = trigger.request_id
-            if self.cfg.once:
-                return False
+                await self.ws.send_message("heartbeat", self.build_heartbeat_payload())
+            except Exception as exc:  # noqa: BLE001 - any send error means reconnect time
+                log.warning("watch: heartbeat send failed (%s)", exc)
+                # The WS client owns reconnect; we just wait and try the next tick.
+            with contextlib.suppress(asyncio.TimeoutError):
+                await asyncio.wait_for(self._stop.wait(), timeout=self.cfg.heartbeat_interval)
 
-        self._sleep(self.cfg.heartbeat_interval)
-        return True
-
-    def run(self) -> int:
-        """Drive `step` until it returns False or `stop()` is called."""
+    async def _on_state(self, payload: dict[str, Any]) -> None:
+        """Handle one `state` frame: update local view, maybe dispatch."""
+        self.last_state = payload
+        trigger = self.pick_trigger(payload)
+        if trigger is None:
+            return
+        log.info("watch: trigger source=%s goal=%r", trigger.source, trigger.goal)
+        self.agent_status = "busy"
+        loop = asyncio.get_running_loop()
         try:
-            while self.step():
-                pass
-        except KeyboardInterrupt:
-            log.info("watch: interrupted")
+            rc = await loop.run_in_executor(None, self.dispatch_fn, trigger.goal)
+            log.info("watch: cycle done rc=%d", rc)
+        except Exception as exc:  # noqa: BLE001 - never let dispatch take down the pump
+            log.exception("watch: dispatch crashed (%s)", exc)
+        finally:
+            self.agent_status = "idle"
+            self.note_dispatch(trigger)
+
+    async def _message_pump(self) -> None:
+        """Drain `ws.messages()` until the connection ends or `_stop` fires."""
+        assert self._stop is not None
+        async for msg in self.ws.messages():
+            if self._stop.is_set():
+                break
+            log.debug("watch: ws frame type=%s", msg.type)
+            if msg.type == "state":
+                await self._on_state(msg.payload)
+            elif msg.type == "event":
+                # Events are consumed by `tbot listen` subscribers; the
+                # connector logs them so an operator running `tbot watch -v`
+                # can see traffic flow without a second subscription.
+                log.info("watch: event %s", msg.payload.get("event") or msg.payload)
+            elif msg.type == "error":
+                log.warning("watch: server error: %s", msg.payload)
+            elif msg.type == "pong":
+                log.debug("watch: pong")
+            else:
+                log.debug("watch: unknown frame type=%s", msg.type)
+            if self._should_exit:
+                self._stop.set()
+                break
+
+    async def run(self) -> int:
+        """Connect, then run the heartbeat and message-pump tasks concurrently."""
+        self._stop = asyncio.Event()
+        try:
+            await self.ws.connect()
+        except Exception as exc:  # noqa: BLE001
+            log.error("watch: initial WS connect failed: %s", exc)
+            return 1
+
+        hb_task = asyncio.create_task(self._heartbeat_task(), name="watch-heartbeat")
+        pump_task = asyncio.create_task(self._message_pump(), name="watch-pump")
+        try:
+            done, pending = await asyncio.wait(
+                {hb_task, pump_task}, return_when=asyncio.FIRST_COMPLETED,
+            )
+            for t in pending:
+                t.cancel()
+            for t in pending:
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await t
+            for t in done:
+                exc = t.exception()
+                if exc is not None and not isinstance(exc, asyncio.CancelledError):
+                    log.warning("watch: task %s raised %s", t.get_name(), exc)
+        finally:
+            self._stop.set()
+            with contextlib.suppress(Exception):
+                await self.ws.close()
         return 0
 
     def stop(self) -> None:
-        self._stop.set()
+        """Signal the loop to exit at the next message-pump iteration.
+
+        Shutdown latency is bounded by `cfg.heartbeat_interval` (default 30s):
+        `_heartbeat_task` notices `_stop` only when its `wait_for(...)` sleep
+        wakes, after which `asyncio.wait(FIRST_COMPLETED)` cancels the pump.
+        Good enough for v1; a future optimization could cancel `pump_task`
+        directly here to interrupt mid-frame iteration.
+        """
+        if self._stop is not None:
+            self._stop.set()
+
+
+# ---------------------------------------------------------------------------
+# Default WS client wiring
+# ---------------------------------------------------------------------------
+
+
+def _default_ws_client(
+    host: str, ws_port: int, *, auth_token: str | None,
+) -> WsClientProtocol:
+    """Return a `TimberbotWsClient` instance or a thin local fallback.
+
+    Prefers `timberbot.api.wsclient.TimberbotWsClient` (#29). If that module
+    isn't on PYTHONPATH yet (sibling unit hasn't merged), we instantiate a
+    minimal `_AiohttpWsClient` defined below. The two satisfy the same
+    `WsClientProtocol`, so the rest of the connector doesn't notice.
+    """
+    try:
+        from timberbot.api.wsclient import TimberbotWsClient  # type: ignore[import-not-found]
+    except ImportError:
+        return _AiohttpWsClient(host=host, ws_port=ws_port, auth_token=auth_token)
+    return TimberbotWsClient(host=host, ws_port=ws_port, auth_token=auth_token)
+
+
+class _AiohttpWsClient:
+    """Local fallback used until Unit 2 (#29) lands.
+
+    Implements `WsClientProtocol` against `aiohttp.ClientSession.ws_connect()`.
+    Reconnects via `exp_backoff(1s→30s)`. When `TimberbotWsClient` lands, this
+    can be deleted — the surface matches.
+    """
+
+    def __init__(self, *, host: str, ws_port: int, auth_token: str | None) -> None:
+        self.host = host
+        self.ws_port = ws_port
+        self.auth_token = auth_token
+        self._session = None  # type: ignore[assignment]
+        self._ws = None  # type: ignore[assignment]
+        self._closed = False
+
+    async def connect(self) -> None:
+        import aiohttp
+        if self._session is None:
+            self._session = aiohttp.ClientSession()
+        headers: dict[str, str] = {}
+        if self.auth_token:
+            headers["Authorization"] = f"Bearer {self.auth_token}"
+        url = f"ws://{self.host}:{self.ws_port}/api/ws"
+        attempt = 0
+        while not self._closed:
+            try:
+                self._ws = await self._session.ws_connect(url, headers=headers or None)
+                return
+            except Exception as exc:  # noqa: BLE001
+                delay = exp_backoff(attempt)
+                log.warning("watch: ws connect failed (%s); retry in %.1fs", exc, delay)
+                attempt += 1
+                await asyncio.sleep(delay)
+
+    async def send_message(self, type: str, payload: dict[str, Any]) -> None:  # noqa: A002
+        if self._ws is None:
+            raise RuntimeError("ws not connected")
+        await self._ws.send_str(json.dumps({"type": type, "payload": payload}))
+
+    async def messages(self) -> AsyncIterator[WsMessage]:
+        # Reconnect on mid-stream disconnect: delegate to `self.connect()`,
+        # which runs its own `exp_backoff` retry loop. So the outer
+        # `exp_backoff(attempt)` below only paces the gap between connection
+        # cycles, not individual TCP retries — those happen inside `connect`.
+        # `self._closed` (set by `close()`) breaks us out at the next sleep
+        # boundary; on the temporary fallback path this means up to 30s of
+        # teardown latency. `TimberbotWsClient` (#29) should improve on this.
+        import aiohttp
+        attempt = 0
+        while not self._closed:
+            if self._ws is None:
+                await self.connect()
+                attempt = 0
+            assert self._ws is not None
+            try:
+                async for raw in self._ws:
+                    if raw.type == aiohttp.WSMsgType.TEXT:
+                        try:
+                            obj = json.loads(raw.data)
+                        except json.JSONDecodeError:
+                            log.warning("watch: dropping non-JSON WS frame")
+                            continue
+                        yield WsMessage(
+                            type=str(obj.get("type", "")),
+                            payload=obj.get("payload") if isinstance(obj.get("payload"), dict) else {},
+                        )
+                    elif raw.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                        break
+            except Exception as exc:  # noqa: BLE001
+                log.warning("watch: ws iteration error (%s)", exc)
+            if self._closed:
+                break
+            self._ws = None
+            delay = exp_backoff(attempt)
+            log.info("watch: ws closed; reconnecting in %.1fs", delay)
+            attempt += 1
+            await asyncio.sleep(delay)
+
+    async def close(self) -> None:
+        self._closed = True
+        if self._ws is not None:
+            with contextlib.suppress(Exception):
+                await self._ws.close()
+            self._ws = None
+        if self._session is not None:
+            with contextlib.suppress(Exception):
+                await self._session.close()
+            self._session = None
 
 
 # ---------------------------------------------------------------------------
@@ -411,16 +545,13 @@ def _parse(args: list[str]) -> argparse.Namespace:
     p.add_argument("--effort", default=None, help="Reasoning effort passed to the backend.")
     p.add_argument("--prompt", dest="prompt_name", default="timberbot",
                    help="Name of the base system prompt to load (default: timberbot).")
-    p.add_argument("--listen-port", type=int, default=0,
-                   help=("Optional port for a local webhook listener. "
-                         "Default 0 disables the listener (no push-mode triggers, "
-                         "only heartbeat-driven dispatch)."))
-    p.add_argument("--listen-host", default="127.0.0.1",
-                   help="Bind host for --listen-port (default: 127.0.0.1).")
+    p.add_argument("--ws-port", dest="ws_port", type=int, default=None,
+                   help=("WebSocket port on the mod. Resolution chain: this flag → "
+                         "TBOT_WS_PORT env → [client].ws_port in config.toml → 8086."))
     p.add_argument("--autonomous-interval", type=float, default=60.0,
                    help="Seconds between autonomous-mode cycles (default: 60).")
-    p.add_argument("--heartbeat-interval", type=float, default=2.0,
-                   help="Seconds between heartbeats (default: 2).")
+    p.add_argument("--heartbeat-interval", type=float, default=30.0,
+                   help="Seconds between WS heartbeat frames (default: 30).")
     p.add_argument("--once", action="store_true",
                    help="Run until a single trigger fires, then exit (useful for debugging).")
     p.add_argument("--verbose", "-v", action="count", default=0,
@@ -433,6 +564,10 @@ def run(args: list[str]) -> int:
     ns = _parse(args)
     _configure_logging(ns.verbose)
 
+    host, _ = resolve_endpoint()
+    ws_port = resolve_ws_port(ns.ws_port)
+    auth_token = resolve_auth_token()
+
     cfg = WatchConfig(
         backend=ns.backend,
         model=ns.model,
@@ -441,30 +576,20 @@ def run(args: list[str]) -> int:
         heartbeat_interval=ns.heartbeat_interval,
         autonomous_interval=ns.autonomous_interval,
         once=ns.once,
+        host=host,
+        ws_port=ws_port,
+        auth_token=auth_token,
     )
 
-    client = TimberbotClient(json_mode=True)
-    trigger_queue: queue.Queue[Trigger] = queue.Queue()
+    client = TimberbotClient(host=host, auth_token=auth_token, json_mode=True)
+    ws_client = _default_ws_client(host, ws_port, auth_token=auth_token)
+    loop = WatchLoop(client, cfg, ws_client)
 
-    server = None
-    if ns.listen_port:
-        try:
-            server, webhook_url = start_webhook_listener(
-                ns.listen_port, trigger_queue, host=ns.listen_host,
-            )
-        except OSError as exc:
-            print(f"error: cannot bind webhook listener on port {ns.listen_port}: {exc}",
-                  file=sys.stderr)
-            return 1
-        cfg.webhook_url = webhook_url
-
-    loop = WatchLoop(client, cfg, trigger_queue=trigger_queue)
     try:
-        return loop.run()
-    finally:
-        if server is not None:
-            server.shutdown()
-            server.server_close()
+        return asyncio.run(loop.run())
+    except KeyboardInterrupt:
+        log.info("watch: interrupted")
+        return 0
 
 
 def _configure_logging(verbosity: int) -> None:
