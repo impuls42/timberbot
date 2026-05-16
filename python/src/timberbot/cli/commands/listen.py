@@ -43,7 +43,7 @@ from typing import Any
 
 import aiohttp
 
-from timberbot.cli.commands.watch import exp_backoff
+from timberbot.cli.commands.watch import exp_backoff, resolve_ws_port
 from timberbot.settings import resolve_auth_token, resolve_endpoint
 
 
@@ -263,12 +263,12 @@ def run(args: list[str]) -> int:
 
     Resolves host/port/auth-token via the shared precedence chain (CLI → env
     → user config.toml → mod settings.json → defaults). `--ws-port` is the
-    one WS-specific knob; when absent it shares the resolved HTTP port (the
-    mod hosts `/api/ws` on the same listener).
+    one WS-specific knob; when absent `resolve_ws_port` returns the default
+    8086 (the mod runs the WS listener on its own port, not the HTTP one).
     """
     ns = _parse(args)
-    host, http_port = resolve_endpoint(ns.host, None)
-    ws_port = ns.ws_port if ns.ws_port is not None else http_port
+    host, _http_port = resolve_endpoint(ns.host, None)
+    ws_port = resolve_ws_port(ns.ws_port)
     token = resolve_auth_token(ns.auth_token)
 
     if not ns.quiet:

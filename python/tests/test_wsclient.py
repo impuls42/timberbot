@@ -51,7 +51,7 @@ def _build_app(
     require_token: bool = False,
     accept_query_token: bool = False,
 ) -> web.Application:
-    """Return an aiohttp app exposing `/ws`.
+    """Return an aiohttp app exposing `/api/ws`.
 
     `handler` runs after the upgrade. `require_token` toggles bearer-token
     auth (rejecting with 401 when missing/wrong). `accept_query_token` also
@@ -77,7 +77,7 @@ def _build_app(
         return ws
 
     app = web.Application()
-    app.router.add_get("/ws", ws_route)
+    app.router.add_get("/api/ws", ws_route)
     return app
 
 
@@ -123,7 +123,7 @@ async def test_handshake_with_token_succeeds(server_factory):
 
     async def handler(ws: web.WebSocketResponse, request: web.Request) -> None:
         seen.append(dict(request.headers))
-        await ws.send_str(json.dumps({"type": "state", "payload": {"state": SAMPLE_AGENT_STATE}}))
+        await ws.send_str(json.dumps({"type": "state", "payload": SAMPLE_AGENT_STATE}))
         await ws.close()
 
     srv = await server_factory(handler=handler, require_token=True)
@@ -136,7 +136,7 @@ async def test_handshake_with_token_succeeds(server_factory):
 
     assert msg.type == "state"
     assert isinstance(msg.payload, StatePush)
-    assert msg.payload.state.goal == "build a sawmill"
+    assert msg.payload.goal == "build a sawmill"
     assert seen[0].get("Authorization") == f"Bearer {AUTH_TOKEN}"
 
 

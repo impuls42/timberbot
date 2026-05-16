@@ -35,17 +35,17 @@ class WsMessage(BaseModel, Generic[T]):
     payload: T
 
 
-class StatePush(BaseModel):
+class StatePush(AgentState):
     """Server → client push of the full `AgentState`.
 
-    Carries the same shape as the HTTP `/api/agent/state` response. Sent on
-    connect, on any state mutation (mode/goal/ready toggle, pending request
-    enqueued), and whenever the server wants to nudge the connector to
-    re-evaluate dispatch.
+    The payload IS the `AgentState` snapshot — identical wire shape to the
+    HTTP `/api/agent/state` response (no extra wrapping). Sent on connect,
+    on any state mutation (mode/goal/ready toggle, pending request enqueued),
+    and whenever the server wants to nudge the connector to re-evaluate
+    dispatch.
     """
 
     model_config = ConfigDict(extra="allow")
-    state: AgentState
 
 
 class EventPush(BaseModel):

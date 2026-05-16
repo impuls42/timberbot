@@ -70,7 +70,7 @@ class TimberbotWsClient:
         query_token_fallback: bool = False,
         backoff_base: float = 1.0,
         backoff_cap: float = 30.0,
-        path: str = "/ws",
+        path: str = "/api/ws",
         session: aiohttp.ClientSession | None = None,
     ) -> None:
         # Same resolution chain as TimberbotClient: constructor arg →
