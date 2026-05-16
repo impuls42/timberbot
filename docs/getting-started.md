@@ -1,13 +1,13 @@
 # Timberbot API
 
-> **v0.9 — architecture rework, in flight.** The session-launch flow described here is the v0.9 shape (`tbot watch` connector + Launch button). Behavior on `master` may briefly lag while the rework lands.
+> **v0.9 — WebSocket cutover, in flight.** The session-launch flow described here is the v0.9 shape (`tbot watch` over a long-lived WebSocket + Launch button). Behavior on `master` may briefly lag while the rework lands.
 
 **Full read/write HTTP API for controlling Timberborn with AI.**
 
 Timberbot API gives Claude, Codex, ChatGPT, or your own scripts complete access to your beaver colony over HTTP. read game state, place buildings, manage workers, plant crops, and keep your beavers alive.
 
 !!! info "Modified fork"
-    This project is a modified fork of [abix-/TimberbornMods](https://github.com/abix-/TimberbornMods). It extends the original mod with an expanded read/write HTTP API, automation wiring endpoints, webhooks, and AI-agent integrations. All credit for the original mod goes to [abix-](https://github.com/abix-).
+    This project is a modified fork of [abix-/TimberbornMods](https://github.com/abix-/TimberbornMods). It extends the original mod with an expanded read/write HTTP API, automation wiring endpoints, a WebSocket event stream, and AI-agent integrations. All credit for the original mod goes to [abix-](https://github.com/abix-).
 
 ---
 
@@ -101,12 +101,13 @@ The first-run flow is:
 6. **Press Launch.** The widget's state pill flips from `Not Ready` to `Idle`, and the connector dispatches the agent.
 
 ```bash
-tbot watch                              # autonomous + request mode, no local listener
-tbot watch --listen-port 9000           # also host a webhook listener for the fast path
-tbot watch --attach-url http://127.0.0.1:4096   # talk to a long-running opencode serve
+tbot watch                                       # autonomous + request mode
+tbot watch --attach-url http://127.0.0.1:4096    # talk to a long-running opencode serve
 ```
 
-`tbot watch` reconnects with exponential backoff (1 s → 30 s cap), so you can start it before the game or restart the game without restarting the connector. While disconnected it logs every retry; once connected it heartbeats every 2 s and surfaces the current state in the terminal.
+`tbot watch` opens a single long-lived WebSocket to the mod (`ws://host:wsPort/api/ws`, default port 8086) and stays connected for the life of the session. It reconnects with exponential backoff (1 s → 30 s cap), so you can start it before the game or restart the game without restarting the connector. While disconnected it logs every retry; once connected it receives `state` and `event` frames push-style and sends a 30 s `heartbeat`. There is no `--listen-port` — the connector has no inbound HTTP server.
+
+If you just want to watch the event stream (drought warnings, building events, …) without driving an agent, use the standalone WS client `tbot listen`. See [Events](events.md) for details.
 
 ### Modes
 
@@ -115,7 +116,7 @@ The widget exposes two modes via a dropdown.
 - **Request** *(default).* You type a prompt in the widget's textarea, press **Launch**, and the connector dispatches a single agent run for that prompt. Use this for "set up a plank chain", "place 3 farms near the river", or any discrete ask. Launching with an empty prompt is a no-op.
 - **Autonomous.** The widget's textarea binds to a persistent `goal` (saved in `state.json`). Press Launch and the connector keeps dispatching agent runs at its configured cadence until you press **Stop**. Use this for "reach 50 beavers with 77 wellbeing" — the long-running objective.
 
-Switching modes is instant and doesn't restart the connector. Stop is always one click away: it posts `{"ready": false}` to the mod, which **closes the gate** to every endpoint except `/api/agent/*`, `/api/ready`, `/api/tbot/*`, and `/api/ping`. The connector keeps heartbeating but won't drive any reads or writes until you Launch again.
+Switching modes is instant and doesn't restart the connector. Stop is always one click away: it posts `{"ready": false}` to the mod, which **closes the gate** to every endpoint except `/api/agent/*`, `/api/ready`, and `/api/ping`. The connector keeps the WebSocket open but won't drive any reads or writes until you Launch again.
 
 ### Per-backend defaults
 
@@ -265,7 +266,7 @@ Timberbot reads settings from three places, in this order (first match wins):
 | 1. CLI flags | `tbot --host=X --port=Y --auth-token=T --documents-dir=… --mod-dir=…` | per-invocation overrides |
 | 2. Environment | `TBOT_HOST`, `TBOT_PORT`, `TBOT_AUTH_TOKEN`, `TBOT_DOCUMENTS_DIR`, `TBOT_MOD_DIR`, `TBOT_CONFIG_DIR` | per-shell overrides |
 | 3. User config | `~/.config/timberbot/config.toml` (or platform equivalent) | per-user defaults — client target, bearer token, per-backend model/effort |
-| 4. Mod settings | `Documents/Timberborn/Mods/Timberbot/settings.json` | mod runtime (port, security, webhook, `authToken`). `httpHost` here is a legacy client-side override. |
+| 4. Mod settings | `Documents/Timberborn/Mods/Timberbot/settings.json` | mod runtime (`httpPort`, `wsPort`, `listenAddress`, `authToken`, etc.). `httpHost` here is a legacy client-side override. |
 | 5. Built-in | hard-coded | `127.0.0.1:8085`, etc. |
 
 ### `config.toml`
@@ -298,8 +299,8 @@ The in-game `Settings` modal is the primary way to configure mod-side runtime.
 
 All mod-side settings persist to `settings.json`:
 
-- runtime: `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `writeBudgetMs`
-- security: `listenAddress` (default `127.0.0.1`), `authToken` (required when `listenAddress` is non-localhost), `webhookValidateUrls` (default `true`), `maxBodyBytes` (default `1048576`)
+- runtime: `debugEndpointEnabled`, `httpPort` (default `8085`), `wsPort` (default `8086`), `wsEnabled` (default `true`), `writeBudgetMs`
+- security: `listenAddress` (default `127.0.0.1` — applies to both listeners), `authToken` (required when `listenAddress` is non-localhost; enforced on every `/api/*` request and on every WS upgrade), `maxBodyBytes` (default `1048576`)
 - widget position: `widgetLeft`, `widgetTop`
 
 Agent-shaped state lives in **`state.json`** alongside `settings.json`:
@@ -312,7 +313,7 @@ Agent-shaped state lives in **`state.json`** alongside `settings.json`:
 }
 ```
 
-The widget mutates `state.json` directly via `POST /api/agent/config`; you rarely edit it by hand. `ready`, `pendingRequest`, and the connector's registered webhook URL are in-memory only and reset on every save load.
+The widget mutates `state.json` directly via `POST /api/agent/config`; you rarely edit it by hand. `ready` and `pendingRequest` are in-memory only and reset on every save load.
 
 Some runtime settings are applied on load, so changing them may require reloading the save or mod to fully apply.
 
@@ -331,7 +332,7 @@ Some runtime settings are applied on load, so changing them may require reloadin
     - Windows Firewall may block the port. The mod binds the address from `listenAddress` (default `127.0.0.1`); set it to `+`/`0.0.0.0` only with an `authToken` in place.
 
 !!! warning "`409 game_not_ready` on every endpoint"
-    The player has not pressed Launch yet. The ready gate refuses **all `/api/*` reads and writes** except `/api/agent/*`, `/api/ready`, `/api/tbot/*`, and `/api/ping` while `ready=false`. Open the in-game widget and press Launch.
+    The player has not pressed Launch yet. The ready gate refuses **all `/api/*` reads and writes** except `/api/agent/*`, `/api/ready`, and `/api/ping` while `ready=false`. Open the in-game widget and press Launch.
 
 !!! warning "`401 unauthorized`"
     The mod has `authToken` set in `settings.json` but the client isn't sending `Authorization: Bearer <token>`. Set `auth_token` in `~/.config/timberbot/config.toml`, export `TBOT_AUTH_TOKEN`, or pass `tbot --auth-token=…`.

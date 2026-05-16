@@ -1,6 +1,6 @@
 # Architecture
 
-> **v0.9 — architecture rework, in flight.** Behavior on `master` may briefly lag this page while units #13–#18 land. The shape described here is what ships when the rework is complete.
+> **v0.9 — WebSocket cutover, in flight.** Behavior on `master` may briefly lag this page while the WS rework lands. The shape described here is what ships when the rework is complete.
 
 How Timberbot works internally. For migration history, see [`fresh-on-request-snapshots.md`](fresh-on-request-snapshots.md).
 
@@ -8,19 +8,21 @@ How Timberbot works internally. For migration history, see [`fresh-on-request-sn
 
 Timberbot is two cooperating processes:
 
-- The **mod** runs inside the game and exposes the HTTP API. It is a pure server — it never spawns the agent. It owns the canonical session state (`mode`, `goal`, `pendingRequest`, `ready`, …) and a ready gate that refuses traffic until the player presses Launch.
-- The **agent connector** (`tbot watch`) is a long-running Python process on the player's machine. It polls the mod, optionally registers a webhook URL for push triggers, sends heartbeats, and dispatches agent runs.
+- The **mod** runs inside the game and exposes an HTTP API on port 8085 and a parallel WebSocket on port 8086. It is a pure server — it never spawns the agent. It owns the canonical session state (`mode`, `goal`, `pendingRequest`, `ready`, …) and a ready gate that refuses HTTP traffic until the player presses Launch.
+- The **agent connector** (`tbot watch`) is a long-running Python process on the player's machine. It opens a single long-lived WebSocket to the mod, receives state pushes and game events, and dispatches agent runs.
 
 ```
-┌─ Timberborn (game process) ────────────────┐        ┌─ tbot watch (host process) ────────────┐
-│  Timberbot.dll                             │        │                                        │
-│    TimberbotHttpServer  :8085              │◀──────▶│  reconnect loop                        │
-│    TimberbotAgentState  state.json         │   HTTP │  POST /api/tbot/heartbeat   every 2s   │
-│    TimberbotReadV2 / TimberbotWrite        │        │  POST /api/tbot/register    on connect │
-│    TimberbotWebhook                        │──push─▶│  webhook receiver (optional)           │
-│    TimberbotPanel  (Launch / Stop widget)  │        │  agent run dispatcher                  │
-└────────────────────────────────────────────┘        └────────────────────────────────────────┘
+┌─ Timberborn (game process) ────────────────┐         ┌─ tbot watch (host process) ────────────┐
+│  Timberbot.dll                             │         │                                        │
+│    TimberbotHttpServer       :8085         │◀─HTTP──▶│  reads/writes via REST                 │
+│    TimberbotWebSocketServer  :8086         │◀── WS ─▶│  long-lived ws://host:8086/api/ws      │
+│    TimberbotAgentState  state.json         │         │  receives state + event frames         │
+│    TimberbotReadV2 / TimberbotWrite        │         │  sends heartbeat every 30s             │
+│    TimberbotPanel  (Launch / Stop widget)  │         │  agent run dispatcher                  │
+└────────────────────────────────────────────┘         └────────────────────────────────────────┘
 ```
+
+The HTTP listener handles request/response reads and writes. The WebSocket carries everything that used to be polled or pushed out-of-band: agent-state changes, the request-dispatch signal, and the 68-event game-event stream. Any number of WS clients can connect simultaneously — `tbot listen` is just another subscriber.
 
 ## Components
 
@@ -30,10 +32,10 @@ The mod has one read stack and one write stack:
 - write: `TimberbotWrite` — all POST mutations
 - entity lookup: `TimberbotEntityRegistry` — GUID/numeric ID bridge
 - placement: `TimberbotPlacement` — building placement, A* path routing
-- HTTP: `TimberbotHttpServer` — background listener, routing, ready-gate + auth middleware
-- webhooks: `TimberbotWebhook` — batched push notifications
+- HTTP: `TimberbotHttpServer` — background listener, routing, ready-gate + auth middleware (port 8085)
+- WebSocket: `TimberbotWebSocketServer` — parallel listener on `wsPort` (default 8086); accepts upgrades on `/api/ws`, broadcasts `state` and `event` frames, receives `heartbeat` / `ping` frames. Sibling event-bridge code lives in `TimberbotWebhook.cs` (the `[OnEvent]` handlers there now publish into the WS broadcaster).
 - debug: `TimberbotDebug` — reflection inspector, benchmark
-- agent state: `TimberbotAgentState` — single source of truth for `mode`, `goal`, `ready`, `pendingRequest`, `tbotWebhookUrl`, `lastAckedRequestId`, `lastError`. Persisted fields live in `state.json`; ephemeral fields reset on save load.
+- agent state: `TimberbotAgentState` — single source of truth for `mode`, `goal`, `ready`, `pendingRequest`, `lastAckedRequestId`, `lastError`. Persisted fields live in `state.json`; ephemeral fields reset on save load. Mutations raise a `Changed` event that the WS broadcaster turns into a `state` frame.
 - UI: `TimberbotPanel` — movable in-game widget (Launch / Stop, mode dropdown, mode-aware textarea) + centered settings modal
 - orchestrator: `TimberbotService` — lifecycle, settings, per-frame dispatch
 - write jobs: `ITimberbotWriteJob` — budgeted write execution
@@ -41,9 +43,9 @@ The mod has one read stack and one write stack:
 ## Thread model
 
 ```
-MAIN THREAD (Unity)                         BACKGROUND THREAD (HttpListener)
-========================                    ================================
-UpdateSingleton() [every frame]             ListenLoop() [blocking accept]
+MAIN THREAD (Unity)                         BACKGROUND THREADS
+========================                    ==================
+UpdateSingleton() [every frame]             HttpListener: ListenLoop() [blocking accept]
   |                                           |
   +-- DrainRequests() [POST only]             +-- GET request arrives
   |     |                                     |     |
@@ -58,10 +60,13 @@ UpdateSingleton() [every frame]             ListenLoop() [blocking accept]
   +-- ProcessWriteJobs() [budgeted]                 +-- queue to _pending
   |     |
   |     +-- step pending write jobs (2ms budget)
-  |
-  +-- FlushWebhooks() [every frame]
-        |
-        +-- batch _pendingEvents -> ThreadPool POST
+  |                                           WebSocket: per-connection async loops
+  +-- AgentState.Changed (raised after mutate)  |
+        |                                       +-- AcceptWebSocketAsync() upgrades on /api/ws
+        +-- WS broadcaster builds frame         +-- receive loop: heartbeat / ping
+              |                                 +-- send loop: state / event / pong / error
+              +-- enqueue into per-conn         +-- slow consumer → dropped from queue
+                  bounded send queues
 ```
 
 | Location | Thread | Blocks game? |
@@ -71,7 +76,8 @@ UpdateSingleton() [every frame]             ListenLoop() [blocking accept]
 | POST endpoints | main thread via `DrainRequests()` | yes, for duration |
 | `ReadV2.ProcessPendingRefresh()` | main thread | yes, bounded by capture budget |
 | `ProcessWriteJobs()` | main thread | yes, bounded by `writeBudgetMs` (default 1ms) |
-| Webhook flush scheduling | main thread | negligible |
+| WS broadcast enqueue | main thread (after `Changed` / `[OnEvent]`) | negligible (drop-on-overflow) |
+| WS send loop | background per connection | no |
 
 ## TimberbotService
 
@@ -81,16 +87,15 @@ It owns:
 
 - settings load from `settings.json` and state load from `state.json`
 - cached settings state and debounced writeback to `settings.json`
-- HTTP server lifetime
+- HTTP and WebSocket server lifetimes (both refuse to start with non-localhost `listenAddress` and empty `authToken`)
 - event bus registration
 - `Registry.BuildAllIndexes()`
 - `ReadV2.BuildAll()`
-- the shared `TimberbotAgentState` instance exposed to the panel, the HTTP layer, and webhook dispatch
+- the shared `TimberbotAgentState` instance exposed to the panel, the HTTP layer, and the WS broadcaster
 - per-frame dispatch:
   - `DrainRequests()`
   - `ReadV2.ProcessPendingRefresh(now)`
   - `_server.ProcessWriteJobs(now, writeBudgetMs)`
-  - `WebhookMgr.FlushWebhooks(now)`
   - `FlushSettingsIfNeeded(now)`
 
 Settings behavior:
@@ -102,8 +107,8 @@ Settings behavior:
 
 State behavior:
 
-- `Load()` reads `state.json` and seeds `mode`, `goal`, `lastError`. Ephemeral fields (`ready`, `pendingRequest`, `tbotWebhookUrl`, `lastAckedRequestId`) reset on every save load — the player must press Launch again after reloading a save.
-- `Unload()` flushes `state.json` before shutting down the HTTP server.
+- `Load()` reads `state.json` and seeds `mode`, `goal`, `lastError`. Ephemeral fields (`ready`, `pendingRequest`, `lastAckedRequestId`) reset on every save load — the player must press Launch again after reloading a save.
+- `Unload()` flushes `state.json` before shutting down the HTTP and WebSocket servers.
 - The service does not drive the agent itself; the connector does. The service just keeps state coherent.
 
 ## TimberbotAgentState — ready gate, modes, request slot
@@ -120,8 +125,9 @@ Ephemeral fields (reset on save load):
 
 - `ready` — true after the player presses **Launch**; false on Stop or save load
 - `pendingRequest` — single-slot `{id, prompt, createdAt}` set by `POST /api/agent/request` and cleared when the connector acks (`acked_request_id ≥ pendingRequest.id`)
-- `tbotWebhookUrl` — connector's push URL from `POST /api/tbot/register`; cleared if heartbeats lapse > 6 s
-- `lastAckedRequestId` — for ack/clear bookkeeping; this is the same value the connector sends as `acked_request_id` in the heartbeat payload (snake_case on the wire, PascalCase in the C# field)
+- `lastAckedRequestId` — for ack/clear bookkeeping; this is the same value the connector sends as `acked_request_id` in the WS heartbeat frame (snake_case on the wire, PascalCase in the C# field)
+
+Every mutation raises a `Changed` event (outside the lock) that the WS broadcaster turns into a `state` frame. Subscribers therefore see state transitions push-style, with no polling.
 
 ### Ready gate
 
@@ -131,21 +137,22 @@ Carve-out (always live):
 
 - `/api/agent/*` — widget config + Launch trigger
 - `/api/ready` — Launch / Stop toggle
-- `/api/tbot/*` — connector heartbeat, register
 - `/api/ping` — liveness probe
+
+The WebSocket on port 8086 is **not** gated — the connector and any `tbot listen` subscriber can stay connected across save loads and Launch / Stop toggles. They just won't see useful state changes until the player presses Launch.
 
 This is intentional. The gate is what makes the player the boss of the AI: nothing reads colony state, nothing places a building, nothing writes a save until the player explicitly opts in.
 
 ### Modes
 
-- **Request mode** (default). Player types a prompt in the widget and presses Launch. The mod sets `pendingRequest` + fires the registered connector webhook (fast path). If the connector isn't reachable, it picks the request up via its next heartbeat (slow path).
-- **Autonomous mode**. Connector decides cadence using the persisted `goal`. The ready gate is still authoritative — pressing Stop instantly mutes the connector.
+- **Request mode** (default). Player types a prompt in the widget and presses Launch. The mod sets `pendingRequest`; the WS broadcaster pushes the resulting `state` frame to every connected subscriber. The connector picks up the request immediately — no polling.
+- **Autonomous mode**. Connector decides cadence using the persisted `goal`. The ready gate is still authoritative — pressing Stop instantly flips `ready=false` on every connected client.
 
-The connector advances `acked_request_id` after each cycle so the mod can clear the single pending slot. Queueing is the connector's problem, not the mod's.
+The connector advances `acked_request_id` in its WS `heartbeat` frame after each cycle so the mod can clear the single pending slot. Queueing is the connector's problem, not the mod's.
 
 ### Bearer-token auth
 
-When `authToken` is set in `settings.json`, every `/api/*` route requires `Authorization: Bearer <token>` (constant-time compare). The mod **refuses to start** if `listenAddress` is non-localhost and `authToken` is empty — there's no path to ship the API over a LAN without a token. Tokens flow into the Python client via `[client].auth_token` in `config.toml`, the `TBOT_AUTH_TOKEN` env var, or `TimberbotClient(auth_token=...)`.
+When `authToken` is set in `settings.json`, every `/api/*` route requires `Authorization: Bearer <token>` (constant-time compare). The same token is enforced on the WS upgrade request: either `Authorization: Bearer <token>` on the upgrade headers, or `?token=<token>` as a query-param fallback for browser clients that can't set upgrade headers. The mod **refuses to start** if `listenAddress` is non-localhost and `authToken` is empty — there's no path to ship the API over a LAN without a token. Tokens flow into the Python client via `[client].auth_token` in `config.toml`, the `TBOT_AUTH_TOKEN` env var, or `TimberbotClient(auth_token=...)`.
 
 ## TimberbotPanel
 
@@ -164,7 +171,7 @@ UI model:
 - the mode dropdown writes `mode` via `POST /api/agent/config`
 - in **Autonomous** mode the textarea is bound to `goal` with debounced auto-save
 - in **Request** mode the textarea is a local buffer; pressing Launch posts the prompt to `/api/agent/request` and clears the field
-- a banner ("Connected to game session — waiting for player to Launch") appears when a connector is heartbeating but the gate is off
+- a banner ("Connected to game session — waiting for player to Launch") appears when at least one WS subscriber is connected but the gate is off
 
 The panel never spawns or knows about agent processes. It only talks to the local HTTP API.
 
@@ -228,18 +235,19 @@ Write flow:
 - `route_path`. A* pathfinding with auto-stairs across z-levels, budgeted execution via `RoutePathJob`
 - `collect_prefabs`. list building templates
 
-## TimberbotWebhook
+## WebSocket protocol
 
-`TimberbotWebhook` batches event pushes and sends them out-of-band.
+A single long-lived WebSocket replaces the previous heartbeat-polling and outbound-HTTP-webhook channels. The mod hosts a parallel listener on `wsPort` (default `8086`); clients connect to `ws://host:wsPort/api/ws` and stay connected for the life of the session.
 
-- events accumulate on the main thread via `[OnEvent]` handlers
-- `FlushWebhooks()` sends batches on a configurable cadence (default 200ms)
-- dispatch via `ThreadPool` (non-blocking)
-- circuit breaker: N consecutive failures disables the webhook
+The authoritative wire contract — frame envelope, message types, auth header, reconnect guidance — lives in [`websocket-protocol.md`](websocket-protocol.md). Mod-side implementation notes:
 
-Settings: `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`.
-
-**Connector trigger channel.** When the connector calls `POST /api/tbot/register {webhook_url}`, the mod stores that URL in `tbotWebhookUrl`. On Launch in request mode, the mod fires a synthetic `agent.request` event at that URL as the fast path. Regular game-event webhooks still fire while `ready=false` — the ready gate only filters `/api/*` requests, not outbound webhooks. The connector registration is cleared if heartbeats lapse for 6 s.
+- `TimberbotWebSocketServer` owns a separate `HttpListener` and async accept loop on `wsPort`. Upgrades go through `HttpListenerContext.AcceptWebSocketAsync()`.
+- Each accepted connection gets a bounded send queue; slow consumers are dropped on overflow rather than back-pressuring the main thread.
+- State broadcasts originate from `TimberbotAgentState.Changed` (raised outside the lock, after each mutation). Game-event broadcasts originate from the same `[OnEvent]` handlers in `TimberbotWebhook.cs`; that file no longer makes HTTP calls — it just hands frames to the broadcaster.
+- `TimberbotPure` ships pure helpers for the envelope: `BuildStateMessage`, `BuildEventMessage`, `ParseInboundMessage`.
+- Auth: the same `authToken` middleware applies to upgrade requests. Bearer header preferred; `?token=` fallback for browser clients.
+- Heartbeat cadence: 30 s. The client sends a `heartbeat` frame carrying `{version, agent_status, acked_request_id}`. WS ping/pong and TCP keepalive handle liveness — there is no shorter polling loop.
+- Game events are **not** ready-gated. The ready gate only filters inbound `/api/*` HTTP requests; subscribers see weather / population / power events whether the player has pressed Launch or not.
 
 ## Read architecture
 
@@ -331,18 +339,20 @@ HTTP POST
 
 ### Agent control
 
-Agent control is HTTP-only — the mod never spawns a process. The widget and the connector both speak `TimberbotHttpServer`:
+The mod never spawns a process. The widget speaks `TimberbotHttpServer`; the connector speaks `TimberbotWebSocketServer`:
 
-| Route | Caller | Purpose |
+| Channel | Caller | Purpose |
 |---|---|---|
-| `GET /api/agent/state` | widget, connector | Read `{mode, goal, ready, pendingRequest, agentStatus, lastError}` |
-| `POST /api/agent/config` | widget | Debounced save of `mode` and/or `goal` |
-| `POST /api/agent/request` | widget (Launch in request mode) | Set `pendingRequest`; fire `tbotWebhookUrl` if registered |
-| `POST /api/ready` | widget | Launch / Stop the ready gate |
-| `POST /api/tbot/register` | connector | Register a webhook URL for push-mode triggering |
-| `POST /api/tbot/heartbeat` | connector | 2 s liveness ping with `{version, agent_status, acked_request_id}`; returns full state |
+| `GET /api/agent/state` (HTTP) | widget | One-shot read of `{mode, goal, ready, pendingRequest, agentStatus, lastError}` for UI bootstrap. The connector gets the same data as `state` frames on the WS. |
+| `POST /api/agent/config` (HTTP) | widget | Debounced save of `mode` and/or `goal` |
+| `POST /api/agent/request` (HTTP) | widget (Launch in request mode) | Set `pendingRequest`; triggers a `state` frame on every WS subscriber |
+| `POST /api/ready` (HTTP) | widget | Launch / Stop the ready gate |
+| `state` frame (WS, server→client) | connector, `tbot listen` | Full snapshot of agent state, pushed on every change |
+| `event` frame (WS, server→client) | connector, `tbot listen` | Single game event with `{event, day, timestamp, data}` |
+| `heartbeat` frame (WS, client→server) | connector | 30 s liveness ping carrying `{version, agent_status, acked_request_id}` |
+| `ping` / `pong` frames (WS) | both sides | Optional application-level keepalive on top of the WS protocol-level ping/pong |
 
-The connector (`tbot watch`) owns the agent process lifetime. It dispatches `tbot agent run` (or `opencode run --attach <url>`) on each trigger, then advances `acked_request_id` so the mod can clear the pending slot.
+The connector (`tbot watch`) owns the agent process lifetime. It dispatches `tbot agent run` (or `opencode run --attach <url>`) on each `state` frame that surfaces a new `pendingRequest`, then sends a `heartbeat` frame with the new `acked_request_id` so the mod can clear the pending slot.
 
 ## Serialization
 
@@ -374,7 +384,7 @@ Projection snapshots and value stores. Request-triggered, waits for publish, bes
 
 ### Event-driven
 
-Registry data (GUID-to-ID maps, webhook lifecycle hooks). Updated on `EntityInitializedEvent`/`EntityDeletedEvent`. Used for entity lookup and compatibility only.
+Registry data (GUID-to-ID maps, event-bridge lifecycle hooks). Updated on `EntityInitializedEvent`/`EntityDeletedEvent`. Used for entity lookup and compatibility only.
 
 ## Settings
 
@@ -384,13 +394,10 @@ Registry data (GUID-to-ID maps, webhook lifecycle hooks). Updated on `EntityInit
 {
   "debugEndpointEnabled": true,
   "httpPort": 8085,
+  "wsPort": 8086,
+  "wsEnabled": true,
   "listenAddress": "127.0.0.1",
   "authToken": "",
-  "webhooksEnabled": true,
-  "webhookBatchMs": 200,
-  "webhookCircuitBreaker": 30,
-  "webhookMaxPendingEvents": 1000,
-  "webhookValidateUrls": true,
   "writeBudgetMs": 1.0,
   "maxBodyBytes": 1048576,
   "widgetLeft": "123",
@@ -400,11 +407,10 @@ Registry data (GUID-to-ID maps, webhook lifecycle hooks). Updated on `EntityInit
 
 There are three categories of settings:
 
-- runtime, read by `TimberbotService`: `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `writeBudgetMs`
+- runtime, read by `TimberbotService`: `debugEndpointEnabled`, `httpPort`, `wsPort`, `wsEnabled`, `writeBudgetMs`
 - security, also applied at load:
-  - `listenAddress` — bind address; default `127.0.0.1`. Use `+`/`0.0.0.0` for LAN
-  - `authToken` — bearer token required on every `/api/*` request when set. **Required** if `listenAddress` is non-localhost; the mod refuses to start otherwise.
-  - `webhookValidateUrls` — reject SSRF-shaped webhook targets before dispatch; default `true`
+  - `listenAddress` — bind address for both listeners; default `127.0.0.1`. Use `+`/`0.0.0.0` for LAN
+  - `authToken` — bearer token required on every `/api/*` request and on every WS upgrade when set. **Required** if `listenAddress` is non-localhost; the mod refuses to start otherwise.
   - `maxBodyBytes` — POST body size cap before `413 body_too_large`; default `1048576`
 - widget position written by `TimberbotPanel`: `widgetLeft`, `widgetTop`
 
@@ -418,7 +424,10 @@ Agent-shaped state lives in **`state.json`** alongside `settings.json`, not in s
 }
 ```
 
-Deprecated `settings.json` keys (`terminal`, `pythonCommand`, `agentBinary`, `agentGoal`, `agentModel`, `agentEffort`, `agentCommandTemplate`, `agentAllowlistEnabled`, `agentAllowedBinaries`, `tbotCommand`) are logged once at load and otherwise ignored. Backend choice, model, effort, and custom command templates live in `~/.config/timberbot/config.toml` (consumed by `tbot watch` and `tbot agent run`).
+Deprecated `settings.json` keys are logged once at load and otherwise ignored:
+
+- legacy agent-launcher: `terminal`, `pythonCommand`, `agentBinary`, `agentGoal`, `agentModel`, `agentEffort`, `agentCommandTemplate`, `agentAllowlistEnabled`, `agentAllowedBinaries`, `tbotCommand`. Backend choice, model, effort, and custom command templates live in `~/.config/timberbot/config.toml` (consumed by `tbot watch` and `tbot agent run`).
+- legacy outbound webhooks: `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `webhookValidateUrls`. Events now flow over the WebSocket; there is no outbound HTTP delivery path.
 
 Important behavior:
 
@@ -443,7 +452,7 @@ Primary live harness: `python/tests/integration/v2_runner.py`. Validates the `/a
 
 Modes: `smoke`, `freshness`, `write_to_read`, `performance`, `concurrency`, `all`. Invoke via `python -m pytest python/tests/integration/ -m integration` with `-k <mode>` to filter.
 
-The connector and webhook receiver (`tbot watch`, `tbot listen`) are unit-tested with `pytest-httpserver` stubs — they don't require a live game.
+The connector and event receiver (`tbot watch`, `tbot listen`) are unit-tested against an in-process aiohttp WebSocket server — they don't require a live game.
 
 ## Known debt
 
@@ -453,6 +462,8 @@ The connector and webhook receiver (`tbot watch`, `tbot listen`) are unit-tested
 
 ## Related docs
 
+- [`websocket-protocol.md`](websocket-protocol.md). authoritative WS wire contract (envelope, auth, reconnect)
+- [`events.md`](events.md). user-facing guide to consuming the WS event stream
 - [`fresh-on-request-snapshots.md`](fresh-on-request-snapshots.md). migration rationale and validation history
 - [`thread-safe-surfaces.md`](thread-safe-surfaces.md). Timberborn thread-safety guidance
 - [`developing.md`](developing.md). build, test, file structure

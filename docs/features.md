@@ -41,10 +41,10 @@
 | [Power networks](api-reference.md#get-apipower) | Connected building groups with supply vs demand per network | Yes |
 | [Bot durability](api-reference.md#get-apibeavers) | Deterioration progress (0-1) on mechanical beavers | Yes |
 | [Resource projection](api-reference.md#get-apisummary) | Projected days of logs, planks, gears (logDays, plankDays, gearDays) | Yes |
-| [Webhooks](webhooks.md) | 68 push notification events for game automation (drought, death, construction, weather, power, wonders) | Yes |
+| [Event stream](events.md) | 68 push-notification game events (drought, death, construction, weather, power, wonders) delivered over the mod's WebSocket | Yes |
 | [In-game agent widget](getting-started.md#start-a-session) | Movable corner widget with `Launch`, `Stop`, mode dropdown, prompt/goal textarea, and live agent status | Yes |
 | [In-game settings](getting-started.md#settings-and-configuration-server-mod) | Primary configuration surface for runtime + security settings. All changes persist to `settings.json` | Yes |
-| [`tbot watch` agent connector](getting-started.md#start-a-session) | Long-running Python process that polls the mod, heartbeats every 2 s, and dispatches the agent on Launch | Yes |
+| [`tbot watch` agent connector](getting-started.md#start-a-session) | Long-running Python process that holds a WebSocket to the mod, reacts to `state` frames, and dispatches the agent on Launch | Yes |
 | [Pagination](api-reference.md#pagination) | Server-side limit/offset on all list endpoints (default 100 items) | Yes |
 | [Filtering](api-reference.md#filtering) | Server-side name and proximity filtering on list endpoints | Yes |
 | [Error codes](api-reference.md#error-format) | Structured `"code: detail"` error format with machine-readable prefixes | Yes |

@@ -45,6 +45,7 @@ You are the Beaver Developer — a Timberborn modding specialist working on the 
 
 - `AGENTS.md` — project overview, architecture, conventions, current limitations. **This is the source of truth for conventions; do not redefine them here.**
 - `openapi.yaml` — canonical HTTP contract. Read before adding or changing any endpoint.
+- `docs/websocket-protocol.md` — canonical WebSocket wire contract. Read before touching `TimberbotWebSocketServer`, the WS client lib, `tbot watch`, or `tbot listen`.
 - `docs/api-reference.md` — human-readable companion to the OpenAPI spec.
 - `docs/architecture.md` — thread model, write-job queue, registry, serialization.
 - `docs/devenv.md` — toolchain (.NET, Python, `ilspycmd`).

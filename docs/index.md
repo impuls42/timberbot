@@ -9,7 +9,7 @@
 Timberbot gives Claude, Codex, ChatGPT, or your own scripts complete access to a running Timberborn colony over HTTP. Read game state, place buildings, manage workers, plant crops, wire automation, and keep your beavers alive.
 
 !!! info "Modified fork"
-    This project is a modified fork of [abix-/TimberbornMods](https://github.com/abix-/TimberbornMods). It extends the original mod with an expanded read/write HTTP API, automation wiring endpoints, webhooks, and AI-agent integrations. All credit for the original mod goes to [abix-](https://github.com/abix-).
+    This project is a modified fork of [abix-/TimberbornMods](https://github.com/abix-/TimberbornMods). It extends the original mod with an expanded read/write HTTP API, automation wiring endpoints, a WebSocket event stream, and AI-agent integrations. All credit for the original mod goes to [abix-](https://github.com/abix-).
 
 ---
 
@@ -33,9 +33,9 @@ Timberbot gives Claude, Codex, ChatGPT, or your own scripts complete access to a
 
     Compatibility matrix of what's implemented vs gaps.
 
-- **[Webhooks](webhooks.md)**
+- **[Events](events.md)**
 
-    Subscribe to game events over HTTP.
+    Subscribe to game events over the mod's WebSocket.
 
 - **[Architecture](architecture.md)**
 
