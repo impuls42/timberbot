@@ -15,6 +15,7 @@ shape produced by `refresh_brain`.
 """
 from __future__ import annotations
 
+import re
 import shutil
 import warnings
 from datetime import datetime
@@ -22,7 +23,13 @@ from pathlib import Path
 from typing import Any
 
 from timberbot.config import data_dir
-from timberbot.paths import sanitize_name
+
+_FS_BAD = re.compile(r'[<>:"/\\|?*]')
+
+
+def sanitize_name(name: str) -> str:
+    """Make a settlement name filesystem-safe; never returns empty."""
+    return _FS_BAD.sub("_", name).strip() or "unknown"
 
 
 class SettlementContext:
@@ -67,6 +74,17 @@ class SettlementContext:
         `UserWarning`. The legacy file is left in place so users can verify
         and delete it themselves.
 
+        The `_migrated` flag is intentionally instance-scoped, not
+        process-scoped: short-circuits repeated migration checks on a single
+        SettlementContext while staying inexpensive across instances. The
+        `target.exists()` guard below makes the migration safe even without
+        the flag, so reconstructing a SettlementContext can't double-copy.
+
+        We use `shutil.copy` rather than `copy2` so the migrated file's mtime
+        reflects "just migrated", not whatever the legacy file's mtime was —
+        any "is this brain.toon fresh?" heuristic should treat the new file
+        as newly written.
+
         Best-effort: any resolver failure (no Timberborn install, no path
         access) makes this a no-op. PR 4 deletes `paths.py`; this helper
         catches the resulting `ImportError` and stays a no-op then too.
@@ -86,7 +104,7 @@ class SettlementContext:
             return
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(legacy, target)
+            shutil.copy(legacy, target)
         except OSError:
             return
         warnings.warn(

@@ -48,9 +48,12 @@ def test_explicit_override_beats_env_var(monkeypatch, tmp_path):
 
 
 def test_sanitize_name_strips_filesystem_unsafe_chars():
-    assert paths.sanitize_name("My/Castle") == "My_Castle"
-    assert paths.sanitize_name('hello"world') == "hello_world"
-    assert paths.sanitize_name("a<b>c|d?e*f") == "a_b_c_d_e_f"
-    assert paths.sanitize_name("  ") == "unknown"
-    assert paths.sanitize_name("") == "unknown"
-    assert paths.sanitize_name("simple") == "simple"
+    # sanitize_name moved to timberbot.state in #43 PR 3 so it survives the
+    # paths.py deletion in PR 4 — covered here while paths.py still exists.
+    from timberbot.state import sanitize_name
+    assert sanitize_name("My/Castle") == "My_Castle"
+    assert sanitize_name('hello"world') == "hello_world"
+    assert sanitize_name("a<b>c|d?e*f") == "a_b_c_d_e_f"
+    assert sanitize_name("  ") == "unknown"
+    assert sanitize_name("") == "unknown"
+    assert sanitize_name("simple") == "simple"

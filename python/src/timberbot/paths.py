@@ -24,7 +24,6 @@ The mod folder is resolved separately by `mod_dir()`:
 from __future__ import annotations
 
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -150,13 +149,10 @@ def saves_dir() -> Path:
 
 
 def memory_base() -> Path:
-    """Root of per-settlement brain.toon storage."""
+    """Root of per-settlement brain.toon storage.
+
+    Retained only as a fallback resolver for the legacy `brain.toon` location
+    consulted by `state.SettlementContext._migrate_legacy_brain`. Production
+    `brain.toon` lives under `config.data_dir() / "memory"` since #43 PR 3.
+    """
     return mod_dir() / "memory"
-
-
-_FS_BAD = re.compile(r'[<>:"/\\|?*]')
-
-
-def sanitize_name(name: str) -> str:
-    """Make a settlement name filesystem-safe; never returns empty."""
-    return _FS_BAD.sub("_", name).strip() or "unknown"
