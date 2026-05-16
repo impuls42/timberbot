@@ -23,25 +23,17 @@ Timberbot API gives Claude, Codex, ChatGPT, or your own scripts complete access 
 
 ## Install the mod
 
-### From Steam Workshop
-
-Subscribe to Timberbot API on the Steam Workshop. The mod installs automatically. Launch Timberborn and enable it in the Mod Manager.
-
-### Manual install
+This fork is **not** published to the Steam Workshop — the Workshop entry "Timberbot API" is the upstream [`abix-/TimberbornMods`](https://github.com/abix-/TimberbornMods) project. Install this fork manually from GitHub releases (or build from source — see [Developing](developing.md)).
 
 Download `Timberbot.dll`, `manifest.json`, and `thumbnail.png` from the [latest GitHub release](https://github.com/impuls42/timberbot/releases) and place them in:
 
 ```
-C:\Users\<you>\Documents\Timberborn\Mods\Timberbot\
+C:\Users\<you>\Documents\Timberborn\Mods\Timberbot\           # Windows
+~/Documents/Timberborn/Mods/Timberbot/                        # macOS, native Linux
+~/.steam/steam/steamapps/compatdata/1062090/pfx/drive_c/users/steamuser/Documents/Timberborn/Mods/Timberbot/   # Linux + Proton
 ```
 
-On macOS, use:
-
-```
-~/Documents/Timberborn/Mods/Timberbot/
-```
-
-Enable the mod in the Mod Manager.
+Enable the mod in the Mod Manager. If you previously had the upstream Workshop version installed, disable or unsubscribe it first — both registering the same singleton would prevent the mod from loading.
 
 ## Verify it works
 
@@ -94,7 +86,7 @@ The widget no longer spawns the agent. Instead, the player runs `tbot watch` on 
 
 The first-run flow is:
 
-1. **Install the mod** (Steam Workshop or manual — see above).
+1. **Install the mod** from GitHub releases (see above).
 2. **Install the CLI** via `pipx install timberbot` and run `tbot init` once.
 3. **Configure a backend** in `~/.config/timberbot/config.toml` (`claude`, `codex`, `opencode`, or `custom`).
 4. **Start the connector**: in a terminal, run `tbot watch`. Leave it running.

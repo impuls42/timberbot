@@ -24,7 +24,7 @@ TimberbornMods/
       Timberbot.csproj                  Build config, game DLL references
       manifest.json                     Mod metadata (version, name, description)
       settings.json                     Persistent settings store (runtime + agent/UI settings, primarily edited in-game)
-      thumbnail.png                     Steam Workshop image
+      thumbnail.png                     Mod thumbnail (rendered in the Mod Manager + README)
     test/
       Timberbot.Tests.csproj            xUnit test project (net8.0, shares source files)
       TimberbotJwTests.cs               JSON writer tests (primitives, nesting, commas, reuse)
@@ -197,26 +197,9 @@ See `python/tests/integration/README.md` for the runner-level options
 
 Results include per-test GC0 count, ms/call, and pass/fail. See [performance.md](performance.md#benchmarks) for recorded results.
 
-## Steam Workshop
+## Release
 
-### First publish
-
-1. `dotnet build` (auto-deploys DLL + manifest + thumbnail to mods folder)
-2. Launch Timberborn, open Mod Manager from main menu
-3. Find Timberbot API in your local mods, click the upload/publish button
-4. Accept Steam Workshop ToS on first upload
-5. A `workshop_data.json` is generated in your mods folder. this links your local mod to the Workshop item ID
-
-### Updating
-
-1. Bump version in `manifest.json` and `Timberbot.csproj`
-2. `dotnet build` (auto-deploys updated files to mods folder)
-3. Launch Timberborn, open Mod Manager
-4. Your mod shows an update option because `workshop_data.json` is present
-5. Check the boxes for what to update (files, description, preview image)
-6. Upload
-
-**Important:** Keep `workshop_data.json` in your mods folder (it's gitignored). Without it, uploading creates a NEW Workshop entry instead of updating the existing one.
+This fork ships via GitHub releases only; the Steam Workshop entry "Timberbot API" belongs to the upstream [`abix-/TimberbornMods`](https://github.com/abix-/TimberbornMods) project. Users install the fork manually — see [Getting Started](getting-started.md#install-the-mod).
 
 ### GitHub release
 

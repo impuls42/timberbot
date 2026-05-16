@@ -662,4 +662,4 @@ Changing recipes destroys in-progress items and consumed materials. Re-setting t
 Use these docs when you need more than the AI guide itself:
 
 - [API Reference](api-reference.md) for exact commands, query parameters, pagination, helper behavior, and error payloads
-- [Getting Started](getting-started.md) for install, PATH, remote host, Steam Workshop paths, and troubleshooting guidance
+- [Getting Started](getting-started.md) for install (GitHub release), PATH, remote host, Proton/Wine paths, and troubleshooting guidance

@@ -99,7 +99,7 @@ tbot watch --backend claude                         # long-running agent connect
 - [Automation Plan](docs/automation-plan.md). decompiled wiring API and `/api/automation/*` design
 - [Agent Prompts](python/src/timberbot/agent_prompts/). drop-in gameplay prompts (`timberbot`, `scout`, `wirer`, `auditor`). Materialize editable copies into your user config dir with `tbot init`. The development-agent prompt for working on this codebase lives separately at [`agents/beaver-developer.md`](agents/beaver-developer.md).
 - [Repo Guide](AGENTS.md). project layout, build commands, conventions
-- [Developing](docs/developing.md). build from source, add endpoints, Workshop publishing
+- [Developing](docs/developing.md). build from source, add endpoints, cutting a GitHub release
 
 ## Settings
 
