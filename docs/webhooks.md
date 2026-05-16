@@ -8,27 +8,11 @@ Webhooks are unaffected by the [ready gate](architecture.md#ready-gate) — they
 
 ## Local listener quickstart (`tbot listen`)
 
-> **Not yet available on `master`.** `tbot listen` ships as part of the v0.9 architecture cutover (tracked in [unreleased.md](unreleased.md)). Until it lands, run your own aiohttp/Flask server on the registered URL.
-
-The fastest way to receive webhooks on your own machine is the bundled `tbot listen` reference receiver:
-
-```bash
-tbot listen --port 9000                       # one event per line as JSON
-tbot listen --port 9000 --pretty              # human-friendly rendering
-tbot listen --port 9000 --forward-to events.log
-tbot listen --port 9000 --forward-to https://example.com/hook
-```
-
-`tbot listen` accepts the same batched POST shape the mod sends and exits cleanly on `Ctrl-C`. It exists so users don't have to write an aiohttp server before they can debug webhook delivery.
-
-Pair it with `tbot register_webhook` to send live events to the local listener:
-
-```bash
-tbot listen --port 9000 &
-tbot register_webhook url:http://127.0.0.1:9000/events events:drought.start,beaver.died
-```
-
-If you're running `tbot watch` (the [agent connector](architecture.md#the-mod-connector-split)), it can host its own listener on the same port and register the URL via `POST /api/tbot/register` automatically — see [Connector triggers](#connector-triggers) below.
+> **`tbot listen` is now a pure WebSocket subscriber.** The inbound aiohttp.web
+> receiver and its `--port` / `--host` bind flags were removed in the v0.9
+> rework — agents and viewers connect to the mod's `/api/ws` channel instead
+> of hosting an HTTP server. See the WS quickstart for details (full guide
+> follows in the WS-channel docs unit).
 
 ## Setup
 
@@ -59,32 +43,6 @@ Omit `events` to receive all events.
 ```
 
 Each POST contains an array of events that accumulated during the batch window. Single events arrive as a 1-element array.
-
-## Local listener (quickstart)
-
-`tbot listen` ships a reference webhook receiver so you can see events without writing any code. It accepts the batched payload above at `POST /` and `POST /events`.
-
-```bash
-# Watch events on stdout (raw JSON, one event per line):
-tbot listen --port 9000
-
-# Human-friendly output instead of raw JSON:
-tbot listen --port 9000 --pretty
-
-# Tee every event into a JSON-lines file:
-tbot listen --port 9000 --forward-to file://./events.jsonl
-
-# Quietly forward batches to a downstream HTTP collector:
-tbot listen --port 9000 --quiet --forward-to https://collector.example/sink
-```
-
-Then register the listener with the mod (the URL must be reachable from the game process):
-
-```bash
-tbot register_webhook url:http://127.0.0.1:9000/events events:drought.start,drought.end
-```
-
-`--forward-to` accepts either a file path (with or without the `file://` prefix — events are appended as JSON lines) or an `http(s)://` URL (the original batch array is POSTed downstream). `--quiet` suppresses stdout entirely; combine it with `--forward-to` to use `tbot listen` as a headless relay.
 
 ## Management
 
