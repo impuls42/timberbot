@@ -1,6 +1,6 @@
 # Events
 
-> **v0.9 — WebSocket cutover, in flight.** The mod no longer dispatches outbound HTTP webhooks. Game events are now pushed over the mod's WebSocket endpoint (a separate connection per subscriber, sharing the same endpoint the connector uses); see [`websocket-protocol.md`](websocket-protocol.md) for the wire contract.
+> **v0.9 — WebSocket cutover, in flight.** The mod no longer dispatches outbound HTTP webhooks. Game events are now pushed over the mod's WebSocket — every subscriber opens its own connection to the same `/api/ws` endpoint the connector uses. The summary below covers what you need to connect; the full wire contract lands with [#28](https://github.com/impuls42/timberbot/issues/28) (WS Unit 1), at which point [`websocket-protocol.md`](websocket-protocol.md) becomes authoritative.
 
 Game events (drought, beaver deaths, building placement, weather, power, wonders, …) are delivered as server-push frames on the mod's WebSocket endpoint at `ws://host:wsPort/api/ws` (default port `8086`). Any number of subscribers can connect; each receives the same fan-out stream.
 
