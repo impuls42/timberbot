@@ -66,19 +66,9 @@ from timberbot import TimberbotClient
 
 ### Linux / Steam Deck
 
-`tbot` autodiscovers Timberborn's "Documents" folder, including Proton/Wine
-prefixes under `~/.steam/steam/steamapps/compatdata/<appid>/pfx/...`. The
-scan assumes the standard Proton-managed Windows username `steamuser` — if
-you're running Timberborn under a custom Wine prefix with a different
-username, set `TBOT_DOCUMENTS_DIR` explicitly. To force a specific
-location:
+`tbot` is a pure network client — it does not read or write anything under the game's `Documents/Timberborn/` tree. As long as the mod is reachable at `127.0.0.1:8085` (or wherever `--host=`/`TBOT_HOST` points), the CLI works without any local Timberborn install. Per-settlement `brain.toon` files live under the OS user-data dir (`~/.local/share/timberbot/memory/<settlement>/`) instead.
 
-```bash
-export TBOT_DOCUMENTS_DIR=~/.steam/steam/steamapps/compatdata/1062090/pfx/drive_c/users/steamuser/Documents/Timberborn
-# or per-invocation:
-tbot --documents-dir=/path/to/Timberborn summary
-tbot --mod-dir=/path/to/Mods/Timberbot summary
-```
+The build-time `scripts/deploy.sh` still autodiscovers the Proton/Wine `Documents/Timberborn/Mods/Timberbot/` folder so source builds can deploy the freshly built DLL — set `TBOT_DOCUMENTS_DIR` if your Wine prefix uses a non-`steamuser` username.
 
 ## Start a session
 
@@ -256,8 +246,8 @@ Timberbot reads client settings from four places, in this order (first match win
 
 | Tier | Where | Owns |
 |---|---|---|
-| 1. CLI flags | `tbot --host=X --port=Y --auth-token=T --documents-dir=… --mod-dir=…` | per-invocation overrides |
-| 2. Environment | `TBOT_HOST`, `TBOT_PORT`, `TBOT_AUTH_TOKEN`, `TBOT_DOCUMENTS_DIR`, `TBOT_MOD_DIR`, `TBOT_CONFIG_DIR` | per-shell overrides |
+| 1. CLI flags | `tbot --host=X --port=Y --auth-token=T` | per-invocation overrides |
+| 2. Environment | `TBOT_HOST`, `TBOT_PORT`, `TBOT_AUTH_TOKEN`, `TBOT_CONFIG_DIR`, `TBOT_DATA_DIR` | per-shell overrides |
 | 3. User config | `~/.config/timberbot/config.toml` (or platform equivalent) | per-user defaults — client target, bearer token, per-backend model/effort |
 | 4. Built-in | hard-coded | `127.0.0.1:8085`, etc. |
 

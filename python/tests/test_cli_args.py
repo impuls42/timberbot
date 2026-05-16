@@ -19,21 +19,8 @@ def test_parse_flags_picks_up_json_help_host_port():
     assert flags.help_mode is True
     assert flags.host == "1.2.3.4"
     assert flags.port == 9001
-    assert flags.documents_dir is None
-    assert flags.mod_dir is None
     assert flags.auth_token is None
     assert flags.positional == ["summary", "x:1"]
-
-
-def test_parse_flags_picks_up_documents_dir_and_mod_dir():
-    flags = parse_flags([
-        "--documents-dir=/tmp/D",
-        "--mod-dir=/tmp/M",
-        "summary",
-    ])
-    assert flags.documents_dir == "/tmp/D"
-    assert flags.mod_dir == "/tmp/M"
-    assert flags.positional == ["summary"]
 
 
 def test_parse_flags_picks_up_auth_token():
@@ -55,8 +42,6 @@ def test_parse_flags_defaults():
     assert flags.help_mode is False
     assert flags.host is None
     assert flags.port is None
-    assert flags.documents_dir is None
-    assert flags.mod_dir is None
     assert flags.auth_token is None
     assert flags.positional == ["summary"]
 
