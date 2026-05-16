@@ -2139,7 +2139,7 @@ tbot top
 
 ### Spatial memory (CLI-focused)
 
-Persistent colony knowledge in `Documents/Timberborn/Mods/Timberbot/memory/`.
+Persistent colony knowledge under the OS user-data dir (`~/.local/share/timberbot/memory/` on Linux, `~/Library/Application Support/timberbot/memory/` on macOS, `%LOCALAPPDATA%\timberbot\memory\` on Windows). Override with `TBOT_DATA_DIR`. Older `brain.toon` files under the legacy `Documents/Timberborn/Mods/Timberbot/memory/` tree are migrated on first run.
 
 ```bash
 tbot brain            # live summary + persistent goal/tasks/locations
@@ -2153,7 +2153,7 @@ tbot list_tasks       # show all tasks
 tbot clear_tasks      # remove done tasks
 ```
 
-`brain` returns live summary (always fresh from `/api/summary`) plus persistent state from `memory/brain.toon` (goal, tasks, locations). Summary is never persisted. only goal, tasks, and locations survive between sessions. Set a persistent goal with `brain goal:"text"`. The built-in in-game agent also uses `brain` internally during startup before it launches Claude/Codex.
+`brain` returns live summary (always fresh from `/api/summary`) plus persistent state from `<user-data>/timberbot/memory/<settlement>/brain.toon` (goal, tasks, locations). Summary is never persisted. only goal, tasks, and locations survive between sessions. Set a persistent goal with `brain goal:"text"`. The built-in in-game agent also uses `brain` internally during startup before it launches Claude/Codex.
 
 ---
 

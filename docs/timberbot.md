@@ -272,7 +272,7 @@ For full API details, read `docs/api-reference.md` and `docs/automation-plan.md`
 - science, alerts, building role counts
 - nearby `treeClusters` and `foodClusters`
 
-**Persistent state (stored in `memory/<settlement>/brain.toon`):**
+**Persistent state (stored in `<user-data>/timberbot/memory/<settlement>/brain.toon` — `~/.local/share/timberbot/memory/` on Linux, `~/Library/Application Support/timberbot/memory/` on macOS, `%LOCALAPPDATA%\timberbot\memory\` on Windows; override with `TBOT_DATA_DIR`):**
 
 - `goal`
 - ordered `tasks`

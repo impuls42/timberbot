@@ -137,3 +137,96 @@ def test_compact_locations_renders_coords_species_note():
     assert out["dc"] == "100,200,z3"
     assert out["forest"] == "50,60,z1 Pine,Birch"
     assert out["marked"] == "1,2,z0 demolish later"
+
+
+# ---------------------------------------------------------------------------
+# Migration from legacy <mod_dir>/memory/<settlement>/brain.toon to the new
+# user-data-dir location (impuls42/timberbot#43 PR 3).
+# ---------------------------------------------------------------------------
+
+import warnings
+
+import pytest
+
+
+@pytest.fixture
+def migration_paths(tmp_path, monkeypatch):
+    """Two controlled paths: a legacy mod tree and the new data dir.
+
+    Returns (legacy_brain_path, new_base, settlement).
+    """
+    settlement = "Castle"
+    legacy_root = tmp_path / "legacy-docs"
+    legacy_root.mkdir()
+    # paths.memory_base() = mod_dir() / "memory" = TBOT_DOCUMENTS_DIR / Mods/Timberbot/memory
+    legacy_dir = legacy_root / "Mods" / "Timberbot" / "memory" / settlement
+    legacy_brain = legacy_dir / "brain.toon"
+    monkeypatch.setenv("TBOT_DOCUMENTS_DIR", str(legacy_root))
+
+    new_root = tmp_path / "new-data"
+    monkeypatch.setenv("TBOT_DATA_DIR", str(new_root))
+
+    # `paths.documents_dir()` caches its first resolution per-process, so
+    # tests that touched it earlier in the same session would lock in the
+    # conftest TBOT_DOCUMENTS_DIR. Clear the cache so our override takes.
+    from timberbot import paths
+    paths.reset_cache()
+
+    return legacy_brain, new_root / "memory", settlement
+
+
+def test_migration_copies_legacy_brain(migration_paths):
+    legacy_brain, new_base, settlement = migration_paths
+    legacy_brain.parent.mkdir(parents=True, exist_ok=True)
+    legacy_brain.write_text("toon:legacy-marker\n")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", UserWarning)
+        ctx = SettlementContext(settlement)
+
+    new_brain = new_base / settlement / "brain.toon"
+    assert new_brain.is_file()
+    assert new_brain.read_text() == "toon:legacy-marker\n"
+    # legacy file is left in place for user-side verification
+    assert legacy_brain.is_file()
+    # exactly one migration warning, mentioning both paths
+    matches = [w for w in caught if "migrated brain.toon" in str(w.message)]
+    assert len(matches) == 1
+    msg = str(matches[0].message)
+    assert str(legacy_brain) in msg and str(new_brain) in msg
+    # idempotent: a second context for the same settlement is a no-op
+    with warnings.catch_warnings(record=True) as caught2:
+        warnings.simplefilter("always", UserWarning)
+        SettlementContext(settlement)
+    assert not any("migrated brain.toon" in str(w.message) for w in caught2)
+
+
+def test_migration_skipped_when_new_already_exists(migration_paths):
+    legacy_brain, new_base, settlement = migration_paths
+    legacy_brain.parent.mkdir(parents=True, exist_ok=True)
+    legacy_brain.write_text("toon:legacy-marker\n")
+    new_brain = new_base / settlement / "brain.toon"
+    new_brain.parent.mkdir(parents=True, exist_ok=True)
+    new_brain.write_text("toon:new-wins\n")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", UserWarning)
+        SettlementContext(settlement)
+
+    # new content untouched, no warning emitted
+    assert new_brain.read_text() == "toon:new-wins\n"
+    assert not any("migrated brain.toon" in str(w.message) for w in caught)
+
+
+def test_no_migration_when_no_legacy_file(migration_paths):
+    legacy_brain, new_base, settlement = migration_paths
+    new_brain = new_base / settlement / "brain.toon"
+    assert not legacy_brain.exists()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", UserWarning)
+        ctx = SettlementContext(settlement)
+
+    assert ctx.load_brain() == {}
+    assert not new_brain.exists()
+    assert not any("migrated brain.toon" in str(w.message) for w in caught)
