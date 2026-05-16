@@ -80,7 +80,7 @@ timberbot/
 │   │   ├── TimberbotPlacement.cs         # Building/planting placement logic
 │   │   ├── TimberbotAgentState.cs        # mode/goal/ready/pendingRequest container; state.json persistence; Changed event
 │   │   ├── TimberbotEntityRegistry.cs    # Entity lookup by ID
-│   │   ├── TimberbotWebhook.cs           # [OnEvent] handlers that hand game events to the WS broadcaster
+│   │   ├── TimberbotEvents.cs           # [OnEvent] handlers that hand game events to the WS broadcaster
 │   │   ├── TimberbotService.cs           # Main lifecycle (Load/Update); owns both listeners
 │   │   ├── TimberbotPanel.cs             # In-game UI panel (Launch/Stop, mode dropdown)
 │   │   ├── TimberbotDebug.cs             # Debug/diagnostic endpoints

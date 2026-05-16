@@ -33,7 +33,7 @@ The mod has one read stack and one write stack:
 - entity lookup: `TimberbotEntityRegistry` — GUID/numeric ID bridge
 - placement: `TimberbotPlacement` — building placement, A* path routing
 - HTTP: `TimberbotHttpServer` — background listener, routing, ready-gate + auth middleware (port 8085)
-- WebSocket: `TimberbotWebSocketServer` — parallel listener on `wsPort` (default 8086); accepts upgrades on `/api/ws`, broadcasts `state` and `event` frames, receives `heartbeat` / `ping` frames. Sibling event-bridge code lives in `TimberbotWebhook.cs` (the `[OnEvent]` handlers there now publish into the WS broadcaster).
+- WebSocket: `TimberbotWebSocketServer` — parallel listener on `wsPort` (default 8086); accepts upgrades on `/api/ws`, broadcasts `state` and `event` frames, receives `heartbeat` / `ping` frames. Sibling event-bridge code lives in `TimberbotEvents.cs` (the `[OnEvent]` handlers there now publish into the WS broadcaster).
 - debug: `TimberbotDebug` — reflection inspector, benchmark
 - agent state: `TimberbotAgentState` — single source of truth for `mode`, `goal`, `ready`, `pendingRequest`, `lastAckedRequestId`, `lastError`. Persisted fields live in `state.json`; ephemeral fields reset on save load. Mutations raise a `Changed` event that the WS broadcaster turns into a `state` frame.
 - UI: `TimberbotPanel` — movable in-game widget (Launch / Stop, mode dropdown, mode-aware textarea) + centered settings modal
@@ -243,7 +243,7 @@ The authoritative wire contract — frame envelope, message types, auth header, 
 
 - `TimberbotWebSocketServer` owns a separate `HttpListener` and async accept loop on `wsPort`. Upgrades go through `HttpListenerContext.AcceptWebSocketAsync()`.
 - Each accepted connection gets a bounded send queue; slow consumers are dropped on overflow rather than back-pressuring the main thread.
-- State broadcasts originate from `TimberbotAgentState.Changed` (raised outside the lock, after each mutation). Game-event broadcasts originate from the same `[OnEvent]` handlers in `TimberbotWebhook.cs`; that file no longer makes HTTP calls — it just hands frames to the broadcaster.
+- State broadcasts originate from `TimberbotAgentState.Changed` (raised outside the lock, after each mutation). Game-event broadcasts originate from the same `[OnEvent]` handlers in `TimberbotEvents.cs`; that file no longer makes HTTP calls — it just hands frames to the broadcaster.
 - `TimberbotPure` ships pure helpers for the envelope: `BuildStateMessage`, `BuildEventMessage`, `ParseInboundMessage`.
 - Auth: the same `authToken` middleware applies to upgrade requests. Bearer header preferred; `?token=` fallback for browser clients.
 - Heartbeat cadence: 30 s. The client sends a `heartbeat` frame carrying `{version, agent_status, acked_request_id}`. WS ping/pong and TCP keepalive handle liveness — there is no shorter polling loop.

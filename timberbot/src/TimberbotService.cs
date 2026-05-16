@@ -9,7 +9,7 @@
 //   TimberbotEntityRegistry. Entity lookup + tracked refs for writes and v2 snapshots
 //   TimberbotWrite        . All POST write endpoints
 //   TimberbotPlacement    . Building placement, path routing, terrain
-//   TimberbotWebhook      . Batched push event notifications
+//   TimberbotEvents       . [OnEvent] publishers → WS broadcaster
 //   TimberbotDebug        . Reflection inspector and benchmark
 
 using Timberborn.SingletonSystem;
@@ -33,7 +33,7 @@ namespace Timberbot
         private readonly EventBus _eventBus;
         public readonly TimberbotEntityRegistry Registry;
         public readonly TimberbotReadV2 ReadV2;
-        public readonly TimberbotWebhook WebhookMgr;
+        public readonly TimberbotEvents Events;
         public readonly TimberbotWrite Write;
         public readonly TimberbotPlacement Placement;
         public readonly TimberbotDebug DebugTool;
@@ -79,7 +79,7 @@ namespace Timberbot
             EventBus eventBus,
             TimberbotEntityRegistry registry,
             TimberbotReadV2 readV2,
-            TimberbotWebhook webhookMgr,
+            TimberbotEvents events,
             TimberbotWrite write,
             TimberbotPlacement placement,
             TimberbotDebug debug,
@@ -88,7 +88,7 @@ namespace Timberbot
             _eventBus = eventBus;
             Registry = registry;
             ReadV2 = readV2;
-            WebhookMgr = webhookMgr;
+            Events = events;
             Write = write;
             Placement = placement;
             DebugTool = debug;
@@ -128,10 +128,10 @@ namespace Timberbot
 
             var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "unknown";
             TimberbotLog.Info($"v{version} port={_httpPort} wsPort={_wsPort} wsEnabled={_wsEnabled} debug={_debugEnabled} listen={_listenAddress} maxBody={_maxBodyBytes} authTokenSet={(!string.IsNullOrEmpty(_authToken))}");
-            Registry.WebhookMgr = WebhookMgr;  // registry pushes webhook events on entity lifecycle
+            Registry.Events = Events;         // registry pushes WS events on entity lifecycle
             DebugTool.Service = this;         // debug needs Service reference for endpoint benchmarks
             _eventBus.Register(this);
-            WebhookMgr.Register();            // subscribe to ~70 game events
+            Events.Register();                // subscribe to ~70 game events
             ReadV2.Register();           // subscribe to entity lifecycle events for v2 snapshots
             Registry.Register();              // subscribe to entity lifecycle events
             Placement.DetectFaction();          // detect faction suffix. must run before BuildAllIndexes
@@ -144,7 +144,7 @@ namespace Timberbot
                 try
                 {
                     _wsServer = new TimberbotWebSocketServer(_wsPort, AgentState, _listenAddress, _authToken);
-                    WebhookMgr.Broadcaster = _wsServer;
+                    Events.Broadcaster = _wsServer;
                     TimberbotLog.Info($"WS server started on port {_wsPort}");
                 }
                 catch (System.Exception ex)
@@ -280,7 +280,7 @@ namespace Timberbot
             FlushAgentState();
             ReadV2.Unregister();
             Registry.Unregister();
-            WebhookMgr.Unregister();
+            Events.Unregister();
             _eventBus.Unregister(this);
             _wsServer?.Stop();
             _wsServer = null;
@@ -345,7 +345,7 @@ namespace Timberbot
         // Called every frame by Unity. This is the mod's main loop.
         // It drains POST requests and processes pending fresh-read publishes.
         // Outbound game-event pushes go straight through the WS broadcaster
-        // (TimberbotWebhook.PushEvent → TimberbotWebSocketServer.PushEvent),
+        // (TimberbotEvents.PushEvent → TimberbotWebSocketServer.PushEvent),
         // so there's no per-frame flush step any more.
         public void UpdateSingleton()
         {

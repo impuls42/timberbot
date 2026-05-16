@@ -21,7 +21,7 @@ namespace Timberbot
         {
             Bind<TimberbotEntityRegistry>().AsSingleton();
             Bind<TimberbotReadV2>().AsSingleton();
-            Bind<TimberbotWebhook>().AsSingleton();
+            Bind<TimberbotEvents>().AsSingleton();
             Bind<TimberbotWrite>().AsSingleton();
             Bind<TimberbotPlacement>().AsSingleton();
             Bind<TimberbotDebug>().AsSingleton();

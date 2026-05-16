@@ -1,17 +1,14 @@
-// TimberbotWebhook.cs — game-event publisher.
+// TimberbotEvents.cs — game-event publisher.
 //
-// PRE-REWORK: this class managed registered outbound HTTP webhook URLs,
-// batched event payloads on a 200ms cadence, and dispatched them via the
-// ThreadPool with a circuit breaker.
+// Owns the [OnEvent] handlers that translate Timberborn EventBus signals
+// into JSON frames pushed over the WebSocket. When `Broadcaster` is null
+// (pre-Load wiring, or tests) every `PushEvent` call is a no-op.
 //
-// POST-REWORK (issue #28): the mod publishes events over the single
-// WebSocket channel on `wsPort`. The class keeps its [OnEvent] handlers so
-// the EventBus wiring is unchanged, but instead of accumulating payloads it
-// calls `TimberbotWebSocketServer.PushEvent(name, day, ts, data)` directly.
-// The WS broadcaster owns per-connection delivery + slow-consumer policy.
-//
-// FlushWebhooks/RegisterWebhook/UnregisterWebhook/ListWebhooks are gone —
-// their HTTP routes were deleted in this PR.
+// History: this class was named TimberbotEvents before the WS rework
+// (issue #28). It used to maintain a registry of outbound HTTP URLs and
+// batch event payloads on a 200ms cadence with a circuit breaker. After
+// the cutover the WS broadcaster owns per-connection delivery and
+// slow-consumer policy, leaving this class as a pure publisher.
 
 using System;
 using Timberborn.BlockSystem;
@@ -23,7 +20,7 @@ using Timberborn.WeatherSystem;
 
 namespace Timberbot
 {
-    public class TimberbotWebhook
+    public class TimberbotEvents
     {
         private readonly IDayNightCycle _dayNightCycle;
         private readonly WeatherService _weatherService;
@@ -37,7 +34,7 @@ namespace Timberbot
 
         private readonly TimberbotJw _jw = new TimberbotJw(512);
 
-        public TimberbotWebhook(
+        public TimberbotEvents(
             IDayNightCycle dayNightCycle,
             WeatherService weatherService,
             GameCycleService gameCycleService,
