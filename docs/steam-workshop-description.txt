@@ -1,10 +1,12 @@
 Tell Claude "keep my beavers alive and get to 77 wellbeing" and watch it figure out the rest. It reads your colony, places buildings, routes paths up cliffs, manages workers, and reacts to droughts. You play together.
 
 [code]
-Open the Timberbot API widget, click Settings, pick Claude or Codex, click Start
+1. pipx install timberbot
+2. tbot watch   (leave running in a terminal)
+3. Press Launch in the in-game Timberbot widget
 [/code]
 
-You need Python and a couple of pip packages (requests, toons) installed first. After that, everything runs from inside the game. The widget opens a terminal session where you and the AI talk through what to do next.
+You need Python 3.10+ and a one-line install (`pipx install timberbot`). After that, `tbot watch` opens a long-lived WebSocket to the mod and dispatches your chosen agent (Claude / Codex / OpenCode / a custom CLI). The in-game widget owns the **Launch / Stop** gate — until you press Launch, the mod refuses every `/api/*` call except the connector handshake. Stop closes the gate instantly when you want to take over manually.
 
 [h1]What can the AI actually do[/h1]
 It sees everything you see. Every beaver's position, needs, and workplace. Every building's workers, power, inventory, and recipes. The full map with terrain, water, trees, and what's occupying each tile.
@@ -12,27 +14,29 @@ It sees everything you see. Every beaver's position, needs, and workplace. Every
 It can place and demolish buildings, route paths with auto-stairs across elevation changes, assign workers, manage crops and trees, control floodgates, adjust stockpiles, unlock science, and change game speed. All through the same validation the game uses when you place things by hand.
 
 [code]
-timberbot.py brain
-timberbot.py top
-timberbot.py place_path x1:0 y1:0 x2:200 y2:180
-timberbot.py map x1:110 y1:130 x2:130 y2:150
+tbot brain
+tbot top
+tbot place_path x1:0 y1:0 x2:200 y2:180
+tbot map x1:110 y1:130 x2:130 y2:150
 [/code]
 
 Ask it to build a lumber district and it will find valid spots near trees, place the buildings, connect paths back to the district center, and assign workers. Ask it to prepare for drought and it will check water reserves, adjust production, and build storage.
 
 [h1]Not just for AI[/h1]
-The whole thing is an HTTP API. You can write your own scripts, build dashboards, or hook it into whatever you want. 68 webhook events let your code react to droughts, deaths, construction, and more without polling. There's a Python client included, but anything that speaks HTTP works.
+The whole thing is an HTTP + WebSocket API. You can write your own scripts, build dashboards, or hook it into whatever you want. About 70 game events stream over the WebSocket (`tbot listen` or any WS client) so your code reacts to droughts, deaths, construction, and weather without polling. There's a Python client included, but anything that speaks HTTP + WebSockets works.
 
 [h1]Getting started[/h1]
 1. Subscribe and enable in Mod Manager
-2. Start a game
-3. Click the Timberbot widget in the corner, pick your AI, hit Start
+2. Install the CLI: [code]pipx install timberbot[/code]
+3. Run [code]tbot watch[/code] in a terminal and leave it running
+4. Start a game and press Launch in the Timberbot widget
 
-Works with Claude Code, OpenAI Codex, or any CLI agent that can make HTTP calls. See the [url=https://abix-.github.io/TimberbornMods/getting-started/]full setup guide[/url] for details.
+Works with Claude Code, OpenAI Codex, OpenCode, or any CLI agent that can be invoked from `tbot watch`. See the [url=https://impuls42.github.io/timberbot/getting-started/]full setup guide[/url] for details.
 
 [h1]Docs[/h1]
-[url=https://abix-.github.io/TimberbornMods/getting-started/]Getting Started[/url] Install, setup, configuration
-[url=https://abix-.github.io/TimberbornMods/api-reference/]API Reference[/url] Every endpoint with examples
-[url=https://abix-.github.io/TimberbornMods/features/]Features[/url] Full compatibility matrix
-[url=https://abix-.github.io/TimberbornMods/webhooks/]Webhooks[/url] 68 push events for automation
-[url=https://github.com/abix-/TimberbornMods]Source Code[/url]
+[url=https://impuls42.github.io/timberbot/getting-started/]Getting Started[/url] Install, setup, Launch flow
+[url=https://impuls42.github.io/timberbot/api-reference/]API Reference[/url] Every HTTP endpoint with examples
+[url=https://impuls42.github.io/timberbot/websocket-protocol/]WebSocket Protocol[/url] State + event push contract
+[url=https://impuls42.github.io/timberbot/events/]Events[/url] ~70 push events for automation
+[url=https://impuls42.github.io/timberbot/features/]Features[/url] Full compatibility matrix
+[url=https://github.com/impuls42/timberbot]Source Code[/url]

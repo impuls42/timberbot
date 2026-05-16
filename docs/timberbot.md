@@ -20,9 +20,9 @@ Read this first. Use the other docs only when needed:
 
 The agent never starts itself. The chain is:
 
-1. The player runs `tbot watch` on their machine. It heartbeats the mod every 2 s.
-2. The player presses **Launch** in the in-game Timberbot widget. The mod sets `ready=true` and opens the `/api/*` gate.
-3. In **request mode**, the player typed a prompt; the mod fires the connector's registered webhook (or surfaces the request via the next heartbeat poll). In **autonomous mode**, the connector dispatches on its own cadence using the persisted `goal`.
+1. The player runs `tbot watch` on their machine. It opens a long-lived WebSocket to `ws://host:8086/api/ws`, sends a `heartbeat` frame every 30 s, and receives `state` and `event` pushes from the mod.
+2. The player presses **Launch** in the in-game Timberbot widget. The mod sets `ready=true` and opens the `/api/*` gate. The state change broadcasts to every connected WS client (your connector + any `tbot listen` subscribers) within ~50 ms.
+3. In **request mode**, the player typed a prompt and pressed Launch; the mod's `pendingRequest` field appears in the next `state` push and the connector picks it up. In **autonomous mode**, the connector dispatches on its own cadence using the persisted `goal`.
 4. The connector calls `tbot agent run` (or attaches to a long-running `opencode serve`), which is when this guide enters the agent's context.
 
 You're the agent in step 4. The widget and the connector are not in your context — they're the human's tooling for waving you in. The contract you care about is:

@@ -1,8 +1,6 @@
 # Timberbot API
 
-> **v0.9 — WebSocket cutover, in flight.** The session-launch flow described here is the v0.9 shape (`tbot watch` over a long-lived WebSocket + Launch button). Behavior on `master` may briefly lag while the rework lands.
-
-**Full read/write HTTP API for controlling Timberborn with AI.**
+**Full read/write HTTP API for controlling Timberborn with AI, plus a WebSocket channel for live state and game events.**
 
 Timberbot API gives Claude, Codex, ChatGPT, or your own scripts complete access to your beaver colony over HTTP. read game state, place buildings, manage workers, plant crops, and keep your beavers alive.
 
@@ -50,10 +48,13 @@ Enable the mod in the Mod Manager.
 Start a game (or load a save). Open a browser to:
 
 ```
-http://localhost:8085/api/ping
+http://127.0.0.1:8085/api/ping
 ```
 
-You should see `{"status": "ok"}`. The API is only active while a game is loaded; it won't respond from the main menu. Note that `/api/ping` and `/api/agent/*` answer regardless of the ready gate, but every other `/api/*` endpoint returns `409 game_not_ready` until you press **Launch** in the in-game widget (see [Start a session](#start-a-session) below).
+You should see `{"status": "ok", "ready": true, "openapiVersion": "..."}`. The API is only active while a game is loaded; it won't respond from the main menu. Note that `/api/ping` and `/api/agent/*` answer regardless of the ready gate, but every other `/api/*` endpoint returns `409 game_not_ready` until you press **Launch** in the in-game widget (see [Start a session](#start-a-session) below).
+
+!!! note "127.0.0.1 vs localhost"
+    The mod's `listenAddress` defaults to `127.0.0.1` (PR #10). Under Mono's `HttpListener` the prefix matches the `Host:` header exactly — a server bound to `127.0.0.1` rejects `Host: localhost` with HTTP 400. Either use `http://127.0.0.1:...` everywhere or change `listenAddress` to `localhost` in `settings.json`.
 
 ## Install the Timberbot CLI
 
@@ -193,19 +194,19 @@ normal Timberbot workflow, including `tbot` commands and the in-game agent
 launcher (which shells out to `tbot agent run`).
 
 ```bash
-curl http://localhost:8085/api/summary
-curl http://localhost:8085/api/buildings
-curl -X POST http://localhost:8085/api/speed -d '{"speed": 3}'
-curl -X POST http://localhost:8085/api/building/place -d '{"prefab": "Path", "x": 120, "y": 130, "z": 2, "orientation": 0}'
+curl http://127.0.0.1:8085/api/summary
+curl http://127.0.0.1:8085/api/buildings
+curl -X POST http://127.0.0.1:8085/api/speed -d '{"speed": 3}'
+curl -X POST http://127.0.0.1:8085/api/building/place -d '{"prefab": "Path", "x": 120, "y": 130, "z": 2, "orientation": 0}'
 ```
 
 When the mod has `authToken` set in `settings.json`, every `/api/*` route
 except `/api/ping` requires an `Authorization: Bearer <token>` header:
 
 ```bash
-curl -H "Authorization: Bearer $TBOT_AUTH_TOKEN" http://localhost:8085/api/summary
+curl -H "Authorization: Bearer $TBOT_AUTH_TOKEN" http://127.0.0.1:8085/api/summary
 curl -X POST -H "Authorization: Bearer $TBOT_AUTH_TOKEN" \
-     http://localhost:8085/api/speed -d '{"speed": 3}'
+     http://127.0.0.1:8085/api/speed -d '{"speed": 3}'
 ```
 
 ## Let AI play your colony

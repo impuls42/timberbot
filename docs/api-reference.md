@@ -1932,60 +1932,25 @@ Route a path from point A to point B using A* pathfinding over a 3D surface grap
 
 ---
 
-## Webhooks
+## Events (WebSocket)
 
-Push notifications for game events. See [events.md](events.md) for the full event catalog (68 events) and how to consume them over the WebSocket. The HTTP webhook routes documented in this section are deleted in v0.9 — they ship one last time here as a migration aid.
-
-### POST /api/webhooks
-
-Register a webhook URL.
-
-**CLI:** `timberbot.py register_webhook url:http://localhost:9000/events events:drought.start,beaver.died`
-
-#### Request Body
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| url | string | yes | URL to receive POST notifications |
-| events | array | no | Event names to subscribe to. Omit for all events |
+Game events ship as server-push frames on the mod's WebSocket channel rather than HTTP webhooks. Connect to `ws://<host>:<wsPort>/api/ws` (default `ws://127.0.0.1:8086/api/ws`) and filter inbound frames for `type == "event"`:
 
 ```json
-{"id": "wh_1", "url": "http://localhost:9000/events", "events": ["drought.start", "drought.end"]}
+{
+  "type": "event",
+  "payload": {
+    "event": "drought.start",
+    "day": 45,
+    "timestamp": 1711300000,
+    "data": {"duration": 8}
+  }
+}
 ```
 
----
-
-### GET /api/webhooks
-
-List all registered webhooks.
-
-**CLI:** `timberbot.py list_webhooks`
-
-```json
-[{"Id": "wh_1", "Url": "http://localhost:9000/events", "events": ["drought.start", "drought.end"], "Disabled": false, "failures": 0}]
-```
-
-Webhooks deliver batched JSON arrays (one POST per flush, default every 200ms):
-```json
-[
-  {"event": "drought.start", "day": 45, "timestamp": 1711300000, "data": {"duration": 8}},
-  {"event": "beaver.died", "day": 45, "timestamp": 1711300000, "data": null}
-]
-```
-
----
-
-### POST /api/webhooks/delete
-
-Remove a webhook by ID.
-
-**CLI:** `timberbot.py unregister_webhook id:wh_1`
-
-#### Request Body
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| id | string | yes | Webhook ID from registration |
+- Frame envelope, auth (`Authorization: Bearer <token>` or `?token=…`), reconnect semantics, and the full message-type catalog are in [websocket-protocol.md](websocket-protocol.md).
+- The event catalog (≈70 events) and consumer examples (`tbot listen`, custom WS clients) are in [events.md](events.md).
+- The pre-v0.9 outbound HTTP webhook endpoints (`POST /api/webhooks`, `GET /api/webhooks`, `POST /api/webhooks/delete`) and the `webhooksEnabled` / `webhookBatchMs` / `webhookCircuitBreaker` / `webhookMaxPendingEvents` / `webhookValidateUrls` settings have been removed. Old `settings.json` files emit a one-line deprecation warning at load.
 
 ---
 

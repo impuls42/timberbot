@@ -259,17 +259,22 @@ The mod reads `settings.json` at startup:
 
 ```json
 {
-  "debugEndpointEnabled": false,
-  "webhooksEnabled": true,
   "httpPort": 8085,
-  "terminal": "wt -d {cwd} --",
-  "pythonCommand": ""
+  "wsPort": 8086,
+  "wsEnabled": true,
+  "listenAddress": "127.0.0.1",
+  "authToken": "",
+  "debugEndpointEnabled": false,
+  "maxBodyBytes": 1048576
 }
 ```
 
-- **httpPort**: Change if 8085 is taken
-- **terminal**: Windows Terminal by default; macOS auto-detects Terminal.app
-- **pythonCommand**: Override if Python isn't on PATH (e.g. `/usr/bin/python3`)
+- **httpPort / wsPort**: Change if 8085/8086 is taken. The mod hosts two parallel listeners — HTTP for `/api/*` and WebSocket for `/api/ws` push.
+- **wsEnabled**: Set `false` to skip opening the WS listener; clients then fall back to HTTP polling of `/api/agent/state`.
+- **listenAddress**: `127.0.0.1` (default) for loopback, `+` / `0.0.0.0` for all interfaces. Non-loopback binds require `authToken`.
+- **authToken**: Optional bearer secret; required when `listenAddress` is non-loopback.
+
+Older `settings.json` files may still contain `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `webhookValidateUrls`, `terminal`, `pythonCommand`, `agentBinary`, `agentModel`, `agentEffort`, `agentCommandTemplate`, `agentAllowlistEnabled`, `agentAllowedBinaries`. These are all ignored at load with a one-line deprecation warning.
 
 ---
 
@@ -278,7 +283,7 @@ The mod reads `settings.json` at startup:
 ### macOS
 
 - The game runs natively on Apple Silicon (no Rosetta needed since Timberborn 1.0)
-- The mod's agent launcher (`TimberbotAgent.cs`) has a known bug around line 680 where it forces Windows-specific logic for terminal detection. See `AGENTS.md` for details.
+- The pre-v0.9 in-mod agent launcher (`TimberbotAgent.cs`) is gone — the player now runs `tbot watch` themselves and presses Launch in the widget. The Mac-specific Terminal-detection bug that used to live in that file is no longer applicable.
 
 ### Linux (Ubuntu 24.04)
 
