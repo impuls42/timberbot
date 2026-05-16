@@ -27,9 +27,24 @@ OPENAPI_PATH = Path(__file__).resolve().parents[2] / "openapi.yaml"
 _OPERATION_ID_ALIASES: dict[str, list[str]] = {
     "pause_building": ["pause_building", "unpause_building"],
     "mark_trees": ["mark_trees", "clear_trees"],
-    "register_webhook": ["register_webhook"],
-    "unregister_webhook": ["unregister_webhook"],
 }
+
+# Routes/operationIds deleted in the WS rework (issue #28). They MUST NOT
+# appear in openapi.yaml — the test_legacy_*_removed assertions below pin
+# that.
+_DELETED_ROUTES: tuple[str, ...] = (
+    "/api/tbot/register",
+    "/api/tbot/heartbeat",
+    "/api/webhooks",
+    "/api/webhooks/delete",
+)
+_DELETED_OPERATION_IDS: tuple[str, ...] = (
+    "tbot_register",
+    "tbot_heartbeat",
+    "register_webhook",
+    "unregister_webhook",
+    "list_webhooks",
+)
 
 
 @pytest.fixture(scope="module")
@@ -138,18 +153,15 @@ def test_every_operation_has_a_200_response(spec):
     assert not missing, "Operations missing 200 response:\n  " + "\n  ".join(missing)
 
 
-# Endpoints added in the mod ↔ connector architecture rework (issue #13).
-# These are the gate-exempt widget/connector surface. The test below pins both
-# the spec path *and* the corresponding `TimberbotClient` method so a future
-# rename doesn't silently break the connector.
+# Endpoints added in the mod ↔ connector architecture rework (issue #13)
+# and kept after the WS rework (issue #28). These are the gate-exempt
+# widget surface. `/api/tbot/*` is no longer HTTP — connectors talk WS now.
 AGENT_CONNECTOR_OPS: dict[str, tuple[str, str]] = {
     # operationId -> (spec path, client method name)
     "agent_state": ("/api/agent/state", "agent_state"),
     "agent_config": ("/api/agent/config", "agent_config"),
     "agent_request": ("/api/agent/request", "agent_request"),
     "ready": ("/api/ready", "ready"),
-    "tbot_register": ("/api/tbot/register", "tbot_register"),
-    "tbot_heartbeat": ("/api/tbot/heartbeat", "tbot_heartbeat"),
 }
 
 
@@ -178,6 +190,52 @@ def test_agent_connector_operation_ids_have_client_methods():
     assert not missing, (
         "Missing TimberbotClient methods for agent/connector ops:\n  "
         + "\n  ".join(missing)
+    )
+
+
+def test_legacy_tbot_and_webhook_routes_removed(spec):
+    """The WS rework (issue #28) deleted `/api/tbot/*` and `/api/webhooks*`.
+
+    The mod's connector channel is now WebSocket-only. Re-introducing the
+    HTTP routes by accident would split the contract surface, so this test
+    keeps them banned from the spec.
+    """
+    present = [route for route in _DELETED_ROUTES if route in spec.get("paths", {})]
+    assert not present, (
+        "openapi.yaml still references deleted routes: " + ", ".join(present)
+    )
+
+
+def test_legacy_tbot_and_webhook_operation_ids_removed(spec):
+    """No spec operation may carry one of the deleted operationIds.
+
+    Even if a future commit reused the path for an unrelated endpoint,
+    keeping the operationId namespace clean avoids breaking the client
+    generator on the regenerated stubs.
+    """
+    op_ids = {op["operationId"] for _path, _method, op in _all_operations(spec)}
+    leaked = sorted(op_ids & set(_DELETED_OPERATION_IDS))
+    assert not leaked, (
+        "openapi.yaml still uses deleted operationIds: " + ", ".join(leaked)
+    )
+
+
+def test_legacy_client_methods_removed():
+    """The matching `TimberbotClient` helpers were deleted alongside the spec."""
+    leaked = [
+        name
+        for name in (
+            "tbot_register",
+            "tbot_heartbeat",
+            "register_webhook",
+            "unregister_webhook",
+            "list_webhooks",
+        )
+        if hasattr(TimberbotClient, name)
+    ]
+    assert not leaked, (
+        "TimberbotClient still exposes legacy connector/webhook helpers: "
+        + ", ".join(leaked)
     )
 
 

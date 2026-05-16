@@ -26,18 +26,26 @@ namespace Timberbot.Tests
 {
     public class TimberbotHttpServerTests
     {
-        // Routes added in issue #13. All MUST be wired in TimberbotHttpServer.cs
-        // (either inline on the listener thread or via the Queued post table)
-        // AND documented in openapi.yaml. The gate-exemption check below is
-        // shared with TimberbotAgentState.
+        // Agent/widget HTTP surface that survives after the WS rework
+        // (issue #28). `/api/tbot/*` is gone — connectors talk WebSocket
+        // now. All listed routes MUST be wired in TimberbotHttpServer.cs and
+        // documented in openapi.yaml.
         private static readonly (string Path, string Method)[] AgentConnectorRoutes =
         {
             ("/api/agent/state", "GET"),
             ("/api/agent/config", "POST"),
             ("/api/agent/request", "POST"),
             ("/api/ready", "POST"),
-            ("/api/tbot/register", "POST"),
-            ("/api/tbot/heartbeat", "POST"),
+        };
+
+        // Routes deleted in the WS rework. They MUST NOT reappear in
+        // TimberbotHttpServer.cs or openapi.yaml.
+        private static readonly string[] DeletedHttpRoutes =
+        {
+            "/api/tbot/register",
+            "/api/tbot/heartbeat",
+            "/api/webhooks",
+            "/api/webhooks/delete",
         };
 
         private static string TestArtifact(string name)
@@ -126,15 +134,16 @@ namespace Timberbot.Tests
         [InlineData("/api/building/pause", false)]
         [InlineData("/api/summary", false)]
         [InlineData("/api/settlement", false)]
-        [InlineData("/api/webhooks", false)]
-        // Whitelist: /api/ping, /api/ready, /api/agent/*, /api/tbot/*.
+        // /api/tbot/* was deleted entirely; if some future commit re-added
+        // the path it must not be on the whitelist either.
+        [InlineData("/api/tbot/register", false)]
+        [InlineData("/api/tbot/heartbeat", false)]
+        // Whitelist: /api/ping, /api/ready, /api/agent/*.
         [InlineData("/api/ping", true)]
         [InlineData("/api/ready", true)]
         [InlineData("/api/agent/state", true)]
         [InlineData("/api/agent/config", true)]
         [InlineData("/api/agent/request", true)]
-        [InlineData("/api/tbot/register", true)]
-        [InlineData("/api/tbot/heartbeat", true)]
         public void Whitelist_PinsTheCarveOut(string path, bool exempt)
         {
             Assert.Equal(exempt, TimberbotAgentState.IsGateExempt(path));
@@ -148,10 +157,38 @@ namespace Timberbot.Tests
             Assert.False(TimberbotAgentState.IsGateExempt("/api/agentstate"));
             Assert.False(TimberbotAgentState.IsGateExempt("/api/agent-state"));
             Assert.False(TimberbotAgentState.IsGateExempt("/api/readyish"));
-            Assert.False(TimberbotAgentState.IsGateExempt("/api/tbotish"));
             Assert.False(TimberbotAgentState.IsGateExempt("/api/pingg"));
             // No /api/ prefix => definitely not exempt.
             Assert.False(TimberbotAgentState.IsGateExempt("/agent/state"));
+        }
+
+        // --- deleted routes must stay gone --------------------------------
+
+        [Fact]
+        public void DeletedHttpRoutes_NotInHttpServerSource()
+        {
+            var src = LoadHttpServerSource();
+            var leaked = DeletedHttpRoutes
+                .Where(path =>
+                    new Regex("Queued\\s*\\(\\s*\"" + Regex.Escape(path) + "\"").IsMatch(src) ||
+                    new Regex("path\\s*==\\s*\"" + Regex.Escape(path) + "\"").IsMatch(src))
+                .ToList();
+            Assert.True(leaked.Count == 0,
+                "TimberbotHttpServer.cs still references deleted routes:\n  " +
+                string.Join("\n  ", leaked));
+        }
+
+        [Fact]
+        public void DeletedHttpRoutes_NotInSpec()
+        {
+            var spec = LoadSpec();
+            var paths = (YamlMappingNode)spec.Children[new YamlScalarNode("paths")];
+            var leaked = DeletedHttpRoutes
+                .Where(path => paths.Children.ContainsKey(new YamlScalarNode(path)))
+                .ToList();
+            Assert.True(leaked.Count == 0,
+                "openapi.yaml still declares deleted routes:\n  " +
+                string.Join("\n  ", leaked));
         }
 
         // --- openapi alignment for the new routes -------------------------

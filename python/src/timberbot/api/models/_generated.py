@@ -7,7 +7,7 @@ from __future__ import annotations
 from enum import Enum, IntEnum
 from typing import Any
 
-from pydantic import AnyUrl, BaseModel, ConfigDict, Field, RootModel
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 
 class ErrorResponse(BaseModel):
@@ -363,33 +363,6 @@ class Cluster(BaseModel):
     species: dict[str, int] = Field(..., description="Map of species name → count.")
 
 
-class Events(Enum):
-    """
-    Event names subscribed to, or the literal "all".
-    """
-
-    all = "all"
-
-
-class Webhook(BaseModel):
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    Id: str = Field(
-        ..., description="Webhook ID (returned to clients as `id` on register)."
-    )
-    Url: AnyUrl
-    events: list[str] | Events = Field(
-        ..., description='Event names subscribed to, or the literal "all".'
-    )
-    disabled: bool
-    failures: int = Field(..., ge=0)
-
-
-class WebhookList(RootModel[list[Webhook]]):
-    root: list[Webhook]
-
-
 class PaginatedEnvelope(BaseModel):
     model_config = ConfigDict(
         extra="allow",
@@ -697,14 +670,6 @@ class ReadyAck(BaseModel):
         extra="allow",
     )
     ready: bool
-
-
-class TbotRegisterAck(BaseModel):
-    model_config = ConfigDict(
-        extra="allow",
-    )
-    registered: bool
-    webhook_url: AnyUrl
 
 
 class Error(Enum):

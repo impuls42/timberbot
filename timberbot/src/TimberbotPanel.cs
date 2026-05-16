@@ -76,11 +76,9 @@ namespace Timberbot
         private TextField _debugEndpointField;
         private NineSliceButton _debugEndpointPresetBtn;
         private TextField _httpPortField;
-        private TextField _webhooksEnabledField;
-        private NineSliceButton _webhooksEnabledPresetBtn;
-        private TextField _webhookBatchMsField;
-        private TextField _webhookCircuitBreakerField;
-        private TextField _webhookMaxPendingEventsField;
+        private TextField _wsPortField;
+        private TextField _wsEnabledField;
+        private NineSliceButton _wsEnabledPresetBtn;
         private TextField _writeBudgetMsField;
 
         // security tab fields
@@ -88,8 +86,6 @@ namespace Timberbot
         private NineSliceButton _listenAddressPresetBtn;
         private TextField _corsOriginField;
         private NineSliceButton _corsOriginPresetBtn;
-        private TextField _webhookValidateUrlsField;
-        private NineSliceButton _webhookValidateUrlsPresetBtn;
         private TextField _maxBodyBytesField;
 
         // Console Widget
@@ -182,15 +178,12 @@ namespace Timberbot
             ["actionLoggingEnabled:"] = "Logs agent write/placement actions to the in-game console panel. Takes effect immediately.",
             ["debugEndpointEnabled:"] = "Enables debug and benchmark endpoints such as /api/debug and /api/benchmark. Reload save to apply.",
             ["httpPort:"] = "HTTP server port Timberbot listens on. The Python client reads this by default from settings.json. Reload save to apply.",
-            ["webhooksEnabled:"] = "Turns outgoing webhook event delivery on or off. Reload save to apply.",
-            ["webhookBatchMs:"] = "Webhook batching window in milliseconds. Use 0 for immediate delivery instead of batching. Reload save to apply.",
-            ["webhookCircuitBreaker:"] = "Number of consecutive webhook delivery failures before Timberbot disables webhook sending. Reload save to apply.",
-            ["webhookMaxPendingEvents:"] = "Per-webhook cap for queued event payloads while delivery is in flight or failing. Oldest queued events are dropped when the cap is reached. Reload save to apply.",
+            ["wsPort:"] = "WebSocket server port for state + game-event push (replaces outbound HTTP webhooks). Reload save to apply.",
+            ["wsEnabled:"] = "Toggle the WebSocket server. While off, connectors must drive everything off HTTP polling of /api/agent/state. Reload save to apply.",
             ["writeBudgetMs:"] = "Per-frame main-thread time budget for queued write jobs. Higher values process writes faster but use more frame time. Reload save to apply.",
-            ["listenAddress:"] = "Network address the HTTP server binds to. 'localhost' (default) = local only. '+' = all interfaces (LAN access). Reload save to apply.",
-            ["authToken:"] = "Bearer token required on every /api/* request except /api/ping. Empty = no auth (default; only safe on loopback). Required when listenAddress is non-loopback — the mod refuses to start otherwise. Reload save to apply.",
+            ["listenAddress:"] = "Network address the HTTP + WS servers bind to. 'localhost' (default) = local only. '+' = all interfaces (LAN access). Reload save to apply.",
+            ["authToken:"] = "Bearer token required on every /api/* request except /api/ping, and on the WS upgrade. Empty = no auth (default; only safe on loopback). Required when listenAddress is non-loopback — the mod refuses to start otherwise. Reload save to apply.",
             ["corsOrigin:"] = "Allowed CORS origin for browser requests. Empty = auto (localhost only). '*' = any origin (less secure). Reload save to apply.",
-            ["webhookValidateUrls:"] = "When true, webhook URLs are validated: must be http/https and must not resolve to private/internal IP addresses. Set false to allow any URL. Reload save to apply.",
             ["maxBodyBytes:"] = "Maximum POST request body size in bytes. 0 = unlimited. Default 1048576 (1MB). Reload save to apply.",
         };
 
@@ -567,10 +560,8 @@ namespace Timberbot
             var savedActionLoggingEnabled = NormalizeBoolString(_service.GetUISetting("actionLoggingEnabled"), true);
             var savedDebugEndpointEnabled = NormalizeBoolString(_service.GetUISetting("debugEndpointEnabled"), false);
             var savedHttpPort = NormalizeValue(_service.GetUISetting("httpPort"), "8085");
-            var savedWebhooksEnabled = NormalizeBoolString(_service.GetUISetting("webhooksEnabled"), true);
-            var savedWebhookBatchMs = NormalizeValue(_service.GetUISetting("webhookBatchMs"), "200");
-            var savedWebhookCircuitBreaker = NormalizeValue(_service.GetUISetting("webhookCircuitBreaker"), "30");
-            var savedWebhookMaxPendingEvents = NormalizeValue(_service.GetUISetting("webhookMaxPendingEvents"), "1000");
+            var savedWsPort = NormalizeValue(_service.GetUISetting("wsPort"), "8086");
+            var savedWsEnabled = NormalizeBoolString(_service.GetUISetting("wsEnabled"), true);
             var savedWriteBudgetMs = NormalizeValue(_service.GetUISetting("writeBudgetMs"), "1.0");
 
             _agentSettingsContainer.Add(MakeHintLabel(
@@ -650,42 +641,24 @@ namespace Timberbot
             });
             _runtimeSettingsContainer.Add(MakeFieldRow("httpPort:", _httpPortField));
 
-            _webhooksEnabledField = MakeTextField(savedWebhooksEnabled);
-            _webhooksEnabledField.RegisterValueChangedCallback(evt =>
+            _wsPortField = MakeTextField(savedWsPort);
+            _wsPortField.RegisterValueChangedCallback(evt =>
+            {
+                var value = NormalizeIntString(evt.newValue, 8086, 1);
+                _wsPortField.SetValueWithoutNotify(value);
+                _service.SaveIntSetting("wsPort", int.Parse(value));
+            });
+            _runtimeSettingsContainer.Add(MakeFieldRow("wsPort:", _wsPortField));
+
+            _wsEnabledField = MakeTextField(savedWsEnabled);
+            _wsEnabledField.RegisterValueChangedCallback(evt =>
             {
                 var value = NormalizeBoolString(evt.newValue, true);
-                _webhooksEnabledField.SetValueWithoutNotify(value);
-                _service.SaveBoolSetting("webhooksEnabled", value == "true");
+                _wsEnabledField.SetValueWithoutNotify(value);
+                _service.SaveBoolSetting("wsEnabled", value == "true");
             });
-            _webhooksEnabledPresetBtn = MakePresetButton("v", () => TogglePresetMenu(_webhooksEnabledPresetBtn, _webhooksEnabledField, BoolChoices));
-            _runtimeSettingsContainer.Add(MakePresetFieldRow("webhooksEnabled:", _webhooksEnabledField, _webhooksEnabledPresetBtn));
-
-            _webhookBatchMsField = MakeTextField(savedWebhookBatchMs);
-            _webhookBatchMsField.RegisterValueChangedCallback(evt =>
-            {
-                var value = NormalizeIntString(evt.newValue, 200, 0);
-                _webhookBatchMsField.SetValueWithoutNotify(value);
-                _service.SaveIntSetting("webhookBatchMs", int.Parse(value));
-            });
-            _runtimeSettingsContainer.Add(MakeFieldRow("webhookBatchMs:", _webhookBatchMsField));
-
-            _webhookCircuitBreakerField = MakeTextField(savedWebhookCircuitBreaker);
-            _webhookCircuitBreakerField.RegisterValueChangedCallback(evt =>
-            {
-                var value = NormalizeIntString(evt.newValue, 30, 1);
-                _webhookCircuitBreakerField.SetValueWithoutNotify(value);
-                _service.SaveIntSetting("webhookCircuitBreaker", int.Parse(value));
-            });
-            _runtimeSettingsContainer.Add(MakeFieldRow("webhookCircuitBreaker:", _webhookCircuitBreakerField));
-
-            _webhookMaxPendingEventsField = MakeTextField(savedWebhookMaxPendingEvents);
-            _webhookMaxPendingEventsField.RegisterValueChangedCallback(evt =>
-            {
-                var value = NormalizeIntString(evt.newValue, 1000, 1);
-                _webhookMaxPendingEventsField.SetValueWithoutNotify(value);
-                _service.SaveIntSetting("webhookMaxPendingEvents", int.Parse(value));
-            });
-            _runtimeSettingsContainer.Add(MakeFieldRow("webhookMaxPendingEvents:", _webhookMaxPendingEventsField));
+            _wsEnabledPresetBtn = MakePresetButton("v", () => TogglePresetMenu(_wsEnabledPresetBtn, _wsEnabledField, BoolChoices));
+            _runtimeSettingsContainer.Add(MakePresetFieldRow("wsEnabled:", _wsEnabledField, _wsEnabledPresetBtn));
 
             _writeBudgetMsField = MakeTextField(savedWriteBudgetMs);
             _writeBudgetMsField.RegisterValueChangedCallback(evt =>
@@ -715,17 +688,6 @@ namespace Timberbot
             _corsOriginField.RegisterValueChangedCallback(evt => _service.SaveUISetting("corsOrigin", evt.newValue ?? ""));
             _corsOriginPresetBtn = MakePresetButton("v", () => TogglePresetMenu(_corsOriginPresetBtn, _corsOriginField, CorsOriginChoices));
             _securitySettingsContainer.Add(MakePresetFieldRow("corsOrigin:", _corsOriginField, _corsOriginPresetBtn));
-
-            var savedWebhookValidate = NormalizeBoolString(_service.GetUISetting("webhookValidateUrls"), true);
-            _webhookValidateUrlsField = MakeTextField(savedWebhookValidate);
-            _webhookValidateUrlsField.RegisterValueChangedCallback(evt =>
-            {
-                var value = NormalizeBoolString(evt.newValue, true);
-                _webhookValidateUrlsField.SetValueWithoutNotify(value);
-                _service.SaveBoolSetting("webhookValidateUrls", value == "true");
-            });
-            _webhookValidateUrlsPresetBtn = MakePresetButton("v", () => TogglePresetMenu(_webhookValidateUrlsPresetBtn, _webhookValidateUrlsField, BoolChoices));
-            _securitySettingsContainer.Add(MakePresetFieldRow("webhookValidateUrls:", _webhookValidateUrlsField, _webhookValidateUrlsPresetBtn));
 
             var savedMaxBody = NormalizeIntString(_service.GetUISetting("maxBodyBytes"), 1048576, 0);
             _maxBodyBytesField = MakeTextField(savedMaxBody);

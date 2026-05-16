@@ -28,9 +28,11 @@ info:
     Launch in the in-game widget (or a client toggles `POST /api/ready`
     with `{"ready": true}`), **every `/api/*` route returns HTTP 409**
     with the `GameNotReady` body documented in `components/responses`,
-    except the carve-out: `/api/agent/*`, `/api/ready`, `/api/tbot/*`,
-    and `/api/ping`. Operations in this spec do not enumerate the 409
-    individually — it is a uniform gate. Webhook delivery is unaffected.
+    except the carve-out: `/api/agent/*`, `/api/ready`, and `/api/ping`.
+    Operations in this spec do not enumerate the 409 individually — it is
+    a uniform gate. The WebSocket channel runs on a separate port
+    (`wsPort` in settings.json, default 8086) and is documented in
+    `docs/websocket-protocol.md`.
   version: 1.0.0
   contact:
     name: Timberbot
@@ -54,14 +56,10 @@ tags:
     description: A* path routing and building placement.
   - name: automation
     description: Sensor/relay/memory wiring (`Automator`/`Automatable`).
-  - name: webhooks
-    description: Outbound HTTP push for game events.
   - name: debug
     description: Reflection inspector + benchmark (gated by `debugEndpointEnabled`).
   - name: agent
     description: Widget-facing agent state, configuration, and request gate.
-  - name: connector
-    description: Endpoints consumed by the `tbot watch` connector (register/heartbeat).
 
 security:
   # When `authToken` is configured in `settings.json`, every /api/* route
@@ -572,26 +570,6 @@ components:
           additionalProperties: { type: integer, minimum: 0 }
       additionalProperties: true
 
-    # --- Webhooks ---
-    Webhook:
-      type: object
-      required: [Id, Url, events, disabled, failures]
-      properties:
-        Id: { type: string, description: 'Webhook ID (returned to clients as `id` on register).' }
-        Url: { type: string, format: uri }
-        events:
-          description: Event names subscribed to, or the literal "all".
-          oneOf:
-            - type: array
-              items: { type: string }
-            - { type: string, enum: [all] }
-        disabled: { type: boolean }
-        failures: { type: integer, minimum: 0 }
-      additionalProperties: true
-    WebhookList:
-      type: array
-      items: { $ref: '#/components/schemas/Webhook' }
-
     # --- Paginated list envelopes ---
     PaginatedEnvelope:
       type: object
@@ -818,7 +796,8 @@ components:
     AgentState:
       description: |
         Full widget/connector state snapshot returned by `/api/agent/state`
-        and `/api/tbot/heartbeat`.
+        and pushed as a `state` frame on the WebSocket channel
+        (`ws://host:wsPort/api/ws`).
       type: object
       required: [mode, goal, ready, pendingRequest, agentStatus, lastError]
       properties:
@@ -848,18 +827,12 @@ components:
       properties:
         ready: { type: boolean }
       additionalProperties: true
-    TbotRegisterAck:
-      type: object
-      required: [registered, webhook_url]
-      properties:
-        registered: { type: boolean }
-        webhook_url: { type: string, format: uri }
-      additionalProperties: true
     GameNotReady:
       description: |
         Returned with HTTP 409 from any non-whitelisted `/api/*` route while
-        `ready=false`. The whitelist is `/api/agent/*`, `/api/ready`,
-        `/api/tbot/*`, and `/api/ping`.
+        `ready=false`. The whitelist is `/api/agent/*`, `/api/ready`, and
+        `/api/ping`. The WebSocket channel (`ws://host:wsPort/api/ws`) is not
+        gated; subscribers see the gate transition as a `state` frame.
       type: object
       required: [error, hint]
       properties:
@@ -972,10 +945,9 @@ paths:
       summary: Submit a new prompt to the single pending-request slot.
       description: |
         Launch trigger in request mode. Records the prompt in the pending
-        slot and, if a `tbot watch` connector has registered a push URL via
-        `/api/tbot/register`, fires a webhook so the connector picks the
-        request up immediately (fast path). Polling `/api/agent/state` is
-        the slow-path fallback.
+        slot. Connected `tbot watch` clients see the new `pendingRequest`
+        immediately via a `state` frame on the WebSocket channel; polling
+        `/api/agent/state` is the slow-path fallback for HTTP-only clients.
       tags: [agent]
       requestBody:
         required: true
@@ -1019,58 +991,10 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/ReadyAck' } } }
         '400': { $ref: '#/components/responses/BadRequest' }
 
-  /api/tbot/register:
-    post:
-      operationId: tbot_register
-      summary: Register the `tbot watch` connector's push URL.
-      description: |
-        The mod fires a webhook to this URL whenever `/api/agent/request`
-        records a new prompt. The URL is cleared automatically if no
-        heartbeat arrives within the connector timeout (6 seconds).
-      tags: [connector]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [webhook_url]
-              properties:
-                webhook_url: { type: string, format: uri }
-              additionalProperties: false
-      responses:
-        '200':
-          description: Push URL registered.
-          content: { application/json: { schema: { $ref: '#/components/schemas/TbotRegisterAck' } } }
-        '400': { $ref: '#/components/responses/BadRequest' }
-
-  /api/tbot/heartbeat:
-    post:
-      operationId: tbot_heartbeat
-      summary: Connector heartbeat. Returns the full state snapshot.
-      description: |
-        Connectors call this on a 1-2s cadence. Side effects:
-        keeps the connector's registered push URL alive (no lapse), records
-        the connector-reported `agent_status`, and (when
-        `acked_request_id >= pendingRequest.id`) clears the pending slot.
-      tags: [connector]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [agent_status, acked_request_id]
-              properties:
-                version: { type: string, description: 'Connector version string. Optional today; reserved for future compatibility checks.' }
-                agent_status: { type: string, description: 'Free-form connector-reported status.' }
-                acked_request_id: { type: integer, minimum: 0, description: 'Highest pending-request id the connector has handled.' }
-              additionalProperties: false
-      responses:
-        '200':
-          description: Current agent state.
-          content: { application/json: { schema: { $ref: '#/components/schemas/AgentState' } } }
-        '400': { $ref: '#/components/responses/BadRequest' }
+  # /api/tbot/register and /api/tbot/heartbeat were deleted in the WS rework
+  # (issue #28). Connectors now upgrade to ws://host:wsPort/api/ws and
+  # exchange `state`, `event`, `heartbeat`, `ping`, `pong` frames. See
+  # docs/websocket-protocol.md for the authoritative protocol.
 
   # ---------------------------------------------------------------------------
   # read state (scalars / aggregates)
@@ -2145,62 +2069,10 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
         '400': { $ref: '#/components/responses/BadRequest' }
 
-  # ---------------------------------------------------------------------------
-  # webhooks
-  # ---------------------------------------------------------------------------
-  /api/webhooks:
-    get:
-      operationId: list_webhooks
-      summary: List registered outbound webhooks.
-      tags: [webhooks]
-      responses:
-        '200':
-          description: Webhooks.
-          content: { application/json: { schema: { $ref: '#/components/schemas/WebhookList' } } }
-    post:
-      operationId: register_webhook
-      summary: Register a webhook URL to receive game-event push notifications.
-      tags: [webhooks]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [url]
-              properties:
-                url: { type: string, format: uri }
-                events:
-                  type: array
-                  items: { type: string }
-                  description: 'List of event names; omit for all events.'
-              additionalProperties: false
-      responses:
-        '200':
-          description: Acknowledged.
-          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
-        '400': { $ref: '#/components/responses/BadRequest' }
-
-  /api/webhooks/delete:
-    post:
-      operationId: unregister_webhook
-      summary: Unregister a webhook by ID.
-      tags: [webhooks]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [id]
-              properties:
-                id: { type: string }
-              additionalProperties: false
-      responses:
-        '200':
-          description: Acknowledged.
-          content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
-        '400': { $ref: '#/components/responses/BadRequest' }
+  # /api/webhooks and /api/webhooks/delete were deleted in the WS rework
+  # (issue #28). Game-event push delivery now flows over the same WebSocket
+  # channel as state snapshots; subscribers connect once to /api/ws and
+  # receive `event` frames in real time. See docs/websocket-protocol.md.
 
   # ---------------------------------------------------------------------------
   # debug / benchmark (gated by debugEndpointEnabled)

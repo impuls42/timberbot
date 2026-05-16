@@ -467,8 +467,6 @@ namespace Timberbot
                     return _service.ReadV2.CollectSpeed();
                 case "/api/prefabs":
                     return _service.Placement.CollectPrefabs();
-                case "/api/webhooks":
-                    return _service.WebhookMgr.ListWebhooks();
             }
 
             return UnknownEndpoint();
@@ -487,7 +485,7 @@ namespace Timberbot
                 "/api/gatherables", "/api/beavers", "/api/resources", "/api/population", "/api/districts",
                 "/api/weather", "/api/time", "/api/speed", "/api/prefabs", "/api/power", "/api/tiles",
                 "/api/distribution", "/api/science", "/api/wellbeing", "/api/notifications", "/api/workhours",
-                "/api/tree_clusters", "/api/food_clusters", "/api/settlement", "/api/webhooks"
+                "/api/tree_clusters", "/api/food_clusters", "/api/settlement"
             }), ("post_endpoints", new[] {
                 "/api/speed", "/api/building/place", "/api/building/demolish", "/api/building/pause",
                 "/api/building/clutch", "/api/building/floodgate", "/api/building/priority",
@@ -497,7 +495,7 @@ namespace Timberbot
                 "/api/planting/mark", "/api/planting/find", "/api/planting/clear",
                 "/api/cutting/area", "/api/building/storage",
                 "/api/science/unlock", "/api/distribution", "/api/workhours",
-                "/api/district/migrate", "/api/webhooks", "/api/webhooks/delete",
+                "/api/district/migrate",
                 "/api/automation/link", "/api/automation/unlink", "/api/automation/configure", "/api/automation/rename"
             }));
         }
@@ -531,8 +529,6 @@ namespace Timberbot
                 Queued("/api/distribution", req => new LambdaWriteJob(req.Route, () => _service.Write.SetDistribution(req.Body?.Value<string>("district") ?? "", req.Body?.Value<string>("good") ?? "", req.Body?.Value<string>("import") ?? "", req.Body?.Value<int>("exportThreshold") ?? -1))),
                 Queued("/api/building/demolish", req => new LambdaWriteJob(req.Route, () => _service.Placement.DemolishBuilding(req.Body?.Value<int>("id") ?? 0))),
                 Queued("/api/crop/demolish", req => new LambdaWriteJob(req.Route, () => _service.Placement.DemolishCrop(req.Body?.Value<int>("id") ?? 0))),
-                Queued("/api/webhooks", req => new LambdaWriteJob(req.Route, () => _service.WebhookMgr.RegisterWebhook(req.Body?.Value<string>("url") ?? "", req.Body?["events"]?.ToObject<List<string>>()))),
-                Queued("/api/webhooks/delete", req => new LambdaWriteJob(req.Route, () => _service.WebhookMgr.UnregisterWebhook(req.Body?.Value<string>("id") ?? ""))),
                 Queued("/api/debug", req => new LambdaWriteJob(req.Route, () =>
                 {
                     if (!_debugEnabled) return _jw.Error("disabled: debug endpoint");
@@ -568,15 +564,14 @@ namespace Timberbot
                 Queued("/api/automation/rename", req => new LambdaWriteJob(req.Route, () => _service.Write.RenameEntity(req.Body?.Value<int>("id") ?? 0, req.Body?.Value<string>("name") ?? ""))),
 
                 // --- Widget / connector surface (mod ↔ connector rework) ---
-                // These lambdas only touch the thread-safe AgentState. The
-                // queue indirection costs a frame of latency, which is
-                // negligible compared with the 1-2s connector heartbeat
-                // cadence and keeps the existing route dispatcher uniform.
+                // /api/tbot/* heartbeat + register routes were deleted when
+                // the connector moved to the WebSocket channel. The widget's
+                // /api/agent/* + /api/ready remain HTTP because they're driven
+                // from the in-game UI thread and don't need a long-lived
+                // socket.
                 Queued("/api/agent/config", req => new LambdaWriteJob(req.Route, () => HandleAgentConfig(req))),
                 Queued("/api/agent/request", req => new LambdaWriteJob(req.Route, () => HandleAgentRequest(req))),
                 Queued("/api/ready", req => new LambdaWriteJob(req.Route, () => HandleReady(req))),
-                Queued("/api/tbot/register", req => new LambdaWriteJob(req.Route, () => HandleTbotRegister(req))),
-                Queued("/api/tbot/heartbeat", req => new LambdaWriteJob(req.Route, () => HandleTbotHeartbeat(req))),
             };
 
             var result = new Dictionary<string, PostRouteDescriptor>(System.StringComparer.Ordinal);
@@ -618,10 +613,10 @@ namespace Timberbot
                 return _jw.Error("invalid_prompt: prompt is required");
 
             var state = _service.AgentState;
+            // EnqueueRequest fires the Changed event; the WS broadcaster
+            // forwards the new pendingRequest to every connected connector so
+            // there's no longer a separate HTTP webhook fast-path.
             int id = state.EnqueueRequest(prompt);
-            string pushUrl = state.TbotWebhookUrl;
-            if (!string.IsNullOrEmpty(pushUrl))
-                FireTbotRequestWebhook(pushUrl, id, prompt);
 
             return _jw.Reset().OpenObj()
                 .Key("pendingRequest").OpenObj().Prop("id", id).Prop("prompt", prompt).CloseObj()
@@ -636,58 +631,6 @@ namespace Timberbot
             bool ready = req.Body.Value<bool>("ready");
             _service.AgentState.SetReady(ready);
             return _jw.Reset().OpenObj().Prop("ready", ready).CloseObj().ToString();
-        }
-
-        private object HandleTbotRegister(PendingRequest req)
-        {
-            var url = req.Body?.Value<string>("webhook_url");
-            if (string.IsNullOrWhiteSpace(url))
-                return _jw.Error("invalid_webhook_url: 'webhook_url' is required");
-            _service.AgentState.RegisterTbotWebhook(url, System.DateTime.UtcNow);
-            return _jw.Reset().OpenObj().Prop("registered", true).Prop("webhook_url", url).CloseObj().ToString();
-        }
-
-        private object HandleTbotHeartbeat(PendingRequest req)
-        {
-            // `version` is part of the spec body for forward-compat checks but
-            // intentionally ignored today.
-            var agentStatus = req.Body?.Value<string>("agent_status") ?? "";
-            long acked = req.Body?.Value<long?>("acked_request_id") ?? 0;
-            _service.AgentState.Heartbeat(agentStatus, acked, System.DateTime.UtcNow);
-            return _service.AgentState.ToStateResponseJson();
-        }
-
-        // Async fire-and-forget POST to the connector's registered push URL.
-        // Errors are logged but don't fail the originating /api/agent/request.
-        // Body shape mirrors the heartbeat response so the connector can reuse
-        // its parser.
-        private static readonly System.Net.Http.HttpClient _tbotPushClient =
-            new System.Net.Http.HttpClient { Timeout = System.TimeSpan.FromSeconds(5) };
-
-        private void FireTbotRequestWebhook(string url, int requestId, string prompt)
-        {
-            // Build through JObject so future fields (auth headers, etc.) can
-            // be added without growing a fragile string-interpolation block.
-            var payload = new JObject
-            {
-                ["event"] = "agent.request",
-                ["id"] = requestId,
-                ["prompt"] = prompt ?? "",
-            }.ToString(Newtonsoft.Json.Formatting.None);
-            ThreadPool.QueueUserWorkItem(_ =>
-            {
-                try
-                {
-                    using var content = new System.Net.Http.StringContent(payload, Encoding.UTF8, "application/json");
-                    using var resp = _tbotPushClient.PostAsync(url, content).GetAwaiter().GetResult();
-                    if (!resp.IsSuccessStatusCode)
-                        TimberbotLog.Info($"tbot.push.fail url={url} status={(int)resp.StatusCode}");
-                }
-                catch (Exception ex)
-                {
-                    TimberbotLog.Info($"tbot.push.err url={url} ex={ex.GetType().Name}:{ex.Message}");
-                }
-            });
         }
 
         private void FailOutstanding(string error)
