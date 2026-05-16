@@ -229,6 +229,12 @@ namespace Timberbot
             }
         }
 
+        // Cap inbound WS frames so a misbehaving client that never sends
+        // EndOfMessage can't grow the reassembly buffer unboundedly. 64 KB
+        // is roughly two orders of magnitude over the largest legitimate
+        // heartbeat payload.
+        public const int MaxInboundMessageBytes = 64 * 1024;
+
         private async Task ReceiveLoop(WebSocketConnection conn)
         {
             var buffer = new byte[16 * 1024];
@@ -237,6 +243,8 @@ namespace Timberbot
             {
                 WebSocketReceiveResult result;
                 sb.Clear();
+                int totalBytes = 0;
+                bool overflow = false;
                 while (true)
                 {
                     try
@@ -256,8 +264,23 @@ namespace Timberbot
                         catch { }
                         return;
                     }
+                    totalBytes += result.Count;
+                    if (totalBytes > MaxInboundMessageBytes)
+                    {
+                        overflow = true;
+                        // Keep draining the rest of this frame so the client
+                        // doesn't get stuck mid-send, but discard the bytes.
+                        if (result.EndOfMessage) break;
+                        continue;
+                    }
                     sb.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
                     if (result.EndOfMessage) break;
+                }
+                if (overflow)
+                {
+                    conn.TryEnqueue(TimberbotPure.BuildErrorMessage(
+                        $"message_too_large: cap {MaxInboundMessageBytes} bytes"));
+                    continue;
                 }
                 var raw = sb.ToString();
                 var msg = TimberbotPure.ParseInboundMessage(raw);
@@ -368,15 +391,22 @@ namespace Timberbot
                 }
             }
 
+            // Idempotent: called from multiple paths
+            //   - BroadcastFrame when TryEnqueue overflows (slow_consumer drop)
+            //   - HandleConnectionAsync's finally after the ReceiveLoop ends
+            //   - TimberbotWebSocketServer.Stop on shutdown
+            // The _closed flag guards the sender; the WebSocket.CloseAsync
+            // call is a no-op once the socket is already closing, and the
+            // Dispose() in the Task.Run continuation is safe to invoke
+            // twice. Fire-and-forget so a slow handshake never back-presses
+            // the broadcaster.
             public void Close(string reason)
             {
+                bool wasOpen = !_closed;
                 _closed = true;
                 try { _signal.Release(); } catch { }
-                // Fire-and-forget the WebSocket close handshake — never block
-                // the broadcaster on a misbehaving consumer. The sender task
-                // observes _closed on its next iteration and exits; Dispose
-                // tears down the underlying socket once the handshake either
-                // completes or its 5s timeout elapses.
+                if (!wasOpen) return;  // second caller can skip the rest
+
                 if (Socket.State == WebSocketState.Open)
                 {
                     var sock = Socket;

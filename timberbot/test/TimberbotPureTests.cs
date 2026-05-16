@@ -399,49 +399,9 @@ namespace Timberbot.Tests
         public void NotANumber_ReturnsFallback() => Assert.Equal("10", TimberbotPure.NormalizeIntString("abc", 10, 0));
     }
 
-    public class ValidateWebhookUrlFormatTests
-    {
-        [Fact]
-        public void HttpValid() => Assert.True(TimberbotPure.ValidateWebhookUrlFormat("http://example.com/hook", out _));
-
-        [Fact]
-        public void HttpsValid() => Assert.True(TimberbotPure.ValidateWebhookUrlFormat("https://example.com/hook", out _));
-
-        [Fact]
-        public void FtpRejected()
-        {
-            Assert.False(TimberbotPure.ValidateWebhookUrlFormat("ftp://example.com", out var err));
-            Assert.Contains("scheme", err);
-        }
-
-        [Fact]
-        public void FileRejected()
-        {
-            Assert.False(TimberbotPure.ValidateWebhookUrlFormat("file:///etc/passwd", out var err));
-            Assert.Contains("scheme", err);
-        }
-
-        [Fact]
-        public void EmptyRejected()
-        {
-            Assert.False(TimberbotPure.ValidateWebhookUrlFormat("", out var err));
-            Assert.Contains("empty", err);
-        }
-
-        [Fact]
-        public void NullRejected()
-        {
-            Assert.False(TimberbotPure.ValidateWebhookUrlFormat(null, out var err));
-            Assert.Contains("empty", err);
-        }
-
-        [Fact]
-        public void MalformedRejected()
-        {
-            Assert.False(TimberbotPure.ValidateWebhookUrlFormat("not a url", out var err));
-            Assert.Contains("malformed", err);
-        }
-    }
+    // ValidateWebhookUrlFormatTests removed alongside the deleted helper
+    // (issue #28). WS clients initiate connections — there's no longer a
+    // server-side URL to validate.
 
     public class NormalizeDoubleStringTests
     {

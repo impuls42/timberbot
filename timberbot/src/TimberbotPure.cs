@@ -243,37 +243,10 @@ namespace Timberbot
             return v == "request" ? "request" : "autonomous";
         }
 
-        public static bool ValidateWebhookUrlFormat(string url, out string error)
-        {
-            error = null;
-
-            if (string.IsNullOrWhiteSpace(url))
-            {
-                error = "invalid_webhook_url: url is empty";
-                return false;
-            }
-
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-            {
-                error = "invalid_webhook_url: malformed url";
-                return false;
-            }
-
-            var scheme = uri.Scheme.ToLowerInvariant();
-            if (scheme != "http" && scheme != "https")
-            {
-                error = "invalid_webhook_url: scheme must be http or https, got " + scheme;
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(uri.Host))
-            {
-                error = "invalid_webhook_url: no host in url";
-                return false;
-            }
-
-            return true;
-        }
+        // ValidateWebhookUrlFormat / SSRF guards were deleted alongside the
+        // outbound HTTP webhook delivery loop in the WS rework (issue #28).
+        // The WS broadcaster pushes to client-initiated connections, so
+        // server-side URL validation is no longer relevant.
 
         // --- WebSocket envelope helpers ---
         //

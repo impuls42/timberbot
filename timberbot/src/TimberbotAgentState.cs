@@ -237,11 +237,20 @@ namespace Timberbot
             // Snapshot the JSON outside the lock so concurrent readers can
             // proceed while subscribers fan-out the broadcast. Skip the
             // serialization entirely when nobody is listening (the common
-            // case before any WS client connects).
+            // case before any WS client connects). Subscribers MUST NOT
+            // throw — but if one does we log and keep going so a buggy
+            // handler can't strand the state container.
             var handler = Changed;
             if (handler == null) return;
             string payload = ToStateResponseJson();
-            try { handler(payload); } catch { /* swallow: WS push errors are non-fatal */ }
+            try
+            {
+                handler(payload);
+            }
+            catch (Exception ex)
+            {
+                TimberbotLog.Error("agentstate.changed", ex);
+            }
         }
 
         // --- persistence (state.json) ------------------------------------
