@@ -175,7 +175,7 @@ namespace Timberbot
             // Read the HTTP upgrade request. We read until \r\n\r\n with a
             // hard cap so a misbehaving client can't allocate unboundedly.
             string requestText;
-            try { requestText = await ReadHttpHeadersAsync(stream).ConfigureAwait(false); }
+            try { requestText = await ReadHttpHeadersAsync(stream, _shutdown.Token).ConfigureAwait(false); }
             catch (Exception ex)
             {
                 TimberbotLog.Info($"ws.handshake.read.err {ex.GetType().Name}:{ex.Message}");
@@ -386,14 +386,14 @@ namespace Timberbot
         // consume past the header delimiter — RFC 6455 mandates an empty body
         // on the upgrade GET, and WebSocket framing starts on the next byte
         // the client sends after seeing 101 Switching Protocols.
-        private static async Task<string> ReadHttpHeadersAsync(NetworkStream stream)
+        private static async Task<string> ReadHttpHeadersAsync(NetworkStream stream, CancellationToken ct)
         {
             var buf = new byte[MaxHeaderBytes];
             int total = 0;
             while (total < MaxHeaderBytes)
             {
                 int n;
-                try { n = await stream.ReadAsync(buf, total, 1).ConfigureAwait(false); }
+                try { n = await stream.ReadAsync(buf, total, 1, ct).ConfigureAwait(false); }
                 catch { return null; }
                 if (n == 0) return null;
                 total += n;
