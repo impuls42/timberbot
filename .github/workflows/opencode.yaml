@@ -6,11 +6,22 @@ on:
   pull_request_review_comment:
     types: [created, edited]
 
+env:
+  # Pinned to work around v1.15.1+ regression: anomalyco/opencode#27829
+  # ("InstanceRef not provided"). Revisit once a fixed release ships.
+  OPENCODE_VERSION: "1.15.0"
+
 jobs:
   opencode:
+    # Skip bot-authored comments: opencode-agent's own review bodies contain
+    # https://opencode.ai/... links, which match the `/opencode` substring and
+    # re-trigger the workflow. The re-run then fails with "User
+    # opencode-agent[bot] does not have write permissions".
     if: |
-      contains(github.event.comment.body, '/oc') ||
-      contains(github.event.comment.body, '/opencode')
+      github.event.comment.user.type != 'Bot' && (
+        contains(github.event.comment.body, '/oc') ||
+        contains(github.event.comment.body, '/opencode')
+      )
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -23,11 +34,28 @@ jobs:
         with:
           persist-credentials: false
 
+      # Inlined from anomalyco/opencode/github@latest so we can pin the
+      # opencode binary version (the action always installs the latest).
+      - name: Cache opencode
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.opencode/bin
+          key: opencode-${{ runner.os }}-${{ runner.arch }}-${{ env.OPENCODE_VERSION }}
+
+      - name: Install opencode
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ env.OPENCODE_VERSION }}
+
+      - name: Add opencode to PATH
+        shell: bash
+        run: echo "$HOME/.opencode/bin" >> $GITHUB_PATH
+
       - name: Run opencode
-        uses: anomalyco/opencode/github@latest
+        shell: bash
         env:
           OPENCODE_AUTH_CONTENT: '{"opencode-go":{"type":"api","key":"${{ secrets.OPENCODE_API_KEY }}"}}'
-        with:
-          model: opencode-go/glm-5.1
-          share: true
-          
+          MODEL: opencode-go/glm-5.1
+          SHARE: "true"
+        run: opencode github run
