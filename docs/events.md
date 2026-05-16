@@ -1,8 +1,8 @@
 # Events
 
-> **v0.9 — WebSocket cutover, in flight.** The mod no longer dispatches outbound HTTP webhooks. Game events are now pushed over the mod's WebSocket — every subscriber opens its own connection to the same `/api/ws` endpoint the connector uses. The summary below covers what you need to connect; the full wire contract lands with [#28](https://github.com/impuls42/timberbot/issues/28) (WS Unit 1), at which point [`websocket-protocol.md`](websocket-protocol.md) becomes authoritative.
+Game events (drought, beaver deaths, building placement, weather, power, wonders, …) are delivered as server-push frames on the mod's WebSocket endpoint at `ws://<host>:<wsPort>/api/ws` (default `ws://127.0.0.1:8086/api/ws`). Any number of subscribers can connect; each receives the same fan-out stream. The full wire contract is in [websocket-protocol.md](websocket-protocol.md).
 
-Game events (drought, beaver deaths, building placement, weather, power, wonders, …) are delivered as server-push frames on the mod's WebSocket endpoint at `ws://host:wsPort/api/ws` (default port `8086`). Any number of subscribers can connect; each receives the same fan-out stream.
+The pre-v0.9 outbound HTTP webhook channel (`POST /api/webhooks`, batched-array delivery, circuit breaker) was removed in the WS cutover.
 
 Events are **unaffected by the [ready gate](architecture.md#ready-gate)** — they keep firing whether the player has pressed Launch or not. That's deliberate: a game-event subscriber (a Discord bot, a dashboard, an alerting daemon) should still see what's happening in the colony even when the AI is muted.
 
@@ -22,7 +22,7 @@ tbot listen --forward-to https://collector.example/sink   # POST each event down
 `tbot listen` picks up `[client].host` and `[client].auth_token` from `~/.config/timberbot/config.toml` (the same auth token the HTTP client uses), and defaults the WS port to `8086`. Override per invocation:
 
 ```bash
-tbot listen --host=192.168.1.50 --port=8086 --auth-token=s3cret
+tbot listen --host=192.168.1.50 --ws-port=8086 --auth-token=s3cret
 ```
 
 There is no `--listen-port` — `tbot listen` is a client, not a server. Nothing inbound to your machine.

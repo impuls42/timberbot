@@ -24,7 +24,7 @@ TimberbornMods/
       Timberbot.csproj                  Build config, game DLL references
       manifest.json                     Mod metadata (version, name, description)
       settings.json                     Persistent settings store (runtime + agent/UI settings, primarily edited in-game)
-      thumbnail.png                     Steam Workshop image
+      thumbnail.png                     Mod thumbnail (rendered in the Mod Manager + README)
     test/
       Timberbot.Tests.csproj            xUnit test project (net8.0, shares source files)
       TimberbotJwTests.cs               JSON writer tests (primitives, nesting, commas, reuse)
@@ -82,10 +82,11 @@ scripts/deploy.sh /custom/mods   # explicit override
 ## How the mod works
 
 1. `TimberbotConfigurator` registers all services as singletons in the `Game` context via Bindito DI
-2. On `Load()`, `TimberbotService` starts an `HttpListener` on port 8085 in a background thread
+2. On `Load()`, `TimberbotService` starts an `HttpListener` on port 8085 in a background thread and (when `wsEnabled`) a separate `TcpListener` on port 8086 for the WebSocket channel
 3. GET requests are handled directly on the background listener thread (reads from `ReadV2` published snapshots)
 4. POST requests are queued in a `ConcurrentQueue<PendingRequest>` and drained on the main thread
-5. `UpdateSingleton()` runs every frame: drains POST queue, services pending fresh publishes, flushes webhooks
+5. `UpdateSingleton()` runs every frame: drains POST queue, services pending fresh publishes
+6. Game events (`[OnEvent]` handlers in `TimberbotEvents.cs`) and state mutations (`TimberbotAgentState.Changed`) fan out to the WS broadcaster, which pushes `event` / `state` frames to every connected client
 
 For full architecture details see [architecture.md](architecture.md).
 
@@ -95,8 +96,8 @@ The in-game `Settings` modal is the primary configuration surface for Timberbot.
 
 All settings persist to `settings.json`, including:
 
-- runtime settings such as `debugEndpointEnabled`, `httpPort`, `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, and `writeBudgetMs`
-- agent/UI settings such as `agentBinary`, `agentGoal`, `widgetLeft`, and `widgetTop` (per-backend model/effort/template now live in `~/.config/timberbot/config.toml`)
+- runtime settings: `httpPort`, `wsPort`, `wsEnabled`, `listenAddress`, `authToken`, `debugEndpointEnabled`, `maxBodyBytes`, `writeBudgetMs`
+- widget UI settings such as `widgetLeft`, `widgetTop`, `actionLoggingEnabled` (per-backend model/effort/template now live in `~/.config/timberbot/config.toml`; the persisted `mode`/`goal` live in `state.json` alongside `settings.json` and are owned by `TimberbotAgentState`)
 
 `TimberbotService` keeps an in-memory settings object and debounces writes back to disk. Editing `settings.json` directly is supported, but it is the manual/advanced path rather than the default workflow.
 
@@ -168,7 +169,7 @@ See `python/tests/integration/README.md` for the runner-level options
 | crops | 6 | crops, tree marking, planting, clear, demolish crop |
 | buildings | 6 | detail, inventory, range, recipes, prefab costs, power |
 | beavers | 10 | detail, needs, position, district, bots, carrying, durability |
-| webhooks | 1 | register, receive, filter, unregister, resilience |
+| events | 1 | WS frame fan-out, `tbot listen` end-to-end |
 | cli | 2 | CLI commands, error codes |
 | perf | 4 | endpoint latency, building perf, brain perf, v2 parity |
 | wipe | 1 | demolish all buildings + clear all crops |
@@ -179,12 +180,12 @@ See `python/tests/integration/README.md` for the runner-level options
 - **Write-to-read**: POST change -> first GET sees it -> restore -> first GET sees restoration
 - **Performance**: direct endpoint latency comparisons across the live snapshot path
 - **Concurrency**: simultaneous requests against projection-backed endpoints
-- **Validation**: `test_validation.py` covers 77 tests across 11 groups (read, write, placement, path, crops, buildings, beavers, webhooks, cli, perf, wipe)
+- **Validation**: `test_validation.py` covers 77 tests across 11 groups (read, write, placement, path, crops, buildings, beavers, events, cli, perf, wipe)
 - **Cache invalidation**: place path -> count+1, demolish -> count back (EventBus + fresh-on-request snapshots)
 - **Data accuracy**: `validate` endpoint compares cached vs live game state per field. `validate_all` checks all entities, all fields, 0 mismatches
 - **Burst**: 7 sequential calls < 3s total (24ms measured)
 - **Save-agnostic**: discovery phase detects faction, map bounds, existing buildings
-- **Webhooks**: register, receive, filter, unregister, bad URL resilience, payload accuracy
+- **Events (WebSocket)**: `tbot listen` connects to `ws://host:wsPort/api/ws`, receives `event` frames as in-game state changes
 
 ### In-game benchmark
 
@@ -196,26 +197,9 @@ See `python/tests/integration/README.md` for the runner-level options
 
 Results include per-test GC0 count, ms/call, and pass/fail. See [performance.md](performance.md#benchmarks) for recorded results.
 
-## Steam Workshop
+## Release
 
-### First publish
-
-1. `dotnet build` (auto-deploys DLL + manifest + thumbnail to mods folder)
-2. Launch Timberborn, open Mod Manager from main menu
-3. Find Timberbot API in your local mods, click the upload/publish button
-4. Accept Steam Workshop ToS on first upload
-5. A `workshop_data.json` is generated in your mods folder. this links your local mod to the Workshop item ID
-
-### Updating
-
-1. Bump version in `manifest.json` and `Timberbot.csproj`
-2. `dotnet build` (auto-deploys updated files to mods folder)
-3. Launch Timberborn, open Mod Manager
-4. Your mod shows an update option because `workshop_data.json` is present
-5. Check the boxes for what to update (files, description, preview image)
-6. Upload
-
-**Important:** Keep `workshop_data.json` in your mods folder (it's gitignored). Without it, uploading creates a NEW Workshop entry instead of updating the existing one.
+This fork ships via GitHub releases only; the Steam Workshop entry "Timberbot API" belongs to the upstream [`abix-/TimberbornMods`](https://github.com/abix-/TimberbornMods) project. Users install the fork manually — see [Getting Started](getting-started.md#install-the-mod).
 
 ### GitHub release
 
