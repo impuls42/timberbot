@@ -29,7 +29,7 @@ namespace Timberbot
         private readonly IGoodService _goodService;
         private readonly Dictionary<int, Guid> _legacyToEntityId = new Dictionary<int, Guid>();
 
-        public TimberbotWebhook WebhookMgr;
+        public TimberbotEvents Events;
 
         public static readonly HashSet<string> TreeSpecies = new HashSet<string>
             { "Pine", "Birch", "Oak", "Maple", "Chestnut", "Mangrove" };
@@ -150,25 +150,25 @@ namespace Timberbot
         {
             IndexEntity(e.Entity);
 
-            if (!HasWebhookSubscribers()) return;
+            if (!HasSubscribers()) return;
 
             var ec = e.Entity;
             if (ec.GetComponent<Timberborn.Buildings.Building>() != null)
-                WebhookMgr.PushEvent("building.placed", WebhookMgr.DataEntity(GetLegacyId(ec), CanonicalName(ec.GameObject.name)));
+                Events.PushEvent("building.placed", Events.DataEntity(GetLegacyId(ec), CanonicalName(ec.GameObject.name)));
             else if (ec.GetComponent<Timberborn.NeedSystem.NeedManager>() != null)
-                WebhookMgr.PushEvent("beaver.born", WebhookMgr.DataEntityBot(GetLegacyId(ec), CanonicalName(ec.GameObject.name), ec.GetComponent<Bot>() != null));
+                Events.PushEvent("beaver.born", Events.DataEntityBot(GetLegacyId(ec), CanonicalName(ec.GameObject.name), ec.GetComponent<Bot>() != null));
         }
 
         [OnEvent]
         public void OnEntityDeleted(EntityDeletedEvent e)
         {
-            if (HasWebhookSubscribers())
+            if (HasSubscribers())
             {
                 var ec = e.Entity;
                 if (ec.GetComponent<Timberborn.Buildings.Building>() != null)
-                    WebhookMgr.PushEvent("building.demolished", WebhookMgr.DataEntity(GetLegacyId(ec), CanonicalName(ec.GameObject.name)));
+                    Events.PushEvent("building.demolished", Events.DataEntity(GetLegacyId(ec), CanonicalName(ec.GameObject.name)));
                 else if (ec.GetComponent<Timberborn.NeedSystem.NeedManager>() != null)
-                    WebhookMgr.PushEvent("beaver.died", WebhookMgr.DataEntity(GetLegacyId(ec), CanonicalName(ec.GameObject.name)));
+                    Events.PushEvent("beaver.died", Events.DataEntity(GetLegacyId(ec), CanonicalName(ec.GameObject.name)));
             }
 
             RemoveEntity(e.Entity);
@@ -176,9 +176,9 @@ namespace Timberbot
 
         // No subscribers ⇒ skip the DataEntity JW allocation. The check is
         // ~free (volatile read + ConcurrentDictionary.Count).
-        private bool HasWebhookSubscribers()
+        private bool HasSubscribers()
         {
-            var b = WebhookMgr?.Broadcaster;
+            var b = Events?.Broadcaster;
             return b != null && b.ConnectionCount > 0;
         }
         private int ResolvePublicId(EntityComponent ec)

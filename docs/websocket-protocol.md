@@ -103,7 +103,7 @@ support subscription filtering.
 
 - `event` (string): event name (e.g. `day.start`, `drought.start`,
   `building.finished`, `beaver.born`). See
-  `timberbot/src/TimberbotWebhook.cs` for the canonical event list.
+  `timberbot/src/TimberbotEvents.cs` for the canonical event list.
 - `day` (integer): the in-game day number at emission.
 - `timestamp` (integer): Unix seconds at emission.
 - `data` (object | null): event-specific payload. Events without

@@ -6,9 +6,8 @@ Single source of truth for Timberbot API performance. All optimization decisions
 
 | # | Severity | Issue | Cost | Location |
 |---|---|---|---|---|
-| 38 | High | Webhook `PendingPayloads` backlog is unbounded while endpoint is slow/failing | memory growth under noisy events until circuit breaker trips | `TimberbotWebhook.cs` |
 | 39 | High | HTTP `_pending` / `_writeQueue` POST queues are unbounded | unbounded memory + rising latency under write flood | `TimberbotHttpServer.cs` |
-| 40 | Medium | `TimberbotLog.Info/Error` does synchronous `Debug.Log` + `File.AppendAllText` in hot paths | lock contention, disk I/O, string churn on requests/webhooks | `TimberbotLog.cs`, `TimberbotHttpServer.cs`, `TimberbotWebhook.cs` |
+| 40 | Medium | `TimberbotLog.Info/Error` does synchronous `Debug.Log` + `File.AppendAllText` in hot paths | lock contention, disk I/O, string churn on requests + game events | `TimberbotLog.cs`, `TimberbotHttpServer.cs`, `TimberbotEvents.cs` |
 | 41 | Medium | `Process` objects in agent paths are never disposed | OS handle leak across repeated start/stop sessions | `TimberbotAgent.cs` |
 | 14 | Low | `CollectBuildings` basic: `$"{a}/{b}"` per building with workers | N strings | `TimberbotReadV2.cs` |
 | 13 | Low | `CollectAlerts`: `$"{a}/{b}"` per unstaffed building | N strings | `TimberbotReadV2.cs` |
