@@ -13,9 +13,15 @@ env:
 
 jobs:
   opencode:
+    # Skip bot-authored comments: opencode-agent's own review bodies contain
+    # https://opencode.ai/... links, which match the `/opencode` substring and
+    # re-trigger the workflow. The re-run then fails with "User
+    # opencode-agent[bot] does not have write permissions".
     if: |
-      contains(github.event.comment.body, '/oc') ||
-      contains(github.event.comment.body, '/opencode')
+      github.event.comment.user.type != 'Bot' && (
+        contains(github.event.comment.body, '/oc') ||
+        contains(github.event.comment.body, '/opencode')
+      )
     runs-on: ubuntu-latest
     permissions:
       id-token: write
