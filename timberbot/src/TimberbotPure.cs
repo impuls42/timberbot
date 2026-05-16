@@ -17,10 +17,11 @@ namespace Timberbot
         // python/src/timberbot/__about__.py - keep them in lockstep.
         public const string OPENAPI_VERSION = "1.0.0";
 
-        // Settings keys retired in PR 4. The mod still tolerates them on disk
-        // for one release but never reads their values; DetectDeprecatedSettings
-        // returns the subset present so the service can log a one-line warning.
-        // Keep in lockstep with timberbot.settings.DEPRECATED_KEYS in Python.
+        // Settings keys retired across the v0.9 architecture rework. The mod
+        // tolerates them on disk but never reads their values;
+        // DetectDeprecatedSettings returns the subset present so the service
+        // can log a one-line warning. Keep in lockstep with
+        // timberbot.settings.DEPRECATED_KEYS in Python.
         public static readonly string[] DEPRECATED_SETTINGS_KEYS = {
             "terminal",
             "pythonCommand",
@@ -29,6 +30,14 @@ namespace Timberbot
             "agentCommandTemplate",
             "agentAllowlistEnabled",
             "agentAllowedBinaries",
+            // Retired in the WS rework (issue #28): outbound HTTP webhook
+            // delivery was replaced by a single WS broadcast channel on
+            // `wsPort`. See docs/websocket-protocol.md.
+            "webhooksEnabled",
+            "webhookBatchMs",
+            "webhookCircuitBreaker",
+            "webhookMaxPendingEvents",
+            "webhookValidateUrls",
         };
 
         // Returns the deprecated keys present in `settings`. Detection-only —
@@ -234,36 +243,121 @@ namespace Timberbot
             return v == "request" ? "request" : "autonomous";
         }
 
-        public static bool ValidateWebhookUrlFormat(string url, out string error)
+        // ValidateWebhookUrlFormat / SSRF guards were deleted alongside the
+        // outbound HTTP webhook delivery loop in the WS rework (issue #28).
+        // The WS broadcaster pushes to client-initiated connections, so
+        // server-side URL validation is no longer relevant.
+
+        // --- WebSocket envelope helpers ---
+        //
+        // The WS protocol uses a flat {"type": ..., "payload": ...} envelope
+        // for every frame. Server->client emits `state`, `event`, `error`,
+        // `pong`. Client->server emits `heartbeat`, `ping`. Authoritative spec
+        // lives in `docs/websocket-protocol.md`. These helpers are pure so the
+        // xUnit project can round-trip them without dragging Unity in.
+
+        public const string WsTypeState = "state";
+        public const string WsTypeEvent = "event";
+        public const string WsTypeError = "error";
+        public const string WsTypePong = "pong";
+        public const string WsTypeHeartbeat = "heartbeat";
+        public const string WsTypePing = "ping";
+
+        // Build a `state` frame whose payload is the raw JSON returned by
+        // TimberbotAgentState.ToStateResponseJson() (i.e. an object, not a
+        // string). We assemble via JObject.Parse so the snapshot is embedded
+        // structurally rather than as an escaped string.
+        public static string BuildStateMessage(string stateJson)
         {
-            error = null;
-
-            if (string.IsNullOrWhiteSpace(url))
+            var payload = string.IsNullOrEmpty(stateJson) ? new JObject() : JObject.Parse(stateJson);
+            return new JObject
             {
-                error = "invalid_webhook_url: url is empty";
-                return false;
-            }
+                ["type"] = WsTypeState,
+                ["payload"] = payload,
+            }.ToString(Newtonsoft.Json.Formatting.None);
+        }
 
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        // Build an `event` frame for a game-event push. `dataJson` may be null
+        // (events without payload). When non-null it MUST be valid JSON; it is
+        // embedded as a sub-object so subscribers don't need to escape it.
+        public static string BuildEventMessage(string eventName, int day, long timestamp, string dataJson)
+        {
+            JToken data;
+            if (string.IsNullOrEmpty(dataJson)) data = JValue.CreateNull();
+            else
             {
-                error = "invalid_webhook_url: malformed url";
-                return false;
+                try { data = JToken.Parse(dataJson); }
+                catch (Newtonsoft.Json.JsonException) { data = new JValue(dataJson); }
             }
-
-            var scheme = uri.Scheme.ToLowerInvariant();
-            if (scheme != "http" && scheme != "https")
+            var payload = new JObject
             {
-                error = "invalid_webhook_url: scheme must be http or https, got " + scheme;
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(uri.Host))
+                ["event"] = eventName ?? "",
+                ["day"] = day,
+                ["timestamp"] = timestamp,
+                ["data"] = data,
+            };
+            return new JObject
             {
-                error = "invalid_webhook_url: no host in url";
-                return false;
-            }
+                ["type"] = WsTypeEvent,
+                ["payload"] = payload,
+            }.ToString(Newtonsoft.Json.Formatting.None);
+        }
 
-            return true;
+        public static string BuildErrorMessage(string error)
+        {
+            var payload = new JObject { ["error"] = error ?? "" };
+            return new JObject
+            {
+                ["type"] = WsTypeError,
+                ["payload"] = payload,
+            }.ToString(Newtonsoft.Json.Formatting.None);
+        }
+
+        public static string BuildPongMessage()
+        {
+            return new JObject
+            {
+                ["type"] = WsTypePong,
+                ["payload"] = new JObject(),
+            }.ToString(Newtonsoft.Json.Formatting.None);
+        }
+
+        // Parsed inbound message. `Type` is normalized to lowercase; payload
+        // fields are pulled out into typed properties for the common cases.
+        public sealed class InboundWsMessage
+        {
+            public string Type;
+            public JObject Payload;
+            // Heartbeat-specific extracts (zero/empty when absent).
+            public string AgentStatus;
+            public long AckedRequestId;
+            public string Version;
+        }
+
+        // Returns null if `raw` is not parseable JSON or is missing a string
+        // `type`. Caller is responsible for further dispatch.
+        public static InboundWsMessage ParseInboundMessage(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return null;
+            JObject obj;
+            try { obj = JObject.Parse(raw); }
+            catch (Newtonsoft.Json.JsonException) { return null; }
+            var type = obj.Value<string>("type");
+            if (string.IsNullOrEmpty(type)) return null;
+            type = type.ToLowerInvariant();
+            JObject payload = obj["payload"] as JObject ?? new JObject();
+            var msg = new InboundWsMessage
+            {
+                Type = type,
+                Payload = payload,
+            };
+            if (type == WsTypeHeartbeat)
+            {
+                msg.AgentStatus = payload.Value<string>("agent_status") ?? "";
+                msg.AckedRequestId = payload.Value<long?>("acked_request_id") ?? 0L;
+                msg.Version = payload.Value<string>("version") ?? "";
+            }
+            return msg;
         }
 
         // --- from TimberbotPlacement ---

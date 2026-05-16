@@ -57,7 +57,8 @@ RESPONSE_MAP: dict[str, tuple[type, str]] = {
     "trees": (models.TreeList, "/api/trees"),
     "crops": (models.CropList, "/api/crops"),
     "gatherables": (models.GatherableList, "/api/gatherables"),
-    "list_webhooks": (models.WebhookList, "/api/webhooks"),
+    # list_webhooks fixture/model deleted with /api/webhooks in the WS
+    # rework (issue #28).
     "agent_state": (models.AgentState, "/api/agent/state"),
 }
 

@@ -1,9 +1,9 @@
 {
   "debugEndpointEnabled": false,
-  "webhooksEnabled": true,
   "httpPort": 8085,
+  "wsPort": 8086,
+  "wsEnabled": true,
   "listenAddress": "127.0.0.1",
   "authToken": "",
-  "webhookValidateUrls": true,
   "maxBodyBytes": 1048576
 }

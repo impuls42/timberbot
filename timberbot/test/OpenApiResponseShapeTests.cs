@@ -66,7 +66,8 @@ namespace Timberbot.Tests
             ["trees"] = "trees.json",
             ["crops"] = "crops.json",
             ["gatherables"] = "gatherables.json",
-            ["list_webhooks"] = "list_webhooks.json",
+            // list_webhooks fixture removed alongside the deleted route in
+            // the WS rework (issue #28).
             ["agent_state"] = "agent_state.json",
         };
 

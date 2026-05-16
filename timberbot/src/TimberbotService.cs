@@ -41,12 +41,9 @@ namespace Timberbot
         // state.json (loaded in Load(), flushed by FlushAgentState).
         public readonly TimberbotAgentState AgentState = new TimberbotAgentState();
         private TimberbotHttpServer _server;
+        private TimberbotWebSocketServer _wsServer;
         private string _agentStatePath;
         private float _agentStateDirtyTime = -1f;
-        // Watchdog tick: clear a stale tbot push URL if the connector hasn't
-        // heartbeated within TimberbotAgentState.HeartbeatTimeout. Sentinel
-        // value lets the first frame run unconditionally.
-        private float _lastWebhookExpiryCheck = float.MinValue;
 
         // Exposed so TimberbotPanel can build a localhost client URL to call the
         // new /api/agent/* + /api/ready endpoints owned by the state container
@@ -58,12 +55,9 @@ namespace Timberbot
         // settings (loaded from settings.json in mod folder)
         private bool _debugEnabled = false;       // enable /api/debug endpoint (default: off)
         private int _httpPort = 8085;             // HTTP server port
+        private int _wsPort = 8086;               // WebSocket server port (state + events)
+        private bool _wsEnabled = true;           // toggle the WS server (events stop firing while off)
         public const int DefaultSearchRadius = 30; // Default radius for proximity searches
-        // webhook settings applied to WebhookMgr in Load()
-        private bool _webhooksEnabled = true;
-        private float _webhookBatchSeconds = 0.2f;
-        private int _webhookCircuitBreaker = 30;
-        private int _webhookMaxPendingEvents = 1000;
         private double _writeBudgetMs = 1.0;
         // security settings
         // IPv4 literal — avoids the `localhost` AAAA/A resolution split, which
@@ -71,7 +65,6 @@ namespace Timberbot
         // dial 127.0.0.1.
         private string _listenAddress = "127.0.0.1";
         private string _corsOrigin = "";
-        private bool _webhookValidateUrls = true;
         private int _maxBodyBytes = 1048576;
         private bool _actionLoggingEnabled = true;
         // Bearer-token shared secret for /api/* requests. Empty = no
@@ -122,7 +115,8 @@ namespace Timberbot
             // Refuse-to-start guard: a non-loopback bind without an authToken would
             // expose every /api/* mutation endpoint to anyone on the network. Bail
             // before opening the listener so an operator cannot accidentally ship
-            // an unauthenticated, internet-reachable mod.
+            // an unauthenticated, internet-reachable mod. The same guard covers
+            // the WS port — both ports share `listenAddress`.
             if (TimberbotPure.RequiresAuthToken(_listenAddress, _authToken))
             {
                 var msg = $"refusing to start: listenAddress='{_listenAddress}' is non-loopback but authToken is empty. " +
@@ -132,17 +126,12 @@ namespace Timberbot
                 return;
             }
 
-            WebhookMgr.Enabled = _webhooksEnabled;
-            WebhookMgr.BatchSeconds = _webhookBatchSeconds;
-            WebhookMgr.CircuitBreakerThreshold = _webhookCircuitBreaker;
-            WebhookMgr.MaxPendingEvents = _webhookMaxPendingEvents;
-            WebhookMgr.ValidateUrls = _webhookValidateUrls;
             var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "unknown";
-            TimberbotLog.Info($"v{version} port={_httpPort} debug={_debugEnabled} webhooks={_webhooksEnabled} batchMs={_webhookBatchSeconds * 1000:F0} listen={_listenAddress} webhookValidate={_webhookValidateUrls} maxBody={_maxBodyBytes} authTokenSet={(!string.IsNullOrEmpty(_authToken))}");
+            TimberbotLog.Info($"v{version} port={_httpPort} wsPort={_wsPort} wsEnabled={_wsEnabled} debug={_debugEnabled} listen={_listenAddress} maxBody={_maxBodyBytes} authTokenSet={(!string.IsNullOrEmpty(_authToken))}");
             Registry.WebhookMgr = WebhookMgr;  // registry pushes webhook events on entity lifecycle
             DebugTool.Service = this;         // debug needs Service reference for endpoint benchmarks
             _eventBus.Register(this);
-            WebhookMgr.Register();            // subscribe to 68 game events
+            WebhookMgr.Register();            // subscribe to ~70 game events
             ReadV2.Register();           // subscribe to entity lifecycle events for v2 snapshots
             Registry.Register();              // subscribe to entity lifecycle events
             Placement.DetectFaction();          // detect faction suffix. must run before BuildAllIndexes
@@ -150,6 +139,19 @@ namespace Timberbot
             ReadV2.BuildAll();          // populate v2 building trackers from existing entities
             _server = new TimberbotHttpServer(_httpPort, this, _debugEnabled, _listenAddress, _corsOrigin, _maxBodyBytes, _authToken);
             TimberbotLog.Info($"HTTP server started on port {_httpPort}");
+            if (_wsEnabled)
+            {
+                try
+                {
+                    _wsServer = new TimberbotWebSocketServer(_wsPort, AgentState, _listenAddress, _authToken);
+                    WebhookMgr.Broadcaster = _wsServer;
+                    TimberbotLog.Info($"WS server started on port {_wsPort}");
+                }
+                catch (System.Exception ex)
+                {
+                    TimberbotLog.Error("ws.start", ex);
+                }
+            }
         }
 
         private void LoadSettings()
@@ -165,23 +167,13 @@ namespace Timberbot
                     _debugEnabled = json.Value<bool>("debugEndpointEnabled");
                     _httpPort = json.Value<int>("httpPort");
                     if (_httpPort <= 0) _httpPort = 8085;
-                    if (json["webhooksEnabled"] != null)
-                        _webhooksEnabled = json.Value<bool>("webhooksEnabled");
-                    if (json["webhookBatchMs"] != null)
+                    if (json["wsPort"] != null)
                     {
-                        int batchMs = json.Value<int>("webhookBatchMs");
-                        _webhookBatchSeconds = batchMs >= 0 ? batchMs / 1000f : 0.2f;
+                        int p = json.Value<int>("wsPort");
+                        _wsPort = p > 0 ? p : 8086;
                     }
-                    if (json["webhookCircuitBreaker"] != null)
-                    {
-                        int cb = json.Value<int>("webhookCircuitBreaker");
-                        _webhookCircuitBreaker = cb > 0 ? cb : 30;
-                    }
-                    if (json["webhookMaxPendingEvents"] != null)
-                    {
-                        int maxPending = json.Value<int>("webhookMaxPendingEvents");
-                        _webhookMaxPendingEvents = maxPending > 0 ? maxPending : 1000;
-                    }
+                    if (json["wsEnabled"] != null)
+                        _wsEnabled = json.Value<bool>("wsEnabled");
                     if (json["writeBudgetMs"] != null)
                     {
                         double budget = json.Value<double>("writeBudgetMs");
@@ -192,8 +184,6 @@ namespace Timberbot
                         _listenAddress = json.Value<string>("listenAddress") ?? "127.0.0.1";
                     if (json["corsOrigin"] != null)
                         _corsOrigin = json.Value<string>("corsOrigin") ?? "";
-                    if (json["webhookValidateUrls"] != null)
-                        _webhookValidateUrls = json.Value<bool>("webhookValidateUrls");
                     if (json["maxBodyBytes"] != null)
                     {
                         int mb = json.Value<int>("maxBodyBytes");
@@ -292,9 +282,11 @@ namespace Timberbot
             Registry.Unregister();
             WebhookMgr.Unregister();
             _eventBus.Unregister(this);
+            _wsServer?.Stop();
+            _wsServer = null;
             _server?.Stop();
             _server = null;
-            TimberbotLog.Info("HTTP server stopped");
+            TimberbotLog.Info("HTTP + WS servers stopped");
         }
 
         // Called by HTTP handlers when a persisted field on AgentState
@@ -350,28 +342,19 @@ namespace Timberbot
             }
         }
 
-        private void ExpireStaleTbotWebhook(float now)
-        {
-            // Watchdog runs at most once per second to keep DateTime.UtcNow
-            // cost negligible.
-            if (now - _lastWebhookExpiryCheck < 1f) return;
-            _lastWebhookExpiryCheck = now;
-            if (AgentState.ExpireWebhookIfStale(System.DateTime.UtcNow))
-                TimberbotLog.Info("tbot webhook url cleared after heartbeat timeout");
-        }
-
         // Called every frame by Unity. This is the mod's main loop.
-        // It drains POST requests, processes pending fresh-read publishes, and flushes webhooks.
+        // It drains POST requests and processes pending fresh-read publishes.
+        // Outbound game-event pushes go straight through the WS broadcaster
+        // (TimberbotWebhook.PushEvent → TimberbotWebSocketServer.PushEvent),
+        // so there's no per-frame flush step any more.
         public void UpdateSingleton()
         {
             float now = Time.realtimeSinceStartup;
             _server?.DrainRequests();
             ReadV2.ProcessPendingRefresh(now);
             _server?.ProcessWriteJobs(now, _writeBudgetMs);
-            WebhookMgr.FlushWebhooks(now);
             FlushSettingsIfNeeded(now);
             FlushAgentStateIfNeeded(now);
-            ExpireStaleTbotWebhook(now);
         }
         public void PostNotification(string message, BaseComponent subject = null)
         {

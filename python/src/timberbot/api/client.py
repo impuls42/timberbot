@@ -41,13 +41,11 @@ from timberbot.api.models._generated import (
     SettlementName,
     Speed,
     Summary,
-    TbotRegisterAck,
     Tiles,
     Time,
     TreeClusters,
     TreeList,
     Weather,
-    WebhookList,
     WellbeingReport,
     WorkHours,
 )
@@ -219,43 +217,13 @@ class TimberbotClient:
         """Toggle the Launch / Stop gate. `ready=false` closes the gate (409 on non-whitelisted /api/*)."""
         return ReadyAck.model_validate(self._post("/api/ready", {"ready": ready}))
 
-    def tbot_register(self, webhook_url: str) -> TbotRegisterAck:
-        """Register the `tbot watch` connector's push URL with the mod."""
-        return TbotRegisterAck.model_validate(self._post("/api/tbot/register", {"webhook_url": webhook_url}))
-
-    def tbot_heartbeat(
-        self, version: str, agent_status: str, acked_request_id: int,
-    ) -> AgentState:
-        """Connector heartbeat. Keeps the push URL alive, records `agent_status`, and clears the pending slot when `acked_request_id` catches up."""
-        return AgentState.model_validate(self._post("/api/tbot/heartbeat", {
-            "version": version,
-            "agent_status": agent_status,
-            "acked_request_id": acked_request_id,
-        }))
-
-    # ------------------------------------------------------------------
-    # Webhooks
-    # ------------------------------------------------------------------
-
-    def register_webhook(self, url: str, events: list[str] | None = None) -> dict[str, Any]:
-        """Register a webhook URL to receive push notifications for game events.
-
-        events: list of event names to subscribe to (None = all events).
-        Available: drought.start, drought.end, building.placed, building.demolished,
-                   beaver.born, beaver.died, day.start, night.start
-        """
-        data: dict[str, Any] = {"url": url}
-        if events:
-            data["events"] = events
-        return self._post("/api/webhooks", data)
-
-    def unregister_webhook(self, id: int) -> dict[str, Any]:
-        """Unregister a webhook by ID."""
-        return self._post("/api/webhooks/delete", {"id": id})
-
-    def list_webhooks(self) -> WebhookList:
-        """List all registered webhooks."""
-        return WebhookList.model_validate(self._get_json("/api/webhooks"))
+    # NOTE: `tbot_register`, `tbot_heartbeat`, `register_webhook`,
+    # `unregister_webhook`, and `list_webhooks` were deleted in the WS
+    # rework (issue #28). The connector now upgrades to
+    # `ws://host:wsPort/api/ws` and exchanges JSON frames; see
+    # `docs/websocket-protocol.md` for the protocol contract and
+    # `python/src/timberbot/agent/` for the typed client (PR 2/5 of this
+    # rework series).
 
     # ------------------------------------------------------------------
     # Read state

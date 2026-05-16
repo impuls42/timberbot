@@ -24,7 +24,6 @@ namespace Timberbot.Tests
             Assert.Null(s.LastError);
             Assert.False(s.Ready);
             Assert.Null(s.PendingRequest);
-            Assert.Null(s.TbotWebhookUrl);
             Assert.Equal(0, s.LastAckedRequestId);
         }
 
@@ -109,46 +108,60 @@ namespace Timberbot.Tests
             Assert.Equal("acting", s.AgentStatus);
         }
 
-        // --- webhook lapse watchdog --------------------------------------
+        // --- Changed event broadcast -------------------------------------
 
         [Fact]
-        public void RegisterTbotWebhook_ResetsHeartbeatTimer()
+        public void Changed_FiresOnPersistedMutations()
         {
             var s = new TimberbotAgentState();
-            var t0 = DateTime.UtcNow;
-            s.RegisterTbotWebhook("http://localhost:9999/push", t0);
-            Assert.Equal("http://localhost:9999/push", s.TbotWebhookUrl);
-            // Within the timeout: URL persists.
-            Assert.False(s.ExpireWebhookIfStale(t0 + TimeSpan.FromSeconds(5)));
-            Assert.Equal("http://localhost:9999/push", s.TbotWebhookUrl);
+            int hits = 0;
+            string lastPayload = null;
+            s.Changed += json => { hits++; lastPayload = json; };
+
+            s.SetMode("autonomous");
+            s.SetGoal("g");
+            s.SetReady(true);
+            s.EnqueueRequest("p");
+            s.Heartbeat("running", 0, DateTime.UtcNow);
+            s.ClearPendingIfAcked(long.MaxValue);
+
+            Assert.True(hits >= 6, $"expected >=6 Changed fires, got {hits}");
+            Assert.NotNull(lastPayload);
+            var json = JObject.Parse(lastPayload);
+            Assert.Equal("autonomous", json.Value<string>("mode"));
         }
 
         [Fact]
-        public void ExpireWebhookIfStale_ClearsAfterTimeout()
+        public void Changed_FiresOutsideLock()
         {
+            // Subscribers can read state from inside the handler without
+            // deadlocking — proves the broadcaster releases the container
+            // lock before invoking Changed.
             var s = new TimberbotAgentState();
-            var t0 = DateTime.UtcNow;
-            s.RegisterTbotWebhook("http://localhost:9999/push", t0);
-            // Past the 6-second timeout.
-            var t1 = t0 + TimberbotAgentState.HeartbeatTimeout + TimeSpan.FromMilliseconds(1);
-            Assert.True(s.ExpireWebhookIfStale(t1));
-            Assert.Null(s.TbotWebhookUrl);
-            // Idempotent: a second expiry call returns false (nothing to clear).
-            Assert.False(s.ExpireWebhookIfStale(t1));
+            s.Changed += _ =>
+            {
+                // The lock would re-enter here if RaiseChanged ran inside it.
+                Assert.NotNull(s.Mode);
+                Assert.NotNull(s.Goal);
+                var ready = s.Ready;  // bool is fine, we just need the read
+                if (ready) { /* observed = true once */ }
+            };
+            s.SetReady(true);
+            s.SetGoal("x");
         }
 
         [Fact]
-        public void Heartbeat_KeepsWebhookAlive()
+        public void SetPendingRequest_PinsExplicitId()
         {
             var s = new TimberbotAgentState();
-            var t0 = DateTime.UtcNow;
-            s.RegisterTbotWebhook("http://localhost:9999/push", t0);
-            var t1 = t0 + TimeSpan.FromSeconds(5);
-            s.Heartbeat("running", 0, t1);  // refresh
-            var t2 = t1 + TimeSpan.FromSeconds(5);
-            // 10s elapsed since register, but only 5s since heartbeat — alive.
-            Assert.False(s.ExpireWebhookIfStale(t2));
-            Assert.Equal("http://localhost:9999/push", s.TbotWebhookUrl);
+            int hits = 0;
+            s.Changed += _ => hits++;
+            s.SetPendingRequest(42, "scripted");
+            var pending = s.PendingRequest;
+            Assert.NotNull(pending);
+            Assert.Equal(42, pending.Value.Id);
+            Assert.Equal("scripted", pending.Value.Prompt);
+            Assert.Equal(1, hits);
         }
 
         // --- persistence -------------------------------------------------
@@ -163,7 +176,6 @@ namespace Timberbot.Tests
             // Ephemerals set: these must NOT appear in the json blob.
             s.SetReady(true);
             s.EnqueueRequest("scratch");
-            s.RegisterTbotWebhook("http://localhost:9999", DateTime.UtcNow);
 
             var json = JObject.Parse(s.ToJson());
             Assert.Equal("autonomous", json.Value<string>("mode"));
@@ -171,7 +183,6 @@ namespace Timberbot.Tests
             Assert.Equal("boom", json.Value<string>("lastError"));
             Assert.Null(json["ready"]);
             Assert.Null(json["pendingRequest"]);
-            Assert.Null(json["tbotWebhookUrl"]);
             Assert.Null(json["lastAckedRequestId"]);
         }
 
@@ -182,7 +193,6 @@ namespace Timberbot.Tests
             // Pre-load state has ephemerals set; LoadJson must wipe them.
             s.SetReady(true);
             s.EnqueueRequest("garbage");
-            s.RegisterTbotWebhook("http://localhost:9999", DateTime.UtcNow);
 
             var ok = s.LoadJson("{\"mode\":\"autonomous\",\"goal\":\"reach 50\",\"lastError\":null}");
             Assert.True(ok);
@@ -191,7 +201,6 @@ namespace Timberbot.Tests
             Assert.Null(s.LastError);
             Assert.False(s.Ready);  // ephemerals were reset
             Assert.Null(s.PendingRequest);
-            Assert.Null(s.TbotWebhookUrl);
             Assert.Equal(0, s.LastAckedRequestId);
         }
 
@@ -243,7 +252,6 @@ namespace Timberbot.Tests
             s.SetLastError("err");
             s.SetReady(true);
             s.EnqueueRequest("scratch");
-            s.RegisterTbotWebhook("http://x", DateTime.UtcNow);
 
             s.ResetEphemerals();
 
@@ -252,7 +260,6 @@ namespace Timberbot.Tests
             Assert.Equal("err", s.LastError);
             Assert.False(s.Ready);
             Assert.Null(s.PendingRequest);
-            Assert.Null(s.TbotWebhookUrl);
         }
 
         // --- state response shape ----------------------------------------
@@ -295,15 +302,16 @@ namespace Timberbot.Tests
         [InlineData("/api/agent/state", true)]
         [InlineData("/api/agent/config", true)]
         [InlineData("/api/agent/request", true)]
-        [InlineData("/api/tbot", true)]
-        [InlineData("/api/tbot/register", true)]
-        [InlineData("/api/tbot/heartbeat", true)]
         // Non-whitelisted /api/* paths are gated.
         [InlineData("/api/buildings", false)]
         [InlineData("/api/summary", false)]
         [InlineData("/api/building/pause", false)]
-        [InlineData("/api/webhooks", false)]
         [InlineData("/api/settlement", false)]
+        // /api/tbot/* was deleted in the WS rework; if it ever returns it
+        // must not be implicitly gate-exempt.
+        [InlineData("/api/tbot", false)]
+        [InlineData("/api/tbot/register", false)]
+        [InlineData("/api/tbot/heartbeat", false)]
         // Random / unrelated paths.
         [InlineData("", false)]
         [InlineData(null, false)]
@@ -360,7 +368,7 @@ namespace Timberbot.Tests
                 () =>
                 {
                     for (int i = 0; i < iterations; i++)
-                        s.ExpireWebhookIfStale(DateTime.UtcNow);
+                        s.ClearPendingIfAcked(i);
                 });
 
             // Sanity: persisted fields were not stomped by the parallel race.

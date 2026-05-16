@@ -17,7 +17,9 @@ namespace Timberbot.Tests
         [Fact]
         public void CleanInput_ReturnsEmptyList()
         {
-            var json = JObject.Parse("{\"httpPort\": 8085, \"webhooksEnabled\": true}");
+            // wsEnabled is the new WS toggle; webhooksEnabled was retired in
+            // the WS rework so it now counts as deprecated.
+            var json = JObject.Parse("{\"httpPort\": 8085, \"wsEnabled\": true}");
             Assert.Empty(TimberbotPure.DetectDeprecatedSettings(json));
         }
 
@@ -27,6 +29,9 @@ namespace Timberbot.Tests
             var json = JObject.Parse("{\"terminal\":\"wt\",\"pythonCommand\":\"py3\"," +
                                     "\"agentModel\":\"sonnet\",\"agentEffort\":\"high\",\"agentCommandTemplate\":\"x\"," +
                                     "\"agentAllowlistEnabled\":false,\"agentAllowedBinaries\":[\"opencode\"]," +
+                                    "\"webhooksEnabled\":true,\"webhookBatchMs\":200," +
+                                    "\"webhookCircuitBreaker\":30,\"webhookMaxPendingEvents\":1000," +
+                                    "\"webhookValidateUrls\":true," +
                                     "\"httpPort\":8085}");
             var got = TimberbotPure.DetectDeprecatedSettings(json);
             Assert.Equal(TimberbotPure.DEPRECATED_SETTINGS_KEYS.Length, got.Count);
@@ -394,49 +399,9 @@ namespace Timberbot.Tests
         public void NotANumber_ReturnsFallback() => Assert.Equal("10", TimberbotPure.NormalizeIntString("abc", 10, 0));
     }
 
-    public class ValidateWebhookUrlFormatTests
-    {
-        [Fact]
-        public void HttpValid() => Assert.True(TimberbotPure.ValidateWebhookUrlFormat("http://example.com/hook", out _));
-
-        [Fact]
-        public void HttpsValid() => Assert.True(TimberbotPure.ValidateWebhookUrlFormat("https://example.com/hook", out _));
-
-        [Fact]
-        public void FtpRejected()
-        {
-            Assert.False(TimberbotPure.ValidateWebhookUrlFormat("ftp://example.com", out var err));
-            Assert.Contains("scheme", err);
-        }
-
-        [Fact]
-        public void FileRejected()
-        {
-            Assert.False(TimberbotPure.ValidateWebhookUrlFormat("file:///etc/passwd", out var err));
-            Assert.Contains("scheme", err);
-        }
-
-        [Fact]
-        public void EmptyRejected()
-        {
-            Assert.False(TimberbotPure.ValidateWebhookUrlFormat("", out var err));
-            Assert.Contains("empty", err);
-        }
-
-        [Fact]
-        public void NullRejected()
-        {
-            Assert.False(TimberbotPure.ValidateWebhookUrlFormat(null, out var err));
-            Assert.Contains("empty", err);
-        }
-
-        [Fact]
-        public void MalformedRejected()
-        {
-            Assert.False(TimberbotPure.ValidateWebhookUrlFormat("not a url", out var err));
-            Assert.Contains("malformed", err);
-        }
-    }
+    // ValidateWebhookUrlFormatTests removed alongside the deleted helper
+    // (issue #28). WS clients initiate connections — there's no longer a
+    // server-side URL to validate.
 
     public class NormalizeDoubleStringTests
     {
@@ -650,6 +615,111 @@ namespace Timberbot.Tests
         public void EmptyObject_ReturnsEmpty() =>
             Assert.Equal("",
                 TimberbotPure.ExtractAgentStatusString(new JObject()));
+    }
+
+    public class WsEnvelopeTests
+    {
+        // BuildStateMessage embeds the snapshot JSON structurally, so the
+        // resulting payload reads like a regular nested object — no escaped
+        // string blobs.
+        [Fact]
+        public void BuildStateMessage_EmbedsSnapshotAsObject()
+        {
+            var frame = TimberbotPure.BuildStateMessage("{\"ready\":true,\"mode\":\"request\"}");
+            var obj = JObject.Parse(frame);
+            Assert.Equal("state", obj.Value<string>("type"));
+            var payload = (JObject)obj["payload"];
+            Assert.True(payload.Value<bool>("ready"));
+            Assert.Equal("request", payload.Value<string>("mode"));
+        }
+
+        [Fact]
+        public void BuildStateMessage_EmptyJsonProducesEmptyPayload()
+        {
+            var frame = TimberbotPure.BuildStateMessage(null);
+            var obj = JObject.Parse(frame);
+            Assert.Equal("state", obj.Value<string>("type"));
+            Assert.Equal(JTokenType.Object, obj["payload"].Type);
+            Assert.Empty(((JObject)obj["payload"]).Properties());
+        }
+
+        [Fact]
+        public void BuildEventMessage_NullData_IsJsonNull()
+        {
+            var frame = TimberbotPure.BuildEventMessage("day.start", 12, 1700000000L, null);
+            var obj = JObject.Parse(frame);
+            Assert.Equal("event", obj.Value<string>("type"));
+            var payload = (JObject)obj["payload"];
+            Assert.Equal("day.start", payload.Value<string>("event"));
+            Assert.Equal(12, payload.Value<int>("day"));
+            Assert.Equal(1700000000L, payload.Value<long>("timestamp"));
+            Assert.Equal(JTokenType.Null, payload["data"].Type);
+        }
+
+        [Fact]
+        public void BuildEventMessage_StructuredDataPreserved()
+        {
+            var frame = TimberbotPure.BuildEventMessage("speed.changed", 3, 1L, "{\"speed\":2}");
+            var obj = JObject.Parse(frame);
+            var data = (JObject)obj["payload"]["data"];
+            Assert.Equal(2, data.Value<int>("speed"));
+        }
+
+        [Fact]
+        public void BuildErrorMessage_Roundtrips()
+        {
+            var frame = TimberbotPure.BuildErrorMessage("unknown_type: xyz");
+            var obj = JObject.Parse(frame);
+            Assert.Equal("error", obj.Value<string>("type"));
+            Assert.Equal("unknown_type: xyz", obj["payload"].Value<string>("error"));
+        }
+
+        [Fact]
+        public void BuildPongMessage_Shape()
+        {
+            var obj = JObject.Parse(TimberbotPure.BuildPongMessage());
+            Assert.Equal("pong", obj.Value<string>("type"));
+            Assert.Equal(JTokenType.Object, obj["payload"].Type);
+        }
+
+        [Fact]
+        public void ParseInboundMessage_Heartbeat_ExtractsTypedFields()
+        {
+            var msg = TimberbotPure.ParseInboundMessage(
+                "{\"type\":\"heartbeat\",\"payload\":{\"version\":\"0.9\",\"agent_status\":\"running\",\"acked_request_id\":42}}");
+            Assert.NotNull(msg);
+            Assert.Equal("heartbeat", msg.Type);
+            Assert.Equal("0.9", msg.Version);
+            Assert.Equal("running", msg.AgentStatus);
+            Assert.Equal(42L, msg.AckedRequestId);
+        }
+
+        [Fact]
+        public void ParseInboundMessage_Ping_ReturnsType()
+        {
+            var msg = TimberbotPure.ParseInboundMessage("{\"type\":\"ping\"}");
+            Assert.NotNull(msg);
+            Assert.Equal("ping", msg.Type);
+            Assert.NotNull(msg.Payload);
+        }
+
+        [Fact]
+        public void ParseInboundMessage_TypeIsLowercased()
+        {
+            var msg = TimberbotPure.ParseInboundMessage("{\"type\":\"PING\"}");
+            Assert.NotNull(msg);
+            Assert.Equal("ping", msg.Type);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("not json")]
+        [InlineData("{\"missing_type\":true}")]
+        public void ParseInboundMessage_RejectsGarbage(string raw)
+        {
+            Assert.Null(TimberbotPure.ParseInboundMessage(raw));
+        }
     }
 
     public class ClassifyConnectionTests

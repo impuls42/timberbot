@@ -10,16 +10,22 @@
 //   EPHEMERAL (memory-only, reset on every load):
 //     ready                 : false until the player presses Launch in the widget
 //     pendingRequest        : single-slot {id, prompt} waiting to be acked
-//     tbotWebhookUrl        : connector push URL; cleared if heartbeat lapses
 //     lastAckedRequestId    : monotonic ack counter for the pending slot
 //     agentStatus           : opaque connector-reported status string
-//     lastHeartbeatUtc      : sliding window for the 6-second connector timeout
+//     lastHeartbeatUtc      : sliding window WS-side heartbeat tracking
 //
 // All public mutators lock a single object so handlers running on the HTTP
 // listener thread (e.g. /api/agent/state) and the Unity main thread (write-job
 // drains) see a consistent snapshot. The container itself has no Unity or
 // Timberborn dependency so it can be linked straight into the xUnit test
 // assembly.
+//
+// State broadcast: mutating methods (SetReady, SetMode, SetGoal,
+// SetPendingRequest/EnqueueRequest, ClearPendingIfAcked, Heartbeat) emit a
+// `Changed` event AFTER releasing the lock so the WS broadcaster can fan-out
+// without stalling concurrent writers / readers. The event delivers the
+// current `ToStateResponseJson()` payload so subscribers do not need to
+// re-snapshot the container.
 using System;
 using System.IO;
 using Newtonsoft.Json;
@@ -33,10 +39,17 @@ namespace Timberbot
         public const string ModeRequest = "request";
         public const string DefaultMode = ModeRequest;
 
-        // 6 seconds matches the connector heartbeat cadence in the design doc.
-        // Anything older means the connector has died and its push URL must be
-        // cleared so a stale localhost listener doesn't keep receiving events.
-        public static readonly TimeSpan HeartbeatTimeout = TimeSpan.FromSeconds(6);
+        // Sliding window for tracking WS-side connector liveness. Anything
+        // older indicates the connector has gone away; the WS server uses its
+        // own per-connection close detection so the field is informational
+        // only.
+        public static readonly TimeSpan HeartbeatTimeout = TimeSpan.FromSeconds(30);
+
+        // Raised AFTER any state mutation that should be visible to WS
+        // subscribers. Payload is the rendered `ToStateResponseJson()` for the
+        // post-change snapshot. Fired outside the container lock so handlers
+        // are free to do awaits / I/O without back-pressuring the mutator.
+        public event Action<string> Changed;
 
         private readonly object _lock = new object();
 
@@ -50,7 +63,6 @@ namespace Timberbot
         private int _pendingRequestId;
         private string _pendingRequestPrompt;
         private bool _hasPendingRequest;
-        private string _tbotWebhookUrl;
         private long _lastAckedRequestId;
         private string _agentStatus = "idle";
         private DateTime _lastHeartbeatUtc = DateTime.MinValue;
@@ -61,7 +73,6 @@ namespace Timberbot
         public string LastError { get { lock (_lock) return _lastError; } }
         public bool Ready { get { lock (_lock) return _ready; } }
         public string AgentStatus { get { lock (_lock) return _agentStatus; } }
-        public string TbotWebhookUrl { get { lock (_lock) return _tbotWebhookUrl; } }
         public long LastAckedRequestId { get { lock (_lock) return _lastAckedRequestId; } }
 
         // Tuple-style snapshot for tests; avoids exposing the lock itself.
@@ -83,25 +94,50 @@ namespace Timberbot
         public bool SetMode(string mode)
         {
             if (mode != ModeAutonomous && mode != ModeRequest) return false;
-            lock (_lock) _mode = mode;
+            bool changed;
+            lock (_lock)
+            {
+                changed = _mode != mode;
+                _mode = mode;
+            }
+            if (changed) RaiseChanged();
             return true;
         }
 
         public void SetGoal(string goal)
         {
-            lock (_lock) _goal = goal ?? "";
+            var v = goal ?? "";
+            bool changed;
+            lock (_lock)
+            {
+                changed = _goal != v;
+                _goal = v;
+            }
+            if (changed) RaiseChanged();
         }
 
         public void SetLastError(string error)
         {
-            lock (_lock) _lastError = error;
+            bool changed;
+            lock (_lock)
+            {
+                changed = _lastError != error;
+                _lastError = error;
+            }
+            if (changed) RaiseChanged();
         }
 
         // --- ready gate ---------------------------------------------------
 
         public void SetReady(bool ready)
         {
-            lock (_lock) _ready = ready;
+            bool changed;
+            lock (_lock)
+            {
+                changed = _ready != ready;
+                _ready = ready;
+            }
+            if (changed) RaiseChanged();
         }
 
         // --- pending request slot ----------------------------------------
@@ -111,24 +147,53 @@ namespace Timberbot
         // queueing is the connector's job.
         public int EnqueueRequest(string prompt)
         {
+            int id;
             lock (_lock)
             {
                 _pendingRequestId = ++_nextRequestId;
                 _pendingRequestPrompt = prompt ?? "";
                 _hasPendingRequest = true;
-                return _pendingRequestId;
+                id = _pendingRequestId;
             }
+            RaiseChanged();
+            return id;
         }
 
-        // --- connector registration --------------------------------------
-
-        public void RegisterTbotWebhook(string url, DateTime nowUtc)
+        // Sets the pending slot to a specific (id, prompt). Used by inbound
+        // WS messages where the agent itself proposes a request id (e.g.
+        // tests, scripted prompts). For monotonic auto-allocation use
+        // EnqueueRequest instead. Returns the supplied id for symmetry.
+        public int SetPendingRequest(int id, string prompt)
         {
             lock (_lock)
             {
-                _tbotWebhookUrl = url;
-                _lastHeartbeatUtc = nowUtc;
+                if (id > _nextRequestId) _nextRequestId = id;
+                _pendingRequestId = id;
+                _pendingRequestPrompt = prompt ?? "";
+                _hasPendingRequest = true;
             }
+            RaiseChanged();
+            return id;
+        }
+
+        // Returns true if the pending slot was cleared by this ack.
+        public bool ClearPendingIfAcked(long ackedRequestId)
+        {
+            bool cleared;
+            lock (_lock)
+            {
+                if (ackedRequestId > _lastAckedRequestId)
+                    _lastAckedRequestId = ackedRequestId;
+                if (_hasPendingRequest && ackedRequestId >= _pendingRequestId)
+                {
+                    _hasPendingRequest = false;
+                    _pendingRequestPrompt = null;
+                    cleared = true;
+                }
+                else cleared = false;
+            }
+            if (cleared) RaiseChanged();
+            return cleared;
         }
 
         // Returns true if the pending slot was cleared by this heartbeat
@@ -138,34 +203,53 @@ namespace Timberbot
         //   - bumps _lastAckedRequestId monotonically
         public bool Heartbeat(string agentStatus, long ackedRequestId, DateTime nowUtc)
         {
+            bool cleared;
+            bool snapshotChanged;
             lock (_lock)
             {
                 _lastHeartbeatUtc = nowUtc;
-                if (!string.IsNullOrEmpty(agentStatus))
+                bool statusChanged = false;
+                if (!string.IsNullOrEmpty(agentStatus) && _agentStatus != agentStatus)
+                {
                     _agentStatus = agentStatus;
+                    statusChanged = true;
+                }
                 if (ackedRequestId > _lastAckedRequestId)
                     _lastAckedRequestId = ackedRequestId;
                 if (_hasPendingRequest && ackedRequestId >= _pendingRequestId)
                 {
                     _hasPendingRequest = false;
                     _pendingRequestPrompt = null;
-                    return true;
+                    cleared = true;
                 }
-                return false;
+                else cleared = false;
+                // _lastHeartbeatUtc and _lastAckedRequestId are not part of
+                // ToStateResponseJson, so only agentStatus/pendingRequest
+                // changes deserve a broadcast.
+                snapshotChanged = statusChanged || cleared;
             }
+            if (snapshotChanged) RaiseChanged();
+            return cleared;
         }
 
-        // Watchdog: if no heartbeat in HeartbeatTimeout, clear the push URL.
-        // Idempotent — safe to call from any thread on a fixed schedule.
-        // Returns true if it cleared a previously-set URL on this call.
-        public bool ExpireWebhookIfStale(DateTime nowUtc)
+        private void RaiseChanged()
         {
-            lock (_lock)
+            // Snapshot the JSON outside the lock so concurrent readers can
+            // proceed while subscribers fan-out the broadcast. Skip the
+            // serialization entirely when nobody is listening (the common
+            // case before any WS client connects). Subscribers MUST NOT
+            // throw — but if one does we log and keep going so a buggy
+            // handler can't strand the state container.
+            var handler = Changed;
+            if (handler == null) return;
+            string payload = ToStateResponseJson();
+            try
             {
-                if (string.IsNullOrEmpty(_tbotWebhookUrl)) return false;
-                if (nowUtc - _lastHeartbeatUtc <= HeartbeatTimeout) return false;
-                _tbotWebhookUrl = null;
-                return true;
+                handler(payload);
+            }
+            catch (Exception ex)
+            {
+                TimberbotLog.Error("agentstate.changed", ex);
             }
         }
 
@@ -224,7 +308,6 @@ namespace Timberbot
             _pendingRequestId = 0;
             _pendingRequestPrompt = null;
             _hasPendingRequest = false;
-            _tbotWebhookUrl = null;
             _lastAckedRequestId = 0;
             _agentStatus = "idle";
             _lastHeartbeatUtc = DateTime.MinValue;
@@ -268,6 +351,9 @@ namespace Timberbot
         // Whitelist for the ready-gate middleware. Routes that match (case
         // insensitive, trailing slash trimmed) are served even while
         // ready=false. Everything else /api/* returns 409 game_not_ready.
+        //
+        // /api/tbot/* was deleted in the WS rework; the connector now talks
+        // to the mod over the WS upgrade URL on `wsPort` instead.
         public static bool IsGateExempt(string path)
         {
             if (string.IsNullOrEmpty(path)) return false;
@@ -275,8 +361,6 @@ namespace Timberbot
             if (path == "/api/ready") return true;
             if (path.StartsWith("/api/agent/", StringComparison.Ordinal)) return true;
             if (path == "/api/agent") return true;
-            if (path.StartsWith("/api/tbot/", StringComparison.Ordinal)) return true;
-            if (path == "/api/tbot") return true;
             return false;
         }
 
