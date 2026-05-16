@@ -62,25 +62,14 @@ from timberbot.__about__ import __version__
 from timberbot.agent.runner import run_agent
 from timberbot.api.client import TimberbotClient
 from timberbot.config import config_dir
+from timberbot.utils import exp_backoff
 
 log = logging.getLogger("timberbot.watch")
 
-
-# ---------------------------------------------------------------------------
-# Backoff
-# ---------------------------------------------------------------------------
-
-
-def exp_backoff(attempt: int, *, base: float = 1.0, cap: float = 30.0) -> float:
-    """Exponential backoff capped at `cap`.
-
-    attempt=0 → `base`; doubles each step until reaching `cap`. Negative
-    attempts are floored to `base` (defensive: keeps callers from getting a
-    sub-`base` value if they pass an underflowed counter).
-    """
-    if attempt <= 0:
-        return base
-    return min(cap, base * (2 ** attempt))
+# Re-exported so `from timberbot.cli.commands.watch import exp_backoff` keeps
+# working — the function actually lives in `timberbot.utils` (shared with the
+# WS client) to avoid `api/` importing from `cli/commands/`.
+__all__ = ["exp_backoff"]
 
 
 # ---------------------------------------------------------------------------

@@ -9,18 +9,19 @@ the real mod at test time.
 Behavior:
 
   - Wraps `aiohttp.ClientSession.ws_connect()`.
-  - Auto-reconnects on close/error using the existing `exp_backoff(1s→30s)`
-    helper from `timberbot.cli.commands.watch` — same backoff the HTTP
-    connector already uses, so the operator sees one consistent cadence.
+  - Auto-reconnects on close/error using the shared `exp_backoff(1s→30s)`
+    helper in `timberbot.utils` — same backoff the HTTP connector uses, so
+    the operator sees one consistent cadence.
   - Async iteration over typed inbound frames (Pydantic-parsed). Bad JSON or
     frames missing the `{type, payload}` envelope are logged and dropped so
     the iterator stays alive across malformed messages.
-  - `send_message(type, payload)` constructs `{type, payload}` envelopes and
-    pushes them as text frames.
+  - `send_message(msg_type, payload)` constructs `{type, payload}` envelopes
+    and pushes them as text frames.
   - Threads `Authorization: Bearer <token>` on the upgrade request when
     `auth_token` is set. An optional `?token=` query-param fallback is
     available via `query_token_fallback=True` for environments where
-    intermediaries strip custom headers (default: off).
+    intermediaries strip custom headers (default: off). When the fallback is
+    active, log lines redact the token so it doesn't leak into client logs.
 """
 from __future__ import annotations
 
@@ -35,8 +36,8 @@ from aiohttp import ClientWebSocketResponse, WSMsgType
 from pydantic import BaseModel, ValidationError
 
 from timberbot.api.models.ws import INBOUND_PAYLOAD_MODELS, WsMessage
-from timberbot.cli.commands.watch import exp_backoff
 from timberbot.settings import resolve_auth_token
+from timberbot.utils import exp_backoff
 
 log = logging.getLogger("timberbot.wsclient")
 
@@ -104,6 +105,19 @@ class TimberbotWsClient:
             return f"{base}?token={self.auth_token}"
         return base
 
+    @property
+    def safe_url(self) -> str:
+        """`url` with any `?token=…` query param redacted.
+
+        The token-in-URL fallback is intentionally rare, but when it's enabled
+        we still don't want the secret to land in client log files. Server
+        access logs are the operator's problem to redact; this property keeps
+        OUR logs clean.
+        """
+        if self.query_token_fallback and self.auth_token:
+            return f"ws://{self.host}:{self.ws_port}{self.path}?token=***"
+        return self.url
+
     def _headers(self) -> dict[str, str]:
         """`Authorization: Bearer <token>` when set, else empty."""
         if self.auth_token:
@@ -134,7 +148,7 @@ class TimberbotWsClient:
         self._closed = False
         self._ws = await self._dial()
         self._reconnect_attempts = 0
-        log.info("wsclient: connected to %s", self.url)
+        log.info("wsclient: connected to %s", self.safe_url)
 
     async def close(self) -> None:
         """Close the socket and (if we own it) the underlying ClientSession.
@@ -159,9 +173,10 @@ class TimberbotWsClient:
     # Send
     # ------------------------------------------------------------------
 
-    async def send_message(self, type: str, payload: dict[str, Any]) -> None:  # noqa: A002
+    async def send_message(self, msg_type: str, payload: dict[str, Any]) -> None:
         """Send a `{type, payload}` envelope as a text frame.
 
+        `msg_type` is the envelope `type` string (e.g. `"heartbeat"`).
         Pydantic `BaseModel` payloads are accepted and serialized via
         `model_dump(mode="json")` so enum values round-trip correctly.
         Raises `RuntimeError` if the socket is not currently open — callers
@@ -171,7 +186,7 @@ class TimberbotWsClient:
             raise RuntimeError("wsclient: not connected; call connect() first")
         if isinstance(payload, BaseModel):
             payload = payload.model_dump(mode="json")
-        frame = json.dumps({"type": type, "payload": payload})
+        frame = json.dumps({"type": msg_type, "payload": payload})
         await self._ws.send_str(frame)
 
     # ------------------------------------------------------------------
@@ -191,7 +206,14 @@ class TimberbotWsClient:
         fails Pydantic validation) are logged and dropped; the iterator
         survives them.
 
-        Stops cleanly when `close()` is called.
+        Exit contract:
+          * `close()` was called — the iterator returns cleanly.
+          * The handshake failed with HTTP 401 — `_reconnect` re-raises so
+            the caller stops spinning on a bad token.
+          * Any other condition keeps looping; transient handshake and dial
+            failures are absorbed inside `_reconnect`, which keeps `_ws=None`
+            and lets the next loop iteration retry with the next backoff
+            step.
         """
         if self._ws is None and not self._closed:
             await self.connect()
@@ -199,7 +221,12 @@ class TimberbotWsClient:
         while not self._closed:
             ws = self._ws
             if ws is None:
-                break
+                # Last reconnect attempt failed transiently (handshake or
+                # dial). Sleep + retry; don't bail on `messages()` — that
+                # would silently terminate the iterator and force every
+                # caller to wrap us in their own outer loop.
+                await self._reconnect()
+                continue
             try:
                 async for raw in ws:
                     parsed = self._parse_frame(raw)
@@ -293,7 +320,7 @@ class TimberbotWsClient:
         try:
             self._ws = await self._dial()
             self._reconnect_attempts = 0
-            log.info("wsclient: reconnected to %s", self.url)
+            log.info("wsclient: reconnected to %s", self.safe_url)
         except aiohttp.WSServerHandshakeError as exc:
             if exc.status == 401:
                 # Bad token; bubbling up lets the caller stop the loop.

@@ -14,7 +14,8 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 import pytest
 
 pytest.importorskip("aiohttp")
-pytest.importorskip("pytest_asyncio")
+# `pytest-asyncio` is a hard dev dependency and `asyncio_mode = "auto"` in
+# pyproject.toml guarantees it's loaded — no importorskip needed.
 
 import aiohttp  # noqa: E402
 from aiohttp import WSMsgType, web  # noqa: E402
@@ -322,6 +323,100 @@ async def test_query_token_fallback_used_when_enabled(server_factory):
     assert seen[0]["query_token"] == AUTH_TOKEN
 
 
+def test_safe_url_redacts_query_token():
+    """`safe_url` must not contain the auth token even when the query-token
+    fallback is active — this is what we log.
+    """
+    client = TimberbotWsClient("h", 1, auth_token="sekret",
+                               query_token_fallback=True)
+    assert "sekret" in client.url
+    assert "sekret" not in client.safe_url
+    assert "?token=***" in client.safe_url
+
+    # When the fallback is OFF, both URLs match (no query string at all).
+    client2 = TimberbotWsClient("h", 1, auth_token="sekret",
+                                query_token_fallback=False)
+    assert client2.url == client2.safe_url
+    assert "sekret" not in client2.safe_url
+
+
+async def test_messages_survives_transient_handshake_failure(server_factory):
+    """A non-401 handshake failure during reconnect must NOT terminate the
+    `messages()` iterator — it should sleep + retry until the server is
+    healthy again, then resume yielding frames.
+
+    This regression-tests issue #4 from the round-1 review: previously, a
+    failed redial left `_ws = None`, which caused `messages()` to break out
+    of its loop silently.
+    """
+    call_count = 0
+
+    async def handler(ws: web.WebSocketResponse, _request: web.Request) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # First connection sends a frame, then drops the socket.
+            await ws.send_str(json.dumps({
+                "type": "event",
+                "payload": {"event": "before", "day": 1, "timestamp": 1, "data": None},
+            }))
+            await ws.close()
+        else:
+            # Subsequent connections: send a distinguishing frame, stay open.
+            await ws.send_str(json.dumps({
+                "type": "event",
+                "payload": {"event": "after_retry", "day": 2,
+                            "timestamp": 2, "data": None},
+            }))
+            async for _ in ws:
+                pass
+
+    srv = await server_factory(handler=handler)
+    client = TimberbotWsClient(srv.host, srv.port,
+                               backoff_base=0.01, backoff_cap=0.05)
+    await client.connect()
+
+    # Simulate a transient redial failure: monkey-patch `_dial` to raise on
+    # the *first* reconnect attempt, then restore real behavior.
+    real_dial = client._dial
+    attempts = {"n": 0}
+
+    async def flaky_dial():
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise aiohttp.ClientError("simulated transient redial failure")
+        return await real_dial()
+
+    client._dial = flaky_dial  # type: ignore[assignment]
+
+    try:
+        first = await asyncio.wait_for(_next_msg_keep_open(client), timeout=2)
+        second = await asyncio.wait_for(_next_msg_keep_open(client), timeout=3)
+    finally:
+        await client.close()
+
+    assert isinstance(first.payload, EventPush)
+    assert first.payload.event == "before"
+    assert isinstance(second.payload, EventPush)
+    assert second.payload.event == "after_retry"
+    # We expect: 1 server connect, 1 failed redial, 1 successful redial.
+    assert attempts["n"] >= 2
+    assert call_count == 2
+
+
+def test_exp_backoff_imported_from_utils():
+    """The `exp_backoff` helper must live in `timberbot.utils` (so `api/`
+    doesn't depend on `cli/commands/`). Both the WS client and the watch
+    command must use the SAME function object.
+    """
+    from timberbot.api import wsclient as ws_mod
+    from timberbot.cli.commands import watch as watch_mod
+    from timberbot.utils import exp_backoff as utils_backoff
+
+    assert ws_mod.exp_backoff is utils_backoff
+    assert watch_mod.exp_backoff is utils_backoff
+
+
 async def test_send_before_connect_raises():
     """Calling `send_message` before `connect()` is a programmer error."""
     client = TimberbotWsClient("127.0.0.1", 1, auth_token=None)
@@ -355,3 +450,14 @@ async def _next_msg(client: TimberbotWsClient) -> WsMessage:
         return await agen.__anext__()
     finally:
         await agen.aclose()
+
+
+async def _next_msg_keep_open(client: TimberbotWsClient) -> WsMessage:
+    """Pull one message but keep the iterator alive on the client.
+
+    Used by tests that need to drive the same `messages()` generator across
+    several frames (e.g. reconnect tests).
+    """
+    if not hasattr(client, "_test_agen"):
+        client._test_agen = client.messages()  # type: ignore[attr-defined]
+    return await client._test_agen.__anext__()  # type: ignore[attr-defined]
