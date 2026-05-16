@@ -315,7 +315,7 @@ Some runtime settings are applied on load, so changing them may require reloadin
 
 ## macOS launch helper
 
-`tbot launch settlement:<name>` still prepares `autoload.json` on macOS, but v1 does not auto-start Timberborn there. Run the command, then open Timberborn manually and the mod will auto-load the selected save from the main menu.
+`tbot launch settlement:<name>` on macOS prints the Steam launch options for the chosen settlement (`--tb-settlement <name> [--tb-save <save>]`) instead of starting the game. Paste those into Steam → Timberborn → Properties → Launch Options once, then open Timberborn manually — the mod's `TimberbotAutoLoad` reads the `--tb-*` args at the main menu and loads the save.
 
 ## Troubleshooting
 
