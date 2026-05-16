@@ -45,17 +45,18 @@ tbot init
 
 ## Save autoload helper
 
-`tbot launch` on macOS writes an `autoload.json` but doesn't open the game itself (Steam URL-handler launch isn't reliable on Mac from a CLI process):
+`tbot launch` on macOS prints the Steam launch options for the chosen settlement and doesn't open the game itself (Steam URL-handler launch isn't reliable on Mac from a CLI process):
 
 ```bash
-tbot launch settlement:<name>
+tbot launch settlement:<name> [save:<filename>]
 ```
 
 Expected:
-- Writes `autoload.json` to the mod folder.
-- Prints a one-line note that the user must open Timberborn manually.
+- Prints `--tb-settlement <name> [--tb-save <save>]` as a copy-pasteable Steam launch-options string.
+- Prints an `open -a Steam --args -applaunch 1062090 …` one-liner as an alternative.
+- Does not write any file under `Documents/Timberborn/Mods/Timberbot/`.
 
-Then open Timberborn yourself; the selected save auto-loads at the main menu.
+Set those launch options in Steam (Library → Timberborn → Properties → Launch Options) or run the `open -a Steam` command, then open Timberborn yourself; the mod's `TimberbotAutoLoad` reads the `--tb-*` args at the main menu and auto-loads the save.
 
 ## What to send back if anything fails
 

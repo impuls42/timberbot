@@ -2119,10 +2119,11 @@ tbot place_path x1:120 y1:130 x2:150 y2:160 sections:1 timings:true
 
 ### launch (CLI-only)
 
-Prepare a save launch using `autoload.json`.
+Start Timberborn with `--tb-settlement` / `--tb-save` Steam launch args; the mod's `TimberbotAutoLoad` picks them up at the main menu and loads the save.
 
-- On Windows, this also opens Timberborn via Steam.
-- On macOS, v1 writes `autoload.json` and then expects you to open Timberborn manually.
+- On Windows/Linux, this also starts Steam (`-applaunch 1062090 …`).
+- On macOS, prints a copy-pasteable Steam launch-options string; the user opens the game manually.
+- Does not read or write any file under the game's Documents/Mods tree.
 
 ```bash
 tbot launch settlement:Potato save:Tomato

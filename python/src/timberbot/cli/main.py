@@ -78,9 +78,9 @@ def _build_registry() -> CommandRegistry:
     registry.register(Command(
         name="launch",
         summary=(
-            "prepare autoload.json, then open Timberborn manually"
+            "print Steam launch args for the settlement; user opens game manually"
             if platform.system() == "Darwin"
-            else "prepare autoload and launch the game (manual open on macOS)"
+            else "launch Timberborn with --tb-settlement Steam args"
         ),
         handler=launch_cmd.run,
         usage="  launch settlement:<name> [save:<filename>] [timeout:120]",
