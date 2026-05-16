@@ -50,7 +50,7 @@ dotnet --list-sdks
 
 ## Required: Python 3.10+
 
-The CLI client (`timberbot.py`) and its dependencies need Python 3.10+.
+The `tbot` CLI and its dependencies need Python 3.10+.
 
 ### Ubuntu 24.04
 
@@ -238,7 +238,7 @@ tbot brain goal:"Keep beavers alive"
 ```
 
 (Or `pipx install timberbot` to install the published wheel without a venv.)
-The game must be running with the mod loaded for the CLI to connect (default: `http://localhost:8085`).
+The game must be running with the mod loaded for the CLI to connect (default: `http://127.0.0.1:8085`).
 
 ---
 
@@ -250,7 +250,7 @@ To test changes end-to-end:
 2. Launch Timberborn
 3. Enable `Timberbot API` in the Mod Manager
 4. Load or start a game
-5. Verify: `curl http://localhost:8085/api/ping` → `{"status": "ok", "ready": true}`
+5. Verify: `curl http://127.0.0.1:8085/api/ping` → `{"status": "ok", "ready": true}`
 6. Use the CLI or call API endpoints directly
 
 ### Settings

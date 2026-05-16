@@ -3,7 +3,7 @@ timberbot
 
 Python client and `tbot` CLI for the
 [Timberbot](https://github.com/impuls42/timberbot) Timberborn mod HTTP API.
-Talks to the C# mod running inside the game on `localhost:8085`.
+Talks to the C# mod running inside the game on `127.0.0.1:8085`.
 
 Install
 -------

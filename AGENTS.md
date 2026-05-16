@@ -1,6 +1,6 @@
 # Timberbot
 
-> **v0.9 — WebSocket cutover, in flight.** The mod is a pure server: HTTP for reads/writes on port 8085, plus a parallel WebSocket on port 8086 for state pushes and game events. Agents are driven by an out-of-process connector (`tbot watch`) gated by the in-game Launch button.
+The mod is a pure server: HTTP for reads/writes on port 8085, plus a parallel WebSocket on port 8086 for state pushes and game events. Agents are driven by an out-of-process connector (`tbot watch`) gated by the in-game Launch button.
 
 A C# mod + Python client that exposes a full read/write HTTP API for Timberborn plus a WebSocket event stream, enabling AI agents (Claude, ChatGPT, or custom scripts) to manage a beaver colony.
 

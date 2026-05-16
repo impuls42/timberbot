@@ -30,11 +30,11 @@ TimberbornMods/
       TimberbotJwTests.cs               JSON writer tests (primitives, nesting, commas, reuse)
       TimberbotPureTests.cs             Pure helper tests (parsing, quoting, assertions, normalization)
     script/
-      timberbot.py                      Python client (API + CLI + dashboard)
-      test_v2.py                        Primary test harness (smoke, freshness, write_to_read, performance, concurrency)
-      test_v2_specs.py                  Test spec definitions for test_v2
-      test_validation.py                Validation test suite (77 tests in 11 groups, any save game)
       release.py                        Build + package + GitHub release script
+  python/                               `tbot` CLI + typed Pydantic client (PyPI: `timberbot`)
+    src/timberbot/                      package source
+    tests/                              pytest suites (unit + httpserver-mocked + integration)
+    scripts/                            codegen / fixture-capture helpers
   docs/                               Documentation
     architecture.md                     How the mod works (thread model, caching, serialization)
     performance.md                      Measurements, benchmarks, GC pressure, optimization history
@@ -113,7 +113,7 @@ All settings persist to `settings.json`, including:
 1. Add an action method to `TimberbotWrite.cs` or `TimberbotPlacement.cs`
 2. Add the route to `RouteRequest()` in `TimberbotHttpServer.cs` (POST routes run on main thread)
 3. If you need new game services, inject them via the constructor
-4. Add a matching method to `timberbot.py`
+4. Add a matching typed method to `TimberbotClient` in `python/src/timberbot/api/client.py` (the operationId in `openapi.yaml` and the method name must agree — the contract tests will catch drift)
 
 ## Adding new game DLL references
 
@@ -207,4 +207,4 @@ This fork ships via GitHub releases only; the Steam Workshop entry "Timberbot AP
 python timberbot/script/release.py --release
 ```
 
-This builds a Release DLL, packages a ZIP (DLL + manifest + thumbnail + timberbot.py), tags the version, and creates a GitHub release.
+This builds a Release DLL, packages a ZIP (`Timberbot.dll` + `manifest.json` + `thumbnail.png`), tags the version, and creates a GitHub release. The `tbot` CLI ships separately on PyPI as the `timberbot` package and is not bundled into the mod ZIP.

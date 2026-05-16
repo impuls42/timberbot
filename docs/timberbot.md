@@ -5,8 +5,6 @@ version: "0.9.0"
 ---
 # Timberbot Guide
 
-> **v0.9 — architecture rework, in flight.** The launch flow now uses the `tbot watch` connector and the in-game Launch button instead of the old subprocess spawn. Gameplay strategy is unchanged.
-
 This is the full Timberbot Guide for playing Timberborn through the `tbot` CLI.
 
 The `timberbot` agent prompt (shipped as `tbot.agent_prompts.timberbot` and materialized via `tbot init`) is the slim runtime prompt injected at launch. This page is the full guide behind that prompt. The split keeps launch tokens low while preserving the deeper operating rules and reference material the agent may need.
@@ -218,9 +216,9 @@ Each sensor has a threshold, a comparison mode (Equal, Greater, Less, etc.), and
 
 See `docs/api-reference.md` for the full endpoint reference. The key commands are:
 
-- `timberbot.py link source_id:<id> target_id:<id> [input:a|b]` — wire a sensor/relay to a building or relay input
-- `timberbot.py unlink target_id:<id> [input:a|b|reset]` — remove a wire
-- `timberbot.py configure_automation id:<id> property:<prop> value:<val>` — set threshold, mode, goodId, etc.
+- `tbot link source_id:<id> target_id:<id> [input:a|b]` — wire a sensor/relay to a building or relay input
+- `tbot unlink target_id:<id> [input:a|b|reset]` — remove a wire
+- `tbot configure_automation id:<id> property:<prop> value:<val>` — set threshold, mode, goodId, etc.
 
 ### Reading automation state
 
@@ -259,8 +257,8 @@ For full API details, read `docs/api-reference.md` and `docs/automation-plan.md`
 
 `brain` is the preferred first read for colony state because it combines live game state with persistent task and memory state.
 
-- `timberbot.py brain` returns live summary from the game plus goal/tasks/locations from disk
-- `timberbot.py brain goal:"<text>"` sets or overwrites the persistent goal
+- `tbot brain` returns live summary from the game plus goal/tasks/locations from disk
+- `tbot brain goal:"<text>"` sets or overwrites the persistent goal
 
 ### What brain returns
 
@@ -302,7 +300,7 @@ Timberborn has two factions: **Folktails** and **Iron Teeth**. Every prefab exce
 
 Use `brain` or summary output to confirm the current faction before planning buildings.
 
-ALWAYS run `timberbot.py prefabs | grep -i <keyword>` before placing any building you have not already placed this session. NEVER guess a prefab name by swapping faction suffixes. Names are inconsistent across factions:
+ALWAYS run `tbot prefabs | grep -i <keyword>` before placing any building you have not already placed this session. NEVER guess a prefab name by swapping faction suffixes. Names are inconsistent across factions:
 
 - Folktails `SmallPile` -> Iron Teeth `SmallIndustrialPile` (not SmallPile)
 - Folktails `LumberMill` -> Iron Teeth `IndustrialLumberMill` (not LumberMill)
