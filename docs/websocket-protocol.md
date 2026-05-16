@@ -1,9 +1,10 @@
 # Timberbot WebSocket protocol
 
-> Authoritative contract for the long-lived connector channel introduced in
-> the v0.9 architecture rework (issue #27, foundation work in issue #28).
-> The `openapi.yaml` document covers HTTP routes only; WebSocket framing is
-> defined here.
+> Authoritative contract for the long-lived connector channel. The
+> `openapi.yaml` document covers HTTP routes only; WebSocket framing is
+> defined here. Historical context: introduced in the v0.9 architecture
+> rework (issues [#27](https://github.com/impuls42/timberbot/issues/27),
+> [#28](https://github.com/impuls42/timberbot/issues/28)).
 
 ## Upgrade
 

@@ -1,7 +1,5 @@
 # Architecture
 
-> **v0.9 — WebSocket cutover, in flight.** Behavior on `master` may briefly lag this page while the WS rework lands. The shape described here is what ships when the rework is complete.
-
 How Timberbot works internally. For migration history, see [`fresh-on-request-snapshots.md`](fresh-on-request-snapshots.md).
 
 ## The mod ↔ connector split
