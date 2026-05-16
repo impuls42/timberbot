@@ -57,5 +57,5 @@ jobs:
         env:
           OPENCODE_AUTH_CONTENT: '{"opencode-go":{"type":"api","key":"${{ secrets.OPENCODE_API_KEY }}"}}'
           MODEL: opencode-go/glm-5.1
-          SHARE: "true"
+          SHARE: "false"
         run: opencode github run
