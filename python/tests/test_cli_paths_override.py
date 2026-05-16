@@ -27,7 +27,7 @@ def test_documents_dir_flag_sets_mod_dir(capsys):
 def test_mod_dir_flag_pins_mod_dir(capsys):
     main(["--documents-dir=/tmp/X", "--mod-dir=/tmp/M", "--help"])
     assert paths.mod_dir() == _path("/tmp/M")
-    assert paths.settings_path() == _path("/tmp/M/settings.json")
+    assert paths.memory_base() == _path("/tmp/M/memory")
     capsys.readouterr()
 
 

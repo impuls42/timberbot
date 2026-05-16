@@ -144,11 +144,6 @@ def mod_dir() -> Path:
     return documents_dir() / "Mods" / "Timberbot"
 
 
-def settings_path() -> Path:
-    """The mod's settings.json file."""
-    return mod_dir() / "settings.json"
-
-
 def saves_dir() -> Path:
     """Per-settlement save directory under `documents_dir()`."""
     return documents_dir() / "Saves"
