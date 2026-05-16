@@ -722,6 +722,95 @@ namespace Timberbot.Tests
         }
     }
 
+    public class ComputeWebSocketAcceptTests
+    {
+        // RFC 6455 §1.3 worked example: key "dGhlIHNhbXBsZSBub25jZQ==" must
+        // produce accept value "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=". This is the
+        // canonical interop fixture — every WS implementation must agree.
+        [Fact]
+        public void Rfc6455_KnownVector()
+        {
+            Assert.Equal(
+                "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
+                TimberbotPure.ComputeWebSocketAccept("dGhlIHNhbXBsZSBub25jZQ=="));
+        }
+
+        // Defensive: a null key shouldn't throw — RFC requires a non-empty
+        // key, but our caller (TimberbotWebSocketServer) only invokes this
+        // helper after IsWebSocketUpgradeRequest passes, which already
+        // rejects empty keys. The helper itself should still be total.
+        [Fact]
+        public void NullKey_StillProducesDeterministicValue()
+        {
+            // GUID-only SHA1: "258EAFA5-E914-47DA-95CA-C5AB0DC85B11" → base64
+            // of the resulting hash. The actual value doesn't matter for
+            // interop (we'd never use it); the test pins that the function
+            // doesn't throw on null.
+            var accept = TimberbotPure.ComputeWebSocketAccept(null);
+            Assert.False(string.IsNullOrEmpty(accept));
+        }
+    }
+
+    public class IsWebSocketUpgradeRequestTests
+    {
+        // Canonical aiohttp / browser-issued upgrade.
+        [Fact]
+        public void Valid_StandardHeaders()
+        {
+            Assert.True(TimberbotPure.IsWebSocketUpgradeRequest(
+                "Upgrade", "websocket", "dGhlIHNhbXBsZSBub25jZQ==", "13"));
+        }
+
+        // Casing on header VALUES must not matter (the spec is explicit).
+        [Theory]
+        [InlineData("upgrade", "websocket")]
+        [InlineData("Upgrade", "WebSocket")]
+        [InlineData("UPGRADE", "WEBSOCKET")]
+        public void Valid_CaseInsensitiveValues(string conn, string upgrade)
+        {
+            Assert.True(TimberbotPure.IsWebSocketUpgradeRequest(
+                conn, upgrade, "k", "13"));
+        }
+
+        // Connection header is a comma-separated token list; "upgrade" can
+        // appear with siblings like "keep-alive" or "close".
+        [Theory]
+        [InlineData("keep-alive, Upgrade")]
+        [InlineData("Upgrade, close")]
+        [InlineData("close,upgrade,foo")]
+        public void Valid_ConnectionHeaderTokenList(string conn)
+        {
+            Assert.True(TimberbotPure.IsWebSocketUpgradeRequest(
+                conn, "websocket", "k", "13"));
+        }
+
+        // Surrounding whitespace on header values must be tolerated.
+        [Fact]
+        public void Valid_HeadersWithSurroundingWhitespace()
+        {
+            Assert.True(TimberbotPure.IsWebSocketUpgradeRequest(
+                "  Upgrade  ", "  websocket  ", "k", "  13  "));
+        }
+
+        [Theory]
+        [InlineData(null,        "websocket", "k",  "13", "null Connection")]
+        [InlineData("",          "websocket", "k",  "13", "empty Connection")]
+        [InlineData("keep-alive", "websocket", "k", "13", "Connection without upgrade token")]
+        [InlineData("Upgrade",    null,        "k", "13", "null Upgrade")]
+        [InlineData("Upgrade",    "",          "k", "13", "empty Upgrade")]
+        [InlineData("Upgrade",    "h2c",       "k", "13", "non-websocket Upgrade target")]
+        [InlineData("Upgrade",    "websocket", null, "13", "null Sec-WebSocket-Key")]
+        [InlineData("Upgrade",    "websocket", "",   "13", "empty Sec-WebSocket-Key")]
+        [InlineData("Upgrade",    "websocket", "k",  null, "null Sec-WebSocket-Version")]
+        [InlineData("Upgrade",    "websocket", "k",  "",   "empty Sec-WebSocket-Version")]
+        [InlineData("Upgrade",    "websocket", "k",  "8",  "pre-RFC version 8")]
+        [InlineData("Upgrade",    "websocket", "k",  "12", "draft version 12")]
+        public void Rejects(string conn, string upgrade, string key, string ver, string _label)
+        {
+            Assert.False(TimberbotPure.IsWebSocketUpgradeRequest(conn, upgrade, key, ver));
+        }
+    }
+
     public class ClassifyConnectionTests
     {
         // No state poll yet -> always Disconnected, gate off.

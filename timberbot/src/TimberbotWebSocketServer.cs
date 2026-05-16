@@ -3,10 +3,16 @@
 // fan-out from the v0.9 architecture rework.
 //
 // Threading model:
-//   - A single HttpListener runs on `wsPort` (default 8086) on its own
-//     background accept thread. Every accepted connection is upgraded via
-//     HttpListenerContext.AcceptWebSocketAsync() and tracked in a
+//   - A single TcpListener runs on `wsPort` (default 8086) on its own
+//     background accept thread. Every accepted connection has its HTTP
+//     upgrade request parsed manually, then `WebSocket.CreateFromStream`
+//     wraps the live NetworkStream and the connection is tracked in a
 //     ConcurrentDictionary<Guid, WebSocketConnection>.
+//   - Why not HttpListener.AcceptWebSocketAsync? Mono's HttpListener (the
+//     Unity runtime) throws `NotImplementedException` from that method.
+//     We do the RFC 6455 handshake by hand: parse Connection / Upgrade /
+//     Sec-WebSocket-{Key,Version}, compute Sec-WebSocket-Accept, write a
+//     101 Switching Protocols response, then hand off the stream.
 //   - Each connection runs its own receive loop (`Task.Run`) reading
 //     client->server frames (`heartbeat`, `ping`) until the socket closes.
 //   - Each connection has a bounded send queue. PushState / PushEvent enqueue
@@ -31,6 +37,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
@@ -40,7 +47,7 @@ namespace Timberbot
 {
     public class TimberbotWebSocketServer : IDisposable
     {
-        private readonly HttpListener _listener;
+        private readonly TcpListener _listener;
         private readonly Thread _acceptThread;
         private readonly string _authToken;
         private readonly CancellationTokenSource _shutdown = new CancellationTokenSource();
@@ -54,6 +61,11 @@ namespace Timberbot
         // the 30s heartbeat cadence + game-event spikes; anything beyond that
         // is a slow consumer we'd rather drop than stall the broadcaster on.
         public const int DefaultMaxSendQueue = 256;
+
+        // Cap inbound headers so a misbehaving client can't grow the parse
+        // buffer unboundedly during the handshake. 8 KB covers any reasonable
+        // browser/aiohttp set.
+        private const int MaxHeaderBytes = 8 * 1024;
 
         // Public for callers that need to publish without taking a reference
         // to the listener thread (e.g. webhook handlers).
@@ -69,32 +81,19 @@ namespace Timberbot
             _agentState = agentState;
             _authToken = TimberbotPure.NormalizeAuthToken(authToken);
             _maxSendQueue = maxSendQueue > 0 ? maxSendQueue : DefaultMaxSendQueue;
-            _listener = new HttpListener();
 
             var addr = string.IsNullOrWhiteSpace(listenAddress) ? "127.0.0.1" : listenAddress.Trim();
-            bool wantWildcard = addr == "+" || addr == "0.0.0.0" || addr == "*";
-            if (wantWildcard)
-            {
-                try
-                {
-                    _listener.Prefixes.Add($"http://+:{port}/");
-                    _listener.Start();
-                    TimberbotLog.Info($"ws listening on +:{port} (all interfaces)");
-                }
-                catch (HttpListenerException)
-                {
-                    TimberbotLog.Info($"ws port +:{port} failed, falling back to localhost");
-                    _listener = new HttpListener();
-                    _listener.Prefixes.Add($"http://localhost:{port}/");
-                    _listener.Start();
-                }
-            }
-            else
-            {
-                _listener.Prefixes.Add($"http://{addr}:{port}/");
-                _listener.Start();
-                TimberbotLog.Info($"ws listening on {addr}:{port}");
-            }
+            IPAddress ip;
+            if (addr == "+" || addr == "0.0.0.0" || addr == "*")
+                ip = IPAddress.Any;
+            else if (string.Equals(addr, "localhost", StringComparison.OrdinalIgnoreCase))
+                ip = IPAddress.Loopback;
+            else if (!IPAddress.TryParse(addr, out ip))
+                ip = IPAddress.Loopback;
+
+            _listener = new TcpListener(ip, port);
+            _listener.Start();
+            TimberbotLog.Info($"ws listening on {ip}:{port}");
 
             _running = true;
             if (_agentState != null)
@@ -152,54 +151,126 @@ namespace Timberbot
         {
             while (_running)
             {
-                HttpListenerContext ctx;
-                try { ctx = _listener.GetContext(); }
+                TcpClient client;
+                try { client = _listener.AcceptTcpClient(); }
                 catch { if (!_running) break; continue; }
 
-                // We accept WS connections on a Task so the accept thread
-                // immediately returns to GetContext().
-                _ = HandleConnectionAsync(ctx);
+                // Handshake + per-connection loop runs on a Task so the
+                // accept thread immediately returns to AcceptTcpClient().
+                _ = HandleConnectionAsync(client);
             }
         }
 
-        private async Task HandleConnectionAsync(HttpListenerContext ctx)
+        private async Task HandleConnectionAsync(TcpClient client)
         {
-            var path = ctx.Request.Url?.AbsolutePath?.TrimEnd('/')?.ToLowerInvariant() ?? "";
+            NetworkStream stream;
+            try { stream = client.GetStream(); }
+            catch (Exception ex)
+            {
+                TimberbotLog.Info($"ws.accept.stream.err {ex.GetType().Name}:{ex.Message}");
+                try { client.Close(); } catch { }
+                return;
+            }
+
+            // Read the HTTP upgrade request. We read until \r\n\r\n with a
+            // hard cap so a misbehaving client can't allocate unboundedly.
+            string requestText;
+            try { requestText = await ReadHttpHeadersAsync(stream).ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                TimberbotLog.Info($"ws.handshake.read.err {ex.GetType().Name}:{ex.Message}");
+                try { client.Close(); } catch { }
+                return;
+            }
+            if (requestText == null)
+            {
+                await WriteHttpResponseAsync(stream, 400, "{\"error\":\"malformed_request\"}").ConfigureAwait(false);
+                try { client.Close(); } catch { }
+                return;
+            }
+
+            var (method, target, headers) = ParseHttpRequest(requestText);
+            if (method != "GET")
+            {
+                await WriteHttpResponseAsync(stream, 405, "{\"error\":\"method_not_allowed\"}").ConfigureAwait(false);
+                try { client.Close(); } catch { }
+                return;
+            }
+
+            // Path + query split. We only serve `/api/ws`; the rest 404s.
+            string path = target;
+            string queryString = "";
+            var q = target.IndexOf('?');
+            if (q >= 0) { path = target.Substring(0, q); queryString = target.Substring(q + 1); }
+            path = (path ?? "").TrimEnd('/').ToLowerInvariant();
             if (path != "/api/ws")
             {
-                Respond(ctx, 404, "{\"error\":\"not_found\"}");
+                await WriteHttpResponseAsync(stream, 404, "{\"error\":\"not_found\"}").ConfigureAwait(false);
+                try { client.Close(); } catch { }
                 return;
             }
-            if (!ctx.Request.IsWebSocketRequest)
+
+            headers.TryGetValue("connection", out var connHeader);
+            headers.TryGetValue("upgrade", out var upgradeHeader);
+            headers.TryGetValue("sec-websocket-key", out var wsKey);
+            headers.TryGetValue("sec-websocket-version", out var wsVersion);
+            if (!TimberbotPure.IsWebSocketUpgradeRequest(connHeader, upgradeHeader, wsKey, wsVersion))
             {
-                Respond(ctx, 426, "{\"error\":\"upgrade_required\"}");
+                await WriteHttpResponseAsync(stream, 426, "{\"error\":\"upgrade_required\"}").ConfigureAwait(false);
+                try { client.Close(); } catch { }
                 return;
             }
-            // Auth: header first, then ?token= fallback for browsers.
+
+            // Auth: Authorization: Bearer header first, then ?token= fallback.
             if (!string.IsNullOrEmpty(_authToken))
             {
-                var authHeader = ctx.Request.Headers["Authorization"];
+                headers.TryGetValue("authorization", out var authHeader);
                 var presented = TimberbotPure.ExtractBearerToken(authHeader);
                 if (string.IsNullOrEmpty(presented))
-                    presented = ctx.Request.QueryString["token"];
+                    presented = ParseQueryParam(queryString, "token");
                 if (string.IsNullOrEmpty(presented) || !TimberbotPure.BearerTokenMatches(_authToken, presented))
                 {
-                    ctx.Response.Headers["WWW-Authenticate"] = "Bearer realm=\"timberbot\"";
-                    Respond(ctx, 401, "{\"error\":\"unauthorized\"}");
+                    await WriteHttpResponseAsync(stream, 401, "{\"error\":\"unauthorized\"}",
+                        extraHeaders: "WWW-Authenticate: Bearer realm=\"timberbot\"\r\n").ConfigureAwait(false);
+                    try { client.Close(); } catch { }
                     return;
                 }
             }
 
-            WebSocketContext wsCtx;
-            try { wsCtx = await ctx.AcceptWebSocketAsync(subProtocol: null).ConfigureAwait(false); }
+            // Write 101 Switching Protocols + handshake response.
+            var accept = TimberbotPure.ComputeWebSocketAccept(wsKey);
+            var resp = "HTTP/1.1 101 Switching Protocols\r\n" +
+                       "Upgrade: websocket\r\n" +
+                       "Connection: Upgrade\r\n" +
+                       $"Sec-WebSocket-Accept: {accept}\r\n" +
+                       "\r\n";
+            try
+            {
+                var respBytes = Encoding.ASCII.GetBytes(resp);
+                await stream.WriteAsync(respBytes, 0, respBytes.Length).ConfigureAwait(false);
+                await stream.FlushAsync().ConfigureAwait(false);
+            }
             catch (Exception ex)
             {
-                TimberbotLog.Error("ws.accept", ex);
-                try { ctx.Response.Abort(); } catch { }
+                TimberbotLog.Info($"ws.handshake.write.err {ex.GetType().Name}:{ex.Message}");
+                try { client.Close(); } catch { }
                 return;
             }
 
-            var conn = new WebSocketConnection(wsCtx.WebSocket, _maxSendQueue);
+            WebSocket ws;
+            try
+            {
+                ws = WebSocket.CreateFromStream(stream, isServer: true, subProtocol: null,
+                    keepAliveInterval: TimeSpan.FromSeconds(30));
+            }
+            catch (Exception ex)
+            {
+                TimberbotLog.Error("ws.create_from_stream", ex);
+                try { client.Close(); } catch { }
+                return;
+            }
+
+            var conn = new WebSocketConnection(ws, _maxSendQueue, client);
             _connections[conn.Id] = conn;
             TimberbotLog.Info($"ws.connect id={conn.Id} count={_connections.Count}");
 
@@ -307,25 +378,120 @@ namespace Timberbot
             }
         }
 
-        private static void Respond(HttpListenerContext ctx, int status, string body)
+        // --- handshake helpers (manual HTTP/1.1, by-hand because Mono's
+        //     HttpListener doesn't implement AcceptWebSocketAsync) ---
+
+        // Read until \r\n\r\n with a hard cap. Returns the full request bytes
+        // as ASCII text, or null on malformed input. We deliberately do NOT
+        // consume past the header delimiter — RFC 6455 mandates an empty body
+        // on the upgrade GET, and WebSocket framing starts on the next byte
+        // the client sends after seeing 101 Switching Protocols.
+        private static async Task<string> ReadHttpHeadersAsync(NetworkStream stream)
+        {
+            var buf = new byte[MaxHeaderBytes];
+            int total = 0;
+            while (total < MaxHeaderBytes)
+            {
+                int n;
+                try { n = await stream.ReadAsync(buf, total, 1).ConfigureAwait(false); }
+                catch { return null; }
+                if (n == 0) return null;
+                total += n;
+                if (total >= 4 && buf[total - 4] == (byte)'\r' && buf[total - 3] == (byte)'\n'
+                    && buf[total - 2] == (byte)'\r' && buf[total - 1] == (byte)'\n')
+                {
+                    return Encoding.ASCII.GetString(buf, 0, total - 4);
+                }
+            }
+            return null;  // hit MaxHeaderBytes without seeing the delimiter
+        }
+
+        private static async Task WriteHttpResponseAsync(NetworkStream stream, int status, string body,
+            string extraHeaders = "")
         {
             try
             {
-                ctx.Response.StatusCode = status;
-                ctx.Response.ContentType = "application/json";
-                using var sw = new StreamWriter(ctx.Response.OutputStream, new UTF8Encoding(false));
-                sw.Write(body);
-                ctx.Response.OutputStream.Close();
+                string reason = status switch
+                {
+                    400 => "Bad Request",
+                    401 => "Unauthorized",
+                    404 => "Not Found",
+                    405 => "Method Not Allowed",
+                    426 => "Upgrade Required",
+                    _ => "Error",
+                };
+                var bodyBytes = Encoding.UTF8.GetBytes(body ?? "");
+                var head = $"HTTP/1.1 {status} {reason}\r\n" +
+                           "Content-Type: application/json\r\n" +
+                           $"Content-Length: {bodyBytes.Length}\r\n" +
+                           "Connection: close\r\n" +
+                           (extraHeaders ?? "") +
+                           "\r\n";
+                var headBytes = Encoding.ASCII.GetBytes(head);
+                await stream.WriteAsync(headBytes, 0, headBytes.Length).ConfigureAwait(false);
+                if (bodyBytes.Length > 0)
+                    await stream.WriteAsync(bodyBytes, 0, bodyBytes.Length).ConfigureAwait(false);
+                await stream.FlushAsync().ConfigureAwait(false);
             }
-            catch { /* client likely hung up; ignore */ }
+            catch { /* client likely hung up */ }
+        }
+
+        // Parses an HTTP/1.1 request from its header text. Returns the method,
+        // request-target (path + optional query), and a lowercased-key header
+        // dictionary. We tolerate folded headers via simple concat — not
+        // strictly RFC-compliant but matches what aiohttp / browsers emit.
+        private static (string method, string target, Dictionary<string, string> headers) ParseHttpRequest(string text)
+        {
+            var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrEmpty(text)) return ("", "", headers);
+            var lines = text.Split(new[] { "\r\n" }, StringSplitOptions.None);
+            if (lines.Length == 0) return ("", "", headers);
+            var requestLine = lines[0];
+            var parts = requestLine.Split(' ');
+            string method = parts.Length > 0 ? parts[0].ToUpperInvariant() : "";
+            string target = parts.Length > 1 ? parts[1] : "";
+            for (int i = 1; i < lines.Length; i++)
+            {
+                var line = lines[i];
+                var colon = line.IndexOf(':');
+                if (colon <= 0) continue;
+                var name = line.Substring(0, colon).Trim().ToLowerInvariant();
+                var value = line.Substring(colon + 1).Trim();
+                if (headers.TryGetValue(name, out var existing))
+                    headers[name] = existing + ", " + value;
+                else
+                    headers[name] = value;
+            }
+            return (method, target, headers);
+        }
+
+        // Pull a single query-string parameter value (case-sensitive name).
+        // Returns null when the parameter is absent. URL-decoding is minimal:
+        // we treat the value as opaque (no `+` → space substitution); auth
+        // tokens are typically url-safe-base64 which doesn't need decoding.
+        private static string ParseQueryParam(string queryString, string name)
+        {
+            if (string.IsNullOrEmpty(queryString)) return null;
+            foreach (var pair in queryString.Split('&'))
+            {
+                var eq = pair.IndexOf('=');
+                string k, v;
+                if (eq < 0) { k = pair; v = ""; }
+                else { k = pair.Substring(0, eq); v = pair.Substring(eq + 1); }
+                if (k == name) return Uri.UnescapeDataString(v);
+            }
+            return null;
         }
 
         // Per-connection state. Owns its own bounded send queue; the sender
         // task drains the queue and writes frames to the socket sequentially.
+        // Also owns the TcpClient that backs the WebSocket so the TCP socket
+        // is closed when the WS half is done.
         public sealed class WebSocketConnection
         {
             public readonly Guid Id = Guid.NewGuid();
             public readonly WebSocket Socket;
+            private readonly TcpClient _tcp;
             private readonly int _capacity;
             private readonly object _queueLock = new object();
             private readonly Queue<string> _queue = new Queue<string>();
@@ -334,9 +500,10 @@ namespace Timberbot
 
             public bool IsOpen => !_closed && Socket.State == WebSocketState.Open;
 
-            public WebSocketConnection(WebSocket socket, int capacity)
+            public WebSocketConnection(WebSocket socket, int capacity, TcpClient tcp = null)
             {
                 Socket = socket;
+                _tcp = tcp;
                 _capacity = capacity > 0 ? capacity : DefaultMaxSendQueue;
             }
 
@@ -411,6 +578,7 @@ namespace Timberbot
                 {
                     var sock = Socket;
                     var label = reason ?? "closed";
+                    var tcp = _tcp;
                     Task.Run(async () =>
                     {
                         try
@@ -423,12 +591,14 @@ namespace Timberbot
                         finally
                         {
                             try { sock.Dispose(); } catch { }
+                            try { tcp?.Close(); } catch { }
                         }
                     });
                 }
                 else
                 {
                     try { Socket.Dispose(); } catch { }
+                    try { _tcp?.Close(); } catch { }
                 }
             }
         }
