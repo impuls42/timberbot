@@ -1934,7 +1934,7 @@ Route a path from point A to point B using A* pathfinding over a 3D surface grap
 
 ## Webhooks
 
-Push notifications for game events. See [webhooks.md](webhooks.md) for setup, configuration, the full event list (68 events), and circuit breaker behavior.
+Push notifications for game events. See [events.md](events.md) for the full event catalog (68 events) and how to consume them over the WebSocket. The HTTP webhook routes documented in this section are deleted in v0.9 — they ship one last time here as a migration aid.
 
 ### POST /api/webhooks
 

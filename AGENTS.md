@@ -1,14 +1,24 @@
 # Timberbot
 
-> **v0.9 — architecture rework, in flight.** The mod is a pure HTTP server; agents are driven by an out-of-process connector (`tbot watch`) gated by the in-game Launch button.
+> **v0.9 — WebSocket cutover, in flight.** The mod is a pure server: HTTP for reads/writes on port 8085, plus a parallel WebSocket on port 8086 for state pushes and game events. Agents are driven by an out-of-process connector (`tbot watch`) gated by the in-game Launch button.
 
-A C# mod + Python client that exposes a full read/write HTTP API for Timberborn, enabling AI agents (Claude, ChatGPT, or custom scripts) to manage a beaver colony.
+A C# mod + Python client that exposes a full read/write HTTP API for Timberborn plus a WebSocket event stream, enabling AI agents (Claude, ChatGPT, or custom scripts) to manage a beaver colony.
+
+## Read First
+
+Beyond this file:
+
+- [`openapi.yaml`](openapi.yaml) — canonical HTTP contract
+- [`docs/websocket-protocol.md`](docs/websocket-protocol.md) — canonical WS wire contract (envelope, auth, reconnect, message types)
+- [`docs/api-reference.md`](docs/api-reference.md) — human-readable companion to the OpenAPI spec
+- [`docs/architecture.md`](docs/architecture.md) — thread model, server split, write-job queue
+- [`docs/devenv.md`](docs/devenv.md) — toolchain (.NET, Python, `ilspycmd`)
 
 ## Quick Reference
 
 - **Build:** Open `timberbot/src/Timberbot.csproj` in an IDE with .NET support, or run `dotnet build` from that directory. The post-build target auto-deploys to the game's mod folder. Override the game DLL path with `-p:GameManagedDir=<path>` if the default doesn't match your install.
-- **Run (game side):** Launch Timberborn with the mod enabled. The HTTP server starts on the port configured in `settings.json` (default `8085`). Player presses **Launch** in the widget to open the ready gate.
-- **Run (client side):** `tbot watch` is the long-running connector. `tbot <command>` and `tbot agent run` still work for one-shots. Install with `pipx install timberbot`.
+- **Run (game side):** Launch Timberborn with the mod enabled. The HTTP server starts on `httpPort` (default `8085`) and the WebSocket server on `wsPort` (default `8086`). Player presses **Launch** in the widget to open the ready gate.
+- **Run (client side):** `tbot watch` is the long-running connector — it opens a single WebSocket to the mod. `tbot listen` is a pure WS client for the game-event stream. `tbot <command>` and `tbot agent run` still work for one-shots. Install with `pipx install timberbot`.
 - **Tests:** Python unit tests via `python -m pytest python/tests/`; C# xUnit tests via `dotnet test timberbot/test/`.
 
 ## Architecture
@@ -16,11 +26,11 @@ A C# mod + Python client that exposes a full read/write HTTP API for Timberborn,
 ```
 ┌─ Timberborn (game process) ────────────────┐         ┌─ tbot watch (host process) ────────────┐
 │  Timberbot.dll                             │         │                                        │
-│    TimberbotHttpServer  :8085              │◀───────▶│  reconnect + heartbeat (every 2 s)     │
-│    TimberbotAgentState  state.json         │   HTTP  │  registers webhook URL (push trigger)  │
-│    TimberbotReadV2 / TimberbotWrite        │         │  dispatches `tbot agent run` per cycle │
-│    TimberbotWebhook    (outbound + push)   │──push──▶│  optional local listener               │
-│    TimberbotPanel       Launch / Stop      │         │                                        │
+│    TimberbotHttpServer       :8085         │◀─HTTP──▶│  REST reads/writes (one-shots)         │
+│    TimberbotWebSocketServer  :8086         │◀── WS ─▶│  long-lived ws://host:8086/api/ws      │
+│    TimberbotAgentState  state.json         │         │  receives state + event frames         │
+│    TimberbotReadV2 / TimberbotWrite        │         │  sends `heartbeat` every 30 s          │
+│    TimberbotPanel       Launch / Stop      │         │  dispatches `tbot agent run` per cycle │
 └────────────────────────────────────────────┘         └────────────────────────────────────────┘
 ```
 
@@ -30,21 +40,21 @@ The mod runs **inside** the Unity game process. It uses Timberborn's `Bindito` D
 
 The mod no longer spawns the agent. Instead, the player runs `tbot watch` — a long-running Python process that:
 
-1. Polls `/api/ping` with exponential backoff until the game is reachable.
-2. Optionally `POST /api/tbot/register {webhook_url}` to receive push-mode triggers on a local listener.
-3. Heartbeats `POST /api/tbot/heartbeat` every 2 s carrying `{version, agent_status, acked_request_id}`; the response is the full agent state.
-4. Dispatches an `agent run` cycle when a request arrives (via webhook fast path or heartbeat slow path) or when autonomous-mode cadence fires.
-5. Advances `acked_request_id` so the mod clears the single `pendingRequest` slot.
+1. Opens a single WebSocket to `ws://host:wsPort/api/ws` with exponential backoff until the game is reachable.
+2. Receives `state` frames (full agent state on every change) and `event` frames (game events) push-style — no polling.
+3. Sends a `heartbeat` frame every 30 s carrying `{version, agent_status, acked_request_id}`. WS ping/pong + TCP keepalive handle liveness.
+4. Dispatches an `agent run` cycle when a new `pendingRequest` arrives via `state` frame, or when autonomous-mode cadence fires.
+5. Sends the next `heartbeat` with an advanced `acked_request_id` so the mod clears the single `pendingRequest` slot.
 
 `tbot watch` is the canonical place to add new orchestration logic (queueing, cadence, attach-to-`opencode serve`, multi-backend routing). The mod intentionally stays dumb.
 
 ### Ready gate
 
-The widget's Launch / Stop button toggles `ready` on the mod. While `ready=false`, `TimberbotHttpServer` middleware returns `409 game_not_ready` for **every `/api/*` read and write** except the carve-out: `/api/agent/*`, `/api/ready`, `/api/tbot/*`, `/api/ping`. Webhooks keep firing — the gate only filters inbound `/api/*` requests, not outbound events.
+The widget's Launch / Stop button toggles `ready` on the mod. While `ready=false`, `TimberbotHttpServer` middleware returns `409 game_not_ready` for **every `/api/*` read and write** except the carve-out: `/api/agent/*`, `/api/ready`, `/api/ping`. The WebSocket on port 8086 is **not** ready-gated — clients stay connected across Launch / Stop toggles and continue to receive game-event frames (they just won't see anything useful happen on `state` frames until the player presses Launch).
 
-`ready` is **not persisted**: it resets to `false` on every save load. The player has to opt in every session. `mode`, `goal`, and `lastError` persist via `state.json`; `pendingRequest`, `tbotWebhookUrl`, and `lastAckedRequestId` are in-memory only.
+`ready` is **not persisted**: it resets to `false` on every save load. The player has to opt in every session. `mode`, `goal`, and `lastError` persist via `state.json`; `pendingRequest` and `lastAckedRequestId` are in-memory only.
 
-Bearer-token auth (`authToken` in `settings.json`) layers on top: when set, every `/api/*` request needs `Authorization: Bearer <token>` (constant-time compare). The mod refuses to start if `listenAddress` is non-localhost and `authToken` is empty.
+Bearer-token auth (`authToken` in `settings.json`) layers on top: when set, every `/api/*` request needs `Authorization: Bearer <token>` (constant-time compare), and every WS upgrade needs the same token (either `Authorization: Bearer <token>` on the upgrade headers or `?token=<token>` as a query-param fallback). The mod refuses to start if `listenAddress` is non-localhost and `authToken` is empty.
 
 ## Project Structure
 
@@ -63,14 +73,15 @@ timberbot/
 │   ├── src/                     # C# mod source
 │   │   ├── Timberbot.csproj     # MSBuild project; manages game DLL refs & deploy
 │   │   ├── TimberbotConfigurator.cs      # Bindito DI registration
-│   │   ├── TimberbotHttpServer.cs        # HTTP listener, routing, ready-gate + auth middleware
+│   │   ├── TimberbotHttpServer.cs        # HTTP listener, routing, ready-gate + auth middleware (port 8085)
+│   │   ├── TimberbotWebSocketServer.cs   # WebSocket listener (port 8086): state + event broadcasts, heartbeat
 │   │   ├── TimberbotReadV2.cs            # All GET endpoints (buildings, beavers, map)
 │   │   ├── TimberbotWrite.cs             # All POST endpoints (pause, recipes, floodgates)
 │   │   ├── TimberbotPlacement.cs         # Building/planting placement logic
-│   │   ├── TimberbotAgentState.cs        # mode/goal/ready/pendingRequest container; state.json persistence
+│   │   ├── TimberbotAgentState.cs        # mode/goal/ready/pendingRequest container; state.json persistence; Changed event
 │   │   ├── TimberbotEntityRegistry.cs    # Entity lookup by ID
-│   │   ├── TimberbotWebhook.cs           # Outbound webhook dispatch (game events + connector triggers)
-│   │   ├── TimberbotService.cs           # Main lifecycle (Load/Update)
+│   │   ├── TimberbotWebhook.cs           # [OnEvent] handlers that hand game events to the WS broadcaster
+│   │   ├── TimberbotService.cs           # Main lifecycle (Load/Update); owns both listeners
 │   │   ├── TimberbotPanel.cs             # In-game UI panel (Launch/Stop, mode dropdown)
 │   │   ├── TimberbotDebug.cs             # Debug/diagnostic endpoints
 │   │   ├── manifest.json                 # Mod metadata (name, version, min game version)
@@ -100,8 +111,8 @@ timberbot/
 - **Entity lookup:** Use `TimberbotEntityRegistry` to find entities by integer ID. The registry is populated on game load.
 - **State reading:** `TimberbotReadV2.cs` serializes game state to JSON. It uses `GetComponent<T>()` on entities to extract data from Timberborn's ECS-like component system.
 - **State writing:** `TimberbotWrite.cs` processes mutations. Each write method finds the target entity, gets the relevant component, and calls the game's own setter methods.
-- **Agent state:** `TimberbotAgentState` is the only source of truth for `mode`, `goal`, `ready`, `pendingRequest`, `tbotWebhookUrl`, `lastAckedRequestId`, `lastError`. Reads/writes go through the container — don't add ad-hoc fields elsewhere.
-- **Ready gate:** new `/api/*` endpoints must explicitly opt into the carve-out (`/api/agent/*`, `/api/ready`, `/api/tbot/*`, `/api/ping`) or accept that they 409 when `ready=false`. Default is gated.
+- **Agent state:** `TimberbotAgentState` is the only source of truth for `mode`, `goal`, `ready`, `pendingRequest`, `lastAckedRequestId`, `lastError`. Reads/writes go through the container — don't add ad-hoc fields elsewhere. Mutations raise the `Changed` event (outside the lock) so the WS broadcaster can fan a `state` frame out to every subscriber.
+- **Ready gate:** new `/api/*` endpoints must explicitly opt into the carve-out (`/api/agent/*`, `/api/ready`, `/api/ping`) or accept that they 409 when `ready=false`. Default is gated. The WebSocket on port 8086 is not ready-gated — events keep flowing.
 
 ### Python Client Side
 - **Persistent state:** The agent uses `brain.toon` files in `memory/` subdirectories, keyed by settlement name. The `goal` parameter is saved here for cross-session persistence.
@@ -110,9 +121,11 @@ timberbot/
 - **Boot flow:** Run the `brain` command once at session start to establish settlement context.
 
 ### Documentation
-- `docs/timberbot.md` is the primary AI agent guide — always read first.
-- `docs/api-reference.md` is the human-readable companion to `openapi.yaml` (which is the canonical contract).
-- `python/src/timberbot/agent_prompts/timberbot.md` is the system prompt shipped as `timberbot` package data and injected at runtime by `tbot agent run`.
+- `docs/timberbot.md` — primary AI-agent operating guide. Read this if you're touching the in-game agent behavior or the prompts.
+- `docs/events.md` — user-facing guide for consuming the WS event stream.
+- `python/src/timberbot/agent_prompts/timberbot.md` — system prompt shipped as `timberbot` package data and injected at runtime by `tbot agent run`.
+
+`openapi.yaml`, `docs/websocket-protocol.md`, `docs/api-reference.md`, and `docs/architecture.md` are listed in [Read First](#read-first) above — they're load-bearing for any contract or threading change.
 
 ## Agent Tooling
 

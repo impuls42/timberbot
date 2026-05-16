@@ -65,7 +65,7 @@ nav:
   - API Reference: api-reference.md
   - Timberbot Guide: timberbot.md
   - Features: features.md
-  - Webhooks: webhooks.md
+  - Events: events.md
   - Architecture: architecture.md
   - Performance: performance.md
   - Developing: developing.md

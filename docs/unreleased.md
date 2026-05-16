@@ -1,3 +1,33 @@
+## v0.9 WebSocket cutover
+
+Hard cutover — no fallback path. The heartbeat-polling channel and the outbound-HTTP-webhook channel are both replaced by a single long-lived WebSocket.
+
+!!! warning "Breaking change for existing `tbot watch`, `tbot listen`, and webhook subscribers"
+    Old `tbot` versions stop working against a v0.9 WebSocket mod — they speak the deleted HTTP heartbeat. Reinstall the matching `tbot` version (`pipx install --upgrade timberbot`).
+
+    Anyone hosting an HTTP server to receive `POST /api/webhooks` deliveries must migrate to either `tbot listen` or a custom WebSocket subscriber. There is no shim — the outbound HTTP delivery loop is gone.
+
+- [feature] **WebSocket transport.** Parallel listener on `wsPort` (default 8086, `ws://host:wsPort/api/ws`). Frame envelope `{"type": "...", "payload": {...}}`. Server→client: `state`, `event`, `error`, `pong`. Client→server: `heartbeat`, `ping`. Auth via `Authorization: Bearer <token>` on the upgrade request (or `?token=` query param). Heartbeat cadence drops from 2 s polling to 30 s — WS ping/pong and TCP keepalive handle liveness.
+- [feature] **`tbot listen` is now a pure WS client.** No more `--port` / `--host` inbound flags; `tbot listen` connects out to the mod and prints `event` frames as they arrive. `--pretty` and `--forward-to FILE|URL` still work.
+- [feature] **`tbot watch` is now a pure WS client.** Polling loop and local-listener trigger queue deleted; the connector subscribes to the WS and reacts to `state` frames. `--listen-port` is gone — no inbound HTTP server.
+- [feature] **WS protocol contract.** New `docs/websocket-protocol.md` is the authoritative wire spec. OpenAPI stays HTTP-only.
+- [removed] **HTTP endpoints:** `POST /api/tbot/heartbeat`, `POST /api/tbot/register`, `POST /api/webhooks`, `GET /api/webhooks`, `POST /api/webhooks/delete`. The HTTP delivery loop, batching, circuit breaker, and subscriber registry in `TimberbotWebhook.cs` are gutted (the `[OnEvent]` handlers stay; they now publish to the WS broadcaster).
+- [removed] **Settings keys:** `webhooksEnabled`, `webhookBatchMs`, `webhookCircuitBreaker`, `webhookMaxPendingEvents`, `webhookValidateUrls`. Logged as ignored on load.
+- [removed] **`tbotWebhookUrl` ephemeral field** and `ExpireWebhookIfStale()` from `TimberbotAgentState` / `TimberbotService` — no connector-trigger URL is ever stored.
+- [removed] **Python client methods:** `TimberbotClient.tbot_heartbeat`, `tbot_register`, `set_webhook`, `delete_webhook`, `list_webhooks`. Generated pydantic models for those endpoints are deleted.
+- [removed] **CLI commands:** `tbot register_webhook`, `tbot unregister_webhook`, `tbot list_webhooks`. Use `tbot listen` instead.
+- [docs] [architecture.md](architecture.md), [getting-started.md](getting-started.md), and the renamed [events.md](events.md) (previously `webhooks.md`) rewritten around the WebSocket transport. `events.md` now documents WS event consumption rather than HTTP webhook registration. `AGENTS.md` (repo root) adds `docs/websocket-protocol.md` to the dev-facing read-first list.
+
+### Migration cheatsheet
+
+| You were doing | Do this instead |
+|---|---|
+| `tbot register_webhook url:... events:...` then hosting your own HTTP server | `tbot listen` (pure WS client; no port needed) |
+| `tbot watch --listen-port 9000` | `tbot watch` (no `--listen-port` flag) |
+| Custom HTTP receiver subscribed to events | Open a WS to `ws://host:8086/api/ws`, filter on `frame.payload.event` |
+| Bumping `webhookBatchMs` to reduce delivery rate | Buffer client-side — the mod pushes one frame per event |
+| Relying on circuit-breaker auto-disable | Reconnect on your own; the mod drops slow consumers from the bounded send queue |
+
 ## v0.9 architecture cutover (connector model)
 
 Hard cutover — no fallback path. The widget no longer spawns the agent; the connector does.
@@ -12,7 +42,7 @@ Hard cutover — no fallback path. The widget no longer spawns the agent; the co
 - [feature] **`state.json`.** New file alongside `settings.json` for agent-shaped state. Persists `mode`, `goal`, `lastError`. Ephemeral state (`ready`, `pendingRequest`, `tbotWebhookUrl`, `lastAckedRequestId`) resets on save load.
 - [removed] `TimberbotAgent` subprocess spawn. The mod is a pure HTTP server.
 - [removed] Settings keys: `agentBinary`, `agentGoal`, `agentModel`, `agentEffort`, `agentCommandTemplate`, `agentAllowlistEnabled`, `agentAllowedBinaries`, `tbotCommand`. Backend choice lives in `~/.config/timberbot/config.toml`; the connector runs `tbot`, not the mod.
-- [docs] [getting-started.md](getting-started.md), [timberbot.md](timberbot.md), [webhooks.md](webhooks.md), and [architecture.md](architecture.md) rewritten around the new flow.
+- [docs] [getting-started.md](getting-started.md), [timberbot.md](timberbot.md), `webhooks.md` (later renamed to [events.md](events.md) in the WS cutover), and [architecture.md](architecture.md) rewritten around the new flow.
 
 ## Error messages
 
