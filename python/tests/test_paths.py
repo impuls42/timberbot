@@ -22,7 +22,6 @@ def test_mod_dir_layout(monkeypatch, tmp_path):
     monkeypatch.setenv("TBOT_DOCUMENTS_DIR", str(tmp_path / "Timberborn"))
     md = paths.mod_dir()
     assert md == tmp_path / "Timberborn" / "Mods" / "Timberbot"
-    assert paths.settings_path() == md / "settings.json"
     assert paths.memory_base() == md / "memory"
     assert paths.saves_dir() == tmp_path / "Timberborn" / "Saves"
 
@@ -30,7 +29,6 @@ def test_mod_dir_layout(monkeypatch, tmp_path):
 def test_mod_dir_override_pins_path(tmp_path):
     paths.set_mod_dir_override(tmp_path / "custom-mod")
     assert paths.mod_dir() == tmp_path / "custom-mod"
-    assert paths.settings_path() == tmp_path / "custom-mod" / "settings.json"
     assert paths.memory_base() == tmp_path / "custom-mod" / "memory"
 
 

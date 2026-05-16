@@ -252,15 +252,16 @@ For a multi-machine setup where the *mod itself* needs to accept non-localhost c
 
 ## Configuration sources
 
-Timberbot reads settings from three places, in this order (first match wins):
+Timberbot reads client settings from four places, in this order (first match wins):
 
 | Tier | Where | Owns |
 |---|---|---|
 | 1. CLI flags | `tbot --host=X --port=Y --auth-token=T --documents-dir=… --mod-dir=…` | per-invocation overrides |
 | 2. Environment | `TBOT_HOST`, `TBOT_PORT`, `TBOT_AUTH_TOKEN`, `TBOT_DOCUMENTS_DIR`, `TBOT_MOD_DIR`, `TBOT_CONFIG_DIR` | per-shell overrides |
 | 3. User config | `~/.config/timberbot/config.toml` (or platform equivalent) | per-user defaults — client target, bearer token, per-backend model/effort |
-| 4. Mod settings | `Documents/Timberborn/Mods/Timberbot/settings.json` | mod runtime (`httpPort`, `wsPort`, `listenAddress`, `authToken`, etc.). `httpHost` here is a legacy client-side override. |
-| 5. Built-in | hard-coded | `127.0.0.1:8085`, etc. |
+| 4. Built-in | hard-coded | `127.0.0.1:8085`, etc. |
+
+The mod's `settings.json` is the canonical place for **server-side** settings (`httpPort`, `wsPort`, `listenAddress`, `authToken`, etc.) and is not consulted for client endpoint resolution — use `config.toml` or the env vars above for client overrides.
 
 ### `config.toml`
 
