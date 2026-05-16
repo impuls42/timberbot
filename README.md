@@ -55,9 +55,10 @@ Auto-launch a save directly:
 tbot launch settlement:MyCastle save:day5
 ```
 
-On Linux/Steam Deck the mod's "Documents" lives inside a Proton Wine prefix.
-`tbot` autodiscovers it; set `TBOT_DOCUMENTS_DIR` (or pass `--documents-dir=PATH`)
-if your install is unusual.
+`tbot` itself is a pure network client and does not read the game's Documents
+tree. On Linux/Steam Deck the build-time `scripts/deploy.sh` autodiscovers the
+Proton/Wine `Documents/Timberborn/Mods/Timberbot/` folder when copying the
+freshly built DLL; set `TBOT_DOCUMENTS_DIR` for non-`steamuser` Wine prefixes.
 
 Or use raw HTTP. no Python needed:
 
