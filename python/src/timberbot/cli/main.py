@@ -106,10 +106,10 @@ def _build_registry() -> CommandRegistry:
     ))
     registry.register(Command(
         name="watch",
-        summary="long-running connector: poll mod, heartbeat, dispatch agent runs",
+        summary="long-running WS connector: subscribe to mod, dispatch agent runs",
         handler=watch_cmd.run,
         usage=("  watch [--backend NAME] [--model M] [--effort E] [--prompt NAME] \\\n"
-               "        [--listen-port N] [--autonomous-interval SEC] [--once]"),
+               "        [--ws-port N] [--autonomous-interval SEC] [--once]"),
     ))
     return registry
 

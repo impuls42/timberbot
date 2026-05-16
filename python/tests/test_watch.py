@@ -1,31 +1,83 @@
-"""Unit tests for `tbot watch` — the long-running connector.
+"""Unit tests for `tbot watch` — the WebSocket-only connector.
 
-The endpoints `/api/tbot/heartbeat`, `/api/tbot/register`, and `/api/ping` are
-all stubbed with `pytest-httpserver` so the suite is self-contained: it passes
-today, and once Unit 1 (#13) lands and these endpoints actually exist on the
-mod, the same `WatchLoop` driver runs against the real server.
+The WS server (Unit 1 / #28) and Python WS client wrapper (Unit 2 / #29) are
+sibling PRs and may not be present yet on this branch. Tests stub the WS
+client with `FakeWsClient`, which honours the same `WsClientProtocol` the
+production `TimberbotWsClient` will satisfy. Once #29 merges and the typed
+client is importable, swapping `FakeWsClient` for the real type is a
+one-line constructor change.
 
-Each test instantiates a `WatchLoop` with a fake `sleep`/`time_source` so we
-can step the loop deterministically without real timers.
+Async tests don't depend on `pytest-asyncio` — they wrap the body in
+`asyncio.run(...)` so the suite runs on a stock pytest install.
 """
 from __future__ import annotations
 
-import queue
-import threading
+import asyncio
+from collections.abc import AsyncIterator
 
 import pytest
 
-pytest.importorskip("pytest_httpserver")
-
-from timberbot.api.client import TimberbotClient  # noqa: E402
-from timberbot.cli.commands import watch as watch_mod  # noqa: E402
-from timberbot.cli.commands.watch import (  # noqa: E402
+from timberbot.__about__ import __version__
+from timberbot.api.client import TimberbotClient
+from timberbot.cli.commands import watch as watch_mod
+from timberbot.cli.commands.watch import (
     Trigger,
     WatchConfig,
     WatchLoop,
+    WsMessage,
     exp_backoff,
-    start_webhook_listener,
+    resolve_ws_port,
 )
+
+# ---------------------------------------------------------------------------
+# Fake WS client
+# ---------------------------------------------------------------------------
+
+
+class FakeWsClient:
+    """In-memory WS client double.
+
+    The test feeds messages with `push(type, payload)`; `messages()` iterates
+    them in order, blocking on an internal queue. `close()` ends the
+    iteration. Outbound `send_message` calls land in `sent` so cadence and
+    payloads can be asserted.
+    """
+
+    def __init__(self) -> None:
+        self.connected = False
+        self.closed = False
+        self.connect_calls = 0
+        self.sent: list[tuple[str, dict]] = []
+        self._inbox: asyncio.Queue[WsMessage | None] = asyncio.Queue()
+
+    async def connect(self) -> None:
+        self.connect_calls += 1
+        self.connected = True
+
+    async def send_message(self, type: str, payload: dict) -> None:  # noqa: A002
+        self.sent.append((type, payload))
+
+    async def messages(self) -> AsyncIterator[WsMessage]:
+        while True:
+            item = await self._inbox.get()
+            if item is None:
+                return
+            yield item
+
+    async def close(self) -> None:
+        self.closed = True
+        # Unblock any pending `messages()` consumer.
+        await self._inbox.put(None)
+
+    # Test-only helpers.
+
+    def push(self, type: str, payload: dict) -> None:  # noqa: A002
+        self._inbox.put_nowait(WsMessage(type=type, payload=payload))
+
+    def end_stream(self) -> None:
+        """Signal end-of-stream so the message pump can exit cleanly."""
+        self._inbox.put_nowait(None)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -33,25 +85,20 @@ from timberbot.cli.commands.watch import (  # noqa: E402
 
 
 def _make_loop(
-    httpserver,
     cfg: WatchConfig | None = None,
     *,
     dispatched: list[str] | None = None,
-    sleeps: list[float] | None = None,
     now: list[float] | None = None,
-    trigger_queue: queue.Queue[Trigger] | None = None,
-) -> tuple[WatchLoop, list[str], list[float]]:
-    """Construct a `WatchLoop` wired up against `httpserver` with fakes."""
-    client = TimberbotClient(host=httpserver.host, port=httpserver.port, json_mode=True)
+    ws: FakeWsClient | None = None,
+) -> tuple[WatchLoop, FakeWsClient, list[str]]:
+    """Build a WatchLoop wired with a `FakeWsClient` and deterministic time."""
+    ws = ws or FakeWsClient()
     dispatched = dispatched if dispatched is not None else []
-    sleeps = sleeps if sleeps is not None else []
+    client = TimberbotClient(host="127.0.0.1", port=8085, json_mode=True)
 
     def dispatch_fn(goal: str) -> int:
         dispatched.append(goal)
         return 0
-
-    def sleep(dt: float) -> None:
-        sleeps.append(dt)
 
     if now is None:
         now = [0.0]
@@ -61,13 +108,12 @@ def _make_loop(
 
     loop = WatchLoop(
         client,
-        cfg or WatchConfig(heartbeat_interval=2.0, autonomous_interval=60.0),
+        cfg or WatchConfig(heartbeat_interval=30.0, autonomous_interval=60.0),
+        ws,
         dispatch_fn=dispatch_fn,
-        trigger_queue=trigger_queue,
-        sleep=sleep,
         time_source=time_source,
     )
-    return loop, dispatched, sleeps
+    return loop, ws, dispatched
 
 
 # ---------------------------------------------------------------------------
@@ -82,273 +128,359 @@ def test_exp_backoff_sequence_caps_at_30s():
 
 
 # ---------------------------------------------------------------------------
-# Reconnect loop
+# WS port resolution
 # ---------------------------------------------------------------------------
 
 
-def test_reconnects_with_backoff_then_heartbeats(httpserver):
-    # First two pings: not ready. Third: ready.
-    httpserver.expect_ordered_request("/api/ping").respond_with_json({"ready": False})
-    httpserver.expect_ordered_request("/api/ping").respond_with_json({"ready": False})
-    httpserver.expect_ordered_request("/api/ping").respond_with_json({"ready": True})
-    httpserver.expect_request("/api/tbot/heartbeat").respond_with_json({
+def test_resolve_ws_port_explicit_wins(monkeypatch):
+    monkeypatch.setenv("TBOT_WS_PORT", "9999")
+    assert resolve_ws_port(1234, user_config={"ws_port": 5555}) == 1234
+
+
+def test_resolve_ws_port_env_var(monkeypatch):
+    monkeypatch.setenv("TBOT_WS_PORT", "9999")
+    assert resolve_ws_port(user_config={}) == 9999
+
+
+def test_resolve_ws_port_user_config(monkeypatch):
+    monkeypatch.delenv("TBOT_WS_PORT", raising=False)
+    assert resolve_ws_port(user_config={"ws_port": 4242}) == 4242
+
+
+def test_resolve_ws_port_default(monkeypatch):
+    monkeypatch.delenv("TBOT_WS_PORT", raising=False)
+    assert resolve_ws_port(user_config={}) == 8086
+
+
+def test_resolve_ws_port_ignores_bad_env(monkeypatch):
+    monkeypatch.setenv("TBOT_WS_PORT", "not-a-number")
+    with pytest.warns(UserWarning, match="TBOT_WS_PORT"):
+        assert resolve_ws_port(user_config={}) == 8086
+
+
+# ---------------------------------------------------------------------------
+# Trigger picking (sync, no asyncio)
+# ---------------------------------------------------------------------------
+
+
+def test_pick_trigger_pending_request():
+    loop, _, _ = _make_loop()
+    trigger = loop.pick_trigger({
         "mode": "request", "ready": True,
+        "pendingRequest": {"id": "req-1", "goal": "plant carrots"},
     })
-
-    loop, dispatched, sleeps = _make_loop(httpserver)
-
-    assert loop.step() is True   # ping #1 -> not ready -> backoff sleep
-    assert loop.step() is True   # ping #2 -> not ready -> backoff sleep
-    assert loop.step() is True   # ping #3 -> ready -> connected
-    assert loop.connected is True
-    assert loop.reconnect_attempts == 0
-    # Backoff sleeps: 1s after attempt 0, 2s after attempt 1.
-    assert sleeps[:2] == [1.0, 2.0]
-    assert len(sleeps) == 2  # no sleep on a successful connect step
-
-    # Heartbeat tick — no pending, no autonomous: paces by the heartbeat interval.
-    assert loop.step() is True
-    assert dispatched == []
-    assert sleeps[-1] == 2.0
+    assert trigger == Trigger(source="pending", goal="plant carrots", request_id="req-1")
 
 
-def test_disconnect_on_heartbeat_failure_resets_to_reconnect(httpserver):
-    httpserver.expect_request("/api/ping").respond_with_json({"ready": True})
-    # Heartbeat fails with a server error.
-    httpserver.expect_request("/api/tbot/heartbeat").respond_with_data(
-        "boom", status=500,
-    )
-
-    loop, _, _ = _make_loop(httpserver)
-    assert loop.step() is True
-    assert loop.connected is True
-    # Heartbeat raises → connected flips back off.
-    assert loop.step() is True
-    assert loop.connected is False
+def test_pick_trigger_de_dupes_same_pending_id():
+    loop, _, _ = _make_loop()
+    state = {
+        "mode": "request", "ready": True,
+        "pendingRequest": {"id": "req-1", "goal": "plant carrots"},
+    }
+    assert loop.pick_trigger(state) is not None
+    # Same pending push — should NOT fire again.
+    assert loop.pick_trigger(state) is None
 
 
-# ---------------------------------------------------------------------------
-# Pending request (slow path)
-# ---------------------------------------------------------------------------
-
-
-def test_pending_request_dispatched_and_acked(httpserver):
-    httpserver.expect_request("/api/ping").respond_with_json({"ready": True})
-
-    # First heartbeat returns a pending request; subsequent heartbeats are
-    # empty. Use a stateful handler so the order is well-defined regardless
-    # of how pytest-httpserver interleaves ordered vs. regular handlers.
-    state = {"count": 0}
-
-    def heartbeat_handler(request):
-        from werkzeug.wrappers import Response
-        state["count"] += 1
-        if state["count"] == 1:
-            payload = {
-                "mode": "request", "ready": True,
-                "pendingRequest": {"id": "req-42", "goal": "plant carrots"},
-            }
-        else:
-            payload = {"mode": "request", "ready": True}
-        import json as _json
-        return Response(_json.dumps(payload), mimetype="application/json")
-
-    httpserver.expect_request("/api/tbot/heartbeat").respond_with_handler(heartbeat_handler)
-
-    loop, dispatched, _ = _make_loop(httpserver, WatchConfig(once=False))
-    assert loop.step() is True   # connect
-    assert loop.step() is True   # heartbeat → pending → dispatch
-    assert dispatched == ["plant carrots"]
-    assert loop.acked_request_id == "req-42"
-    assert loop.triggers_fired == 1
-    assert loop.step() is True   # next heartbeat carries the ack
-
-    requests = [r for r, _ in httpserver.log if r.path == "/api/tbot/heartbeat"]
-    assert len(requests) == 2
-    first_body = requests[0].get_json()
-    assert first_body["acked_request_id"] is None
-    second_body = requests[1].get_json()
-    assert second_body["acked_request_id"] == "req-42"
-
-
-def test_once_flag_exits_after_first_trigger(httpserver):
-    httpserver.expect_request("/api/ping").respond_with_json({"ready": True})
-    httpserver.expect_request("/api/tbot/heartbeat").respond_with_json({
-        "mode": "request",
-        "ready": True,
-        "pendingRequest": {"id": "req-1", "goal": "do it"},
-    })
-
-    loop, dispatched, _ = _make_loop(httpserver, WatchConfig(once=True))
-    assert loop.step() is True   # connect
-    assert loop.step() is False  # heartbeat → dispatch → exit
-    assert dispatched == ["do it"]
-
-
-# ---------------------------------------------------------------------------
-# Webhook (fast path)
-# ---------------------------------------------------------------------------
-
-
-def test_webhook_queue_takes_priority_over_pending(httpserver):
-    httpserver.expect_request("/api/ping").respond_with_json({"ready": True})
-    httpserver.expect_request("/api/tbot/heartbeat").respond_with_json({
-        "mode": "request",
-        "ready": True,
-        "pendingRequest": {"id": "slow-1", "goal": "slow path goal"},
-    })
-
-    tq: queue.Queue[Trigger] = queue.Queue()
-    tq.put(Trigger(source="webhook", goal="fast path goal", request_id="fast-1"))
-
-    loop, dispatched, _ = _make_loop(httpserver, WatchConfig(once=True), trigger_queue=tq)
-    assert loop.step() is True   # connect
-    assert loop.step() is False  # webhook beats pending; once=True → exit
-    assert dispatched == ["fast path goal"]
-    assert loop.acked_request_id == "fast-1"
-
-
-# ---------------------------------------------------------------------------
-# Autonomous cadence
-# ---------------------------------------------------------------------------
-
-
-def test_autonomous_fires_only_after_interval_elapses(httpserver):
-    httpserver.expect_request("/api/ping").respond_with_json({"ready": True})
-    httpserver.expect_request("/api/tbot/heartbeat").respond_with_json({
-        "mode": "autonomous",
-        "ready": True,
-        "goal": "stockpile food",
-    })
-
+def test_pick_trigger_autonomous_respects_cadence():
     now = [0.0]
-    sleeps: list[float] = []
-    dispatched: list[str] = []
     loop, _, _ = _make_loop(
-        httpserver,
-        WatchConfig(heartbeat_interval=2.0, autonomous_interval=10.0),
-        dispatched=dispatched,
-        sleeps=sleeps,
+        WatchConfig(heartbeat_interval=30.0, autonomous_interval=10.0),
         now=now,
     )
-
-    # Step 1: connect. Step 2: first heartbeat → autonomous fires.
-    assert loop.step() is True
-    assert loop.step() is True
-    assert dispatched == ["stockpile food"]
-
-    # Advance time by less than the interval — should NOT fire again.
-    now[0] = 5.0
-    assert loop.step() is True
-    assert dispatched == ["stockpile food"]
-
-    # Advance past the interval — fires again.
-    now[0] = 11.0
-    assert loop.step() is True
-    assert dispatched == ["stockpile food", "stockpile food"]
-
-
-def test_autonomous_does_not_fire_when_gate_closed(httpserver):
-    httpserver.expect_request("/api/ping").respond_with_json({"ready": True})
-    httpserver.expect_request("/api/tbot/heartbeat").respond_with_json({
-        "mode": "autonomous",
-        "ready": False,         # gate closed
-        "goal": "anything",
-    })
-
-    loop, dispatched, _ = _make_loop(
-        httpserver, WatchConfig(autonomous_interval=0.0),
+    state = {"mode": "autonomous", "ready": True, "goal": "stockpile food"}
+    assert loop.pick_trigger(state) == Trigger(
+        source="autonomous", goal="stockpile food", request_id=None,
     )
-    assert loop.step() is True
-    assert loop.step() is True
-    assert dispatched == []
+    # Within the interval — no fire.
+    now[0] = 5.0
+    assert loop.pick_trigger(state) is None
+    # Past the interval — fires again.
+    now[0] = 11.0
+    assert loop.pick_trigger(state) is not None
+
+
+def test_pick_trigger_autonomous_gate_closed():
+    loop, _, _ = _make_loop(
+        WatchConfig(heartbeat_interval=30.0, autonomous_interval=0.0),
+    )
+    state = {"mode": "autonomous", "ready": False, "goal": "anything"}
+    assert loop.pick_trigger(state) is None
+
+
+def test_pick_trigger_no_pending_no_autonomous():
+    loop, _, _ = _make_loop()
+    assert loop.pick_trigger({"mode": "request", "ready": True}) is None
+
+
+def test_pick_trigger_handles_garbage_state():
+    loop, _, _ = _make_loop()
+    assert loop.pick_trigger("not a dict") is None  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
-# Register flow
+# Heartbeat payload + ack flow
 # ---------------------------------------------------------------------------
 
 
-def test_register_called_once_on_connect_when_webhook_url_set(httpserver):
-    httpserver.expect_request("/api/ping").respond_with_json({"ready": True})
-    httpserver.expect_request("/api/tbot/register").respond_with_json({"ok": True})
-    httpserver.expect_request("/api/tbot/heartbeat").respond_with_json({
-        "mode": "request", "ready": True,
-    })
-
-    cfg = WatchConfig(webhook_url="http://127.0.0.1:9999/trigger")
-    loop, _, _ = _make_loop(httpserver, cfg)
-
-    assert loop.step() is True   # connect
-    assert loop.step() is True   # register
-    assert loop.registered is True
-    assert loop.step() is True   # heartbeat — register NOT called again
-    assert loop.step() is True   # heartbeat — register NOT called again
-
-    register_calls = [r for r, _ in httpserver.log if r.path == "/api/tbot/register"]
-    assert len(register_calls) == 1
-    body = register_calls[0].get_json()
-    assert body["webhook_url"] == "http://127.0.0.1:9999/trigger"
+def test_heartbeat_payload_includes_acked_request_id():
+    loop, _, _ = _make_loop()
+    assert loop.build_heartbeat_payload() == {
+        "version": __version__,
+        "agent_status": "idle",
+        "acked_request_id": None,
+    }
+    loop.acked_request_id = "req-42"
+    loop.agent_status = "busy"
+    payload = loop.build_heartbeat_payload()
+    assert payload["acked_request_id"] == "req-42"
+    assert payload["agent_status"] == "busy"
 
 
-def test_no_register_when_webhook_url_unset(httpserver):
-    httpserver.expect_request("/api/ping").respond_with_json({"ready": True})
-    httpserver.expect_request("/api/tbot/heartbeat").respond_with_json({
-        "mode": "request", "ready": True,
-    })
+def test_note_dispatch_advances_ack_and_counter():
+    loop, _, _ = _make_loop()
+    loop.note_dispatch(Trigger(source="pending", goal="g", request_id="req-9"))
+    assert loop.acked_request_id == "req-9"
+    assert loop.triggers_fired == 1
 
-    loop, _, _ = _make_loop(httpserver, WatchConfig(webhook_url=None))
-    assert loop.step() is True   # connect
-    assert loop.step() is True   # heartbeat (skips register)
-    register_calls = [r for r, _ in httpserver.log if r.path == "/api/tbot/register"]
-    assert register_calls == []
+
+def test_note_dispatch_autonomous_does_not_set_ack():
+    loop, _, _ = _make_loop()
+    loop.note_dispatch(Trigger(source="autonomous", goal="g"))
+    assert loop.acked_request_id is None
+    assert loop.triggers_fired == 1
+
+
+def test_note_dispatch_once_marks_exit():
+    loop, _, _ = _make_loop(WatchConfig(once=True))
+    loop.note_dispatch(Trigger(source="pending", goal="g", request_id="r"))
+    assert loop._should_exit is True
 
 
 # ---------------------------------------------------------------------------
-# Webhook listener (real HTTP)
+# Async integration: message pump + dispatch
 # ---------------------------------------------------------------------------
 
 
-def test_webhook_listener_enqueues_trigger():
-    import json
-    import urllib.request
+def test_state_push_dispatches_and_acks_via_heartbeat():
+    async def scenario() -> None:
+        loop, ws, dispatched = _make_loop(WatchConfig(
+            heartbeat_interval=0.05, autonomous_interval=60.0,
+        ))
+        ws.push("state", {
+            "mode": "request", "ready": True,
+            "pendingRequest": {"id": "req-7", "goal": "build a sawmill"},
+        })
+        # Schedule end-of-stream after the pump processes the state frame.
+        async def _ender() -> None:
+            await asyncio.sleep(0.2)
+            ws.end_stream()
+            loop.stop()
+        ender = asyncio.create_task(_ender())
+        rc = await loop.run()
+        await ender
+        assert rc == 0
+        assert dispatched == ["build a sawmill"]
+        assert loop.acked_request_id == "req-7"
+        # At least one heartbeat fired with the post-ack id.
+        hb_frames = [p for t, p in ws.sent if t == "heartbeat"]
+        assert hb_frames, "no heartbeat frames were sent"
+        # If we sent more than one, the last one must carry the ack — earlier
+        # ticks may have raced ahead of the dispatch.
+        assert hb_frames[-1]["acked_request_id"] == "req-7"
 
-    tq: queue.Queue[Trigger] = queue.Queue()
-    server, url = start_webhook_listener(0, tq)  # port=0 → pick a free one
-    try:
-        body = json.dumps({"goal": "tidy queues", "requestId": "wh-1"}).encode("utf-8")
-        req = urllib.request.Request(url, data=body,
-                                     headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=2) as r:
-            assert r.status == 202
-
-        trigger = tq.get(timeout=2)
-        assert trigger.source == "webhook"
-        assert trigger.goal == "tidy queues"
-        assert trigger.request_id == "wh-1"
-    finally:
-        server.shutdown()
-        server.server_close()
+    asyncio.run(asyncio.wait_for(scenario(), timeout=5))
 
 
-def test_webhook_listener_rejects_missing_goal():
-    import json
-    import urllib.error
-    import urllib.request
+def test_autonomous_state_push_dispatches():
+    async def scenario() -> None:
+        now = [0.0]
+        loop, ws, dispatched = _make_loop(
+            WatchConfig(heartbeat_interval=10.0, autonomous_interval=10.0, once=True),
+            now=now,
+        )
+        ws.push("state", {
+            "mode": "autonomous", "ready": True, "goal": "stockpile food",
+        })
+        # Pump exits on its own thanks to once=True; backstop with a deadline.
+        async def _ender() -> None:
+            await asyncio.sleep(1.0)
+            ws.end_stream()
+            loop.stop()
+        ender = asyncio.create_task(_ender())
+        rc = await loop.run()
+        await ender
+        assert rc == 0
+        assert dispatched == ["stockpile food"]
 
-    tq: queue.Queue[Trigger] = queue.Queue()
-    server, url = start_webhook_listener(0, tq)
-    try:
-        body = json.dumps({}).encode("utf-8")
-        req = urllib.request.Request(url, data=body,
-                                     headers={"Content-Type": "application/json"})
-        with pytest.raises(urllib.error.HTTPError) as excinfo:
-            urllib.request.urlopen(req, timeout=2)
-        assert excinfo.value.code == 400
-        assert tq.empty()
-    finally:
-        server.shutdown()
-        server.server_close()
+    asyncio.run(asyncio.wait_for(scenario(), timeout=5))
+
+
+def test_dispatch_crash_does_not_kill_pump():
+    """A throwing dispatch_fn is logged but the pump keeps going."""
+
+    def boom(_goal: str) -> int:
+        raise RuntimeError("dispatch boom")
+
+    async def scenario() -> None:
+        ws = FakeWsClient()
+        cfg = WatchConfig(heartbeat_interval=10.0, autonomous_interval=60.0)
+        client = TimberbotClient(host="127.0.0.1", port=8085, json_mode=True)
+        loop = WatchLoop(client, cfg, ws, dispatch_fn=boom)
+
+        ws.push("state", {
+            "mode": "request", "ready": True,
+            "pendingRequest": {"id": "req-x", "goal": "explode"},
+        })
+
+        async def _ender() -> None:
+            await asyncio.sleep(0.2)
+            ws.end_stream()
+            loop.stop()
+
+        ender = asyncio.create_task(_ender())
+        rc = await loop.run()
+        await ender
+        assert rc == 0
+        # Even though dispatch threw, the ack still advances — failures are a
+        # "we tried" signal so the mod can clear the slot.
+        assert loop.acked_request_id == "req-x"
+        assert loop.triggers_fired == 1
+
+    asyncio.run(asyncio.wait_for(scenario(), timeout=5))
+
+
+def test_heartbeat_cadence_sends_at_interval():
+    async def scenario() -> None:
+        loop, ws, _ = _make_loop(WatchConfig(
+            heartbeat_interval=0.05, autonomous_interval=60.0,
+        ))
+
+        async def _ender() -> None:
+            # Allow ~3 heartbeat ticks to fire (0.18s > 3 * 0.05s).
+            await asyncio.sleep(0.18)
+            ws.end_stream()
+            loop.stop()
+
+        ender = asyncio.create_task(_ender())
+        rc = await loop.run()
+        await ender
+        assert rc == 0
+        hb_frames = [p for t, p in ws.sent if t == "heartbeat"]
+        assert len(hb_frames) >= 2, f"expected >=2 heartbeats, got {len(hb_frames)}"
+        for p in hb_frames:
+            assert set(p.keys()) == {"version", "agent_status", "acked_request_id"}
+
+    asyncio.run(asyncio.wait_for(scenario(), timeout=5))
+
+
+def test_message_pump_exits_on_ws_close():
+    """When the WS client signals end-of-stream, the pump returns cleanly."""
+
+    async def scenario() -> None:
+        loop, ws, _ = _make_loop(WatchConfig(
+            heartbeat_interval=10.0, autonomous_interval=60.0,
+        ))
+        # End the stream immediately — pump should observe close and stop.
+        ws.end_stream()
+        rc = await loop.run()
+        assert rc == 0
+        assert ws.closed is True
+
+    asyncio.run(asyncio.wait_for(scenario(), timeout=5))
+
+
+def test_initial_connect_failure_returns_nonzero():
+    class FailingWs(FakeWsClient):
+        async def connect(self) -> None:
+            raise RuntimeError("connect refused")
+
+    async def scenario() -> None:
+        ws = FailingWs()
+        cfg = WatchConfig(heartbeat_interval=10.0, autonomous_interval=60.0)
+        client = TimberbotClient(host="127.0.0.1", port=8085, json_mode=True)
+        loop = WatchLoop(client, cfg, ws)
+        rc = await loop.run()
+        assert rc == 1
+
+    asyncio.run(asyncio.wait_for(scenario(), timeout=5))
+
+
+def test_non_state_frames_are_handled_without_dispatch():
+    """`event`, `error`, `pong`, and unknown frame types must not trigger dispatch."""
+
+    async def scenario() -> None:
+        loop, ws, dispatched = _make_loop(WatchConfig(
+            heartbeat_interval=10.0, autonomous_interval=60.0,
+        ))
+        ws.push("event", {"event": "drought.start", "day": 45})
+        ws.push("error", {"error": "transient"})
+        ws.push("pong", {})
+        ws.push("mystery", {"foo": "bar"})
+
+        async def _ender() -> None:
+            await asyncio.sleep(0.15)
+            ws.end_stream()
+            loop.stop()
+
+        ender = asyncio.create_task(_ender())
+        rc = await loop.run()
+        await ender
+        assert rc == 0
+        assert dispatched == []
+
+    asyncio.run(asyncio.wait_for(scenario(), timeout=5))
+
+
+def test_once_flag_exits_after_first_dispatch():
+    async def scenario() -> None:
+        loop, ws, dispatched = _make_loop(WatchConfig(
+            heartbeat_interval=10.0, autonomous_interval=60.0, once=True,
+        ))
+        ws.push("state", {
+            "mode": "request", "ready": True,
+            "pendingRequest": {"id": "req-once", "goal": "do it"},
+        })
+        # Push another state that *would* fire if we were still alive.
+        ws.push("state", {
+            "mode": "request", "ready": True,
+            "pendingRequest": {"id": "req-second", "goal": "should not fire"},
+        })
+
+        async def _ender() -> None:
+            await asyncio.sleep(1.0)  # Backstop; once should trip first.
+            ws.end_stream()
+            loop.stop()
+
+        ender = asyncio.create_task(_ender())
+        rc = await loop.run()
+        ender.cancel()
+        assert rc == 0
+        assert dispatched == ["do it"]
+
+    asyncio.run(asyncio.wait_for(scenario(), timeout=5))
+
+
+def test_stop_method_unblocks_run():
+    """`loop.stop()` from another task ends `run()` even mid-pump."""
+
+    async def scenario() -> None:
+        loop, ws, _ = _make_loop(WatchConfig(
+            heartbeat_interval=10.0, autonomous_interval=60.0,
+        ))
+
+        async def _stopper() -> None:
+            await asyncio.sleep(0.05)
+            loop.stop()
+            ws.end_stream()
+
+        stopper = asyncio.create_task(_stopper())
+        rc = await loop.run()
+        await stopper
+        assert rc == 0
+
+    asyncio.run(asyncio.wait_for(scenario(), timeout=5))
 
 
 # ---------------------------------------------------------------------------
@@ -365,14 +497,28 @@ def test_watch_command_registered_in_main():
     assert cmd.handler is watch_mod.run
 
 
-def test_stop_event_exits_loop(httpserver):
-    httpserver.expect_request("/api/ping").respond_with_json({"ready": True})
-    httpserver.expect_request("/api/tbot/heartbeat").respond_with_json({
-        "mode": "request", "ready": True,
-    })
+def test_parse_accepts_ws_port_flag():
+    ns = watch_mod._parse(["--ws-port", "9999", "--once"])
+    assert ns.ws_port == 9999
+    assert ns.once is True
 
-    stop = threading.Event()
-    loop, _, _ = _make_loop(httpserver)
-    loop._stop = stop
-    stop.set()
-    assert loop.step() is False
+
+def test_parse_defaults_have_no_listen_port():
+    """The legacy `--listen-port` flag is gone — confirm the CLI rejects it."""
+    with pytest.raises(SystemExit):
+        watch_mod._parse(["--listen-port", "9001"])
+
+
+def test_no_webhook_listener_module_state():
+    """Confirm the embedded HTTP listener pieces are no longer exported."""
+    assert not hasattr(watch_mod, "_WebhookHandler")
+    assert not hasattr(watch_mod, "start_webhook_listener")
+
+
+def test_no_more_http_polling_helpers():
+    """Step-driven polling helpers are gone post-rework."""
+    # The WatchLoop class no longer has these methods.
+    assert not hasattr(WatchLoop, "_step_connect")
+    assert not hasattr(WatchLoop, "_step_register")
+    assert not hasattr(WatchLoop, "_step_heartbeat")
+    assert not hasattr(WatchLoop, "step")
