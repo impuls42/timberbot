@@ -28,6 +28,7 @@ from timberbot import paths
 from timberbot.api.client import TimberbotClient
 from timberbot.api.exceptions import TimberbotError
 from timberbot.cli.args import (
+    GlobalFlags,
     format_usage,
     method_params,
     parse_flags,
@@ -184,6 +185,23 @@ def _format_error(e: TimberbotError, json_mode: bool) -> None:
         print(json.dumps(e.response, indent=2), file=sys.stderr)
 
 
+def _inject_listen_globals(rest: list[str], flags: GlobalFlags) -> list[str]:
+    """Thread the global `--host=` / `--auth-token=` flags into `tbot listen`.
+
+    Only added when the user did *not* already pass the equivalent
+    subcommand-local flag, so an explicit `tbot listen --host=local`
+    still wins over a globally-set value.
+    """
+    out = list(rest)
+    has_host = any(a == "--host" or a.startswith("--host=") for a in rest)
+    has_auth = any(a == "--auth-token" or a.startswith("--auth-token=") for a in rest)
+    if flags.host is not None and not has_host:
+        out.append(f"--host={flags.host}")
+    if flags.auth_token is not None and not has_auth:
+        out.append(f"--auth-token={flags.auth_token}")
+    return out
+
+
 def _dispatch_method(
     method_name: str,
     args: list[str],
@@ -253,8 +271,15 @@ def main(argv: list[str] | None = None) -> int:
 
     cmd = registry.get(method_name)
     if cmd is not None and method_name in _BUILTIN_COMMANDS:
-        # Built-in subcommand owns its own argv handling.
-        return cmd.handler(rest)
+        # Built-in subcommand owns its own argv handling. For `listen` we
+        # re-inject the global value flags so `tbot --host=X --auth-token=Y
+        # listen` is honoured the same way it is for method-forward
+        # commands. Other built-ins still own their argv unchanged (they
+        # have their own conventions and we don't want to break them).
+        argv = rest
+        if method_name == "listen":
+            argv = _inject_listen_globals(rest, flags)
+        return cmd.handler(argv)
 
     return _dispatch_method(
         method_name, rest,

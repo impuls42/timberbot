@@ -88,25 +88,26 @@ class _FakeWSContext:
 class _FakeSession:
     """Programmable replacement for `aiohttp.ClientSession`.
 
-    Each call to `ws_connect` pops the next scripted outcome from
-    `connect_plan`. An outcome is either a list of `_FakeMessage`s (success)
-    or an exception class (raised when entering the context manager). HTTP
-    forwarding still flows through `session.post`, so the test wires a
-    callable to intercept those — defaults to a 200 no-op.
+    `ws_connect` pops the next scripted outcome from `connect_plan` (either
+    a list of `_FakeMessage`s for success, or an exception class to raise).
+
+    `post` records the call for assertions. If `real_post_session` is
+    supplied, the call is also forwarded to a live `aiohttp.ClientSession`
+    so the end-to-end HTTP forward path actually hits a real socket — used
+    by the pytest-httpserver test.
     """
 
     def __init__(
         self,
         connect_plan: list[Any],
         *,
-        post_handler: Any = None,
+        real_post_session: aiohttp.ClientSession | None = None,
     ) -> None:
         self.connect_plan = list(connect_plan)
         self.connect_calls: list[dict[str, Any]] = []
         self.post_calls: list[tuple[str, Any]] = []
-        self._post_handler = post_handler
+        self._real_post_session = real_post_session
 
-    # `async with _FakeSession()` returns self, mirroring real ClientSession.
     async def __aenter__(self) -> _FakeSession:
         return self
 
@@ -124,6 +125,8 @@ class _FakeSession:
 
     def post(self, url: str, *, json: Any = None, timeout: float | None = None) -> Any:
         self.post_calls.append((url, json))
+        if self._real_post_session is not None:
+            return self._real_post_session.post(url, json=json, timeout=timeout)
 
         class _Resp:
             async def __aenter__(self_inner) -> _Resp:
@@ -135,8 +138,6 @@ class _FakeSession:
             async def read(self_inner) -> bytes:
                 return b""
 
-        if self._post_handler is not None:
-            self._post_handler(url, json)
         return _Resp()
 
 
@@ -280,25 +281,32 @@ def test_forward_to_http_posts_downstream(httpserver):
     httpserver.expect_request("/sink", method="POST").respond_with_handler(_capture)
     downstream = httpserver.url_for("/sink")
 
-    # Real aiohttp.ClientSession is needed here because our forwarder posts
-    # via session.post — pytest-httpserver speaks real HTTP. We still mock the
-    # WS upgrade so the test is hermetic on that side.
-    session = _FakeSession([[_text(SAMPLE_EVENT), _CLOSED]])
+    # Mock WS, real HTTP: `_FakeSession.post` delegates to a live
+    # `aiohttp.ClientSession` so the forward path actually hits the
+    # pytest-httpserver socket end-to-end.
+    async def _run() -> _FakeSession:
+        async with aiohttp.ClientSession() as real_http:
+            session = _FakeSession(
+                [[_text(SAMPLE_EVENT), _CLOSED]],
+                real_post_session=real_http,
+            )
+            await listen_cmd.subscribe(
+                host="127.0.0.1", ws_port=8085,
+                forward_to=downstream, quiet=True,
+                max_attempts=1, sleep=_no_sleep,
+                session_factory=_make_factory(session),
+            )
+            return session
 
-    asyncio.run(listen_cmd.subscribe(
-        host="127.0.0.1", ws_port=8085,
-        forward_to=downstream, quiet=True,
-        max_attempts=1, sleep=_no_sleep,
-        session_factory=_make_factory(session),
-    ))
+    session = asyncio.run(_run())
 
-    assert session.post_calls, "downstream never received the event"
-    url, body = session.post_calls[0]
-    assert url == downstream
+    assert received, "downstream never received the batch"
     # The wire shape is a 1-element batch so HTTP collectors that already
     # speak the old webhook batch shape don't need to special-case the
     # migration.
-    assert body == [SAMPLE_EVENT]
+    assert received[0] == [SAMPLE_EVENT]
+    # And the fake recorded the call as well, so the URL is observable.
+    assert session.post_calls[0][0] == downstream
 
 
 def test_reconnects_after_close(capsys):
@@ -406,6 +414,29 @@ def test_registered_in_main_registry():
     # The usage string should advertise the WS surface, not the old --port.
     assert "--ws-port" in cmd.usage
     assert "--port" not in cmd.usage.replace("--ws-port", "")
+
+
+def test_global_flags_thread_into_listen():
+    """`tbot --host=X --auth-token=Y listen` should reach the listen parser."""
+    from timberbot.cli.args import parse_flags
+    from timberbot.cli.main import _inject_listen_globals
+
+    flags = parse_flags(["--host=10.0.0.5", "--auth-token=tok", "listen"])
+    injected = _inject_listen_globals([], flags)
+    ns = listen_cmd._parse(injected)
+    assert ns.host == "10.0.0.5"
+    assert ns.auth_token == "tok"
+
+
+def test_subcommand_local_flag_wins_over_global():
+    """An explicit `tbot listen --host=local` overrides a globally-set host."""
+    from timberbot.cli.args import parse_flags
+    from timberbot.cli.main import _inject_listen_globals
+
+    flags = parse_flags(["--host=10.0.0.5", "listen"])
+    injected = _inject_listen_globals(["--host=local"], flags)
+    ns = listen_cmd._parse(injected)
+    assert ns.host == "local"
 
 
 # ---------------------------------------------------------------------------

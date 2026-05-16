@@ -121,6 +121,10 @@ async def handle_frame(
 
 
 def _ws_url(host: str, ws_port: int) -> str:
+    # Plain ws:// only; the mod listens on localhost by default and the
+    # auth-token header is the security boundary. `wss://` support (for
+    # remote deployments behind a TLS proxy) is a follow-up — the typed
+    # client landing in #29 is the natural place to add it.
     return f"ws://{host}:{ws_port}/api/ws"
 
 
@@ -218,7 +222,11 @@ async def subscribe(
                         forward_to=forward_to,
                         forward_session=forward_session,
                     )
-            except (aiohttp.ClientError, OSError) as exc:
+            except (aiohttp.ClientError, ConnectionError, OSError) as exc:
+                # `ConnectionError` covers `BrokenPipeError` /
+                # `ConnectionResetError` from inside `_consume` (e.g. a
+                # `print` to a torn-down pipe) — those should reconnect,
+                # not kill the subscriber.
                 if not quiet:
                     print(f"listen: connect failed ({exc}); retrying", file=sys.stderr)
 
