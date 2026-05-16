@@ -1,6 +1,6 @@
 # Events
 
-> **v0.9 — WebSocket cutover, in flight.** The mod no longer dispatches outbound HTTP webhooks. Game events are now pushed over the same WebSocket the connector uses; see [`websocket-protocol.md`](websocket-protocol.md) for the wire contract.
+> **v0.9 — WebSocket cutover, in flight.** The mod no longer dispatches outbound HTTP webhooks. Game events are now pushed over the mod's WebSocket endpoint (a separate connection per subscriber, sharing the same endpoint the connector uses); see [`websocket-protocol.md`](websocket-protocol.md) for the wire contract.
 
 Game events (drought, beaver deaths, building placement, weather, power, wonders, …) are delivered as server-push frames on the mod's WebSocket endpoint at `ws://host:wsPort/api/ws` (default port `8086`). Any number of subscribers can connect; each receives the same fan-out stream.
 
@@ -16,6 +16,8 @@ tbot listen --pretty                 # human-friendly rendering
 tbot listen --forward-to events.log  # tee each event as one JSON line
 tbot listen --forward-to https://collector.example/sink   # POST each event downstream
 ```
+
+`--forward-to` now writes / POSTs one event object per line (or per request), not the JSON array the old HTTP webhook receiver produced. If you had a downstream consumer parsing the array shape, switch it to parse a single event per call.
 
 `tbot listen` picks up `[client].host` and `[client].auth_token` from `~/.config/timberbot/config.toml` (the same auth token the HTTP client uses), and defaults the WS port to `8086`. Override per invocation:
 
