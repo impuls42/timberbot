@@ -407,7 +407,14 @@ class WatchLoop:
         return 0
 
     def stop(self) -> None:
-        """Signal the loop to exit at the next message-pump iteration."""
+        """Signal the loop to exit at the next message-pump iteration.
+
+        Shutdown latency is bounded by `cfg.heartbeat_interval` (default 30s):
+        `_heartbeat_task` notices `_stop` only when its `wait_for(...)` sleep
+        wakes, after which `asyncio.wait(FIRST_COMPLETED)` cancels the pump.
+        Good enough for v1; a future optimization could cancel `pump_task`
+        directly here to interrupt mid-frame iteration.
+        """
         if self._stop is not None:
             self._stop.set()
 
@@ -475,6 +482,13 @@ class _AiohttpWsClient:
         await self._ws.send_str(json.dumps({"type": type, "payload": payload}))
 
     async def messages(self) -> AsyncIterator[WsMessage]:
+        # Reconnect on mid-stream disconnect: delegate to `self.connect()`,
+        # which runs its own `exp_backoff` retry loop. So the outer
+        # `exp_backoff(attempt)` below only paces the gap between connection
+        # cycles, not individual TCP retries — those happen inside `connect`.
+        # `self._closed` (set by `close()`) breaks us out at the next sleep
+        # boundary; on the temporary fallback path this means up to 30s of
+        # teardown latency. `TimberbotWsClient` (#29) should improve on this.
         import aiohttp
         attempt = 0
         while not self._closed:
