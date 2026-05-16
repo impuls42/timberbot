@@ -1,183 +1,277 @@
-"""Tests for `tbot listen` — the reference webhook receiver."""
+"""Tests for `tbot listen` — the WebSocket event subscriber.
+
+The HTTP-inbound implementation was removed as part of the heartbeat/webhook
+→ WS cutover (issue #31). These tests cover the new behaviour:
+
+  * event-frame passthrough (`type == 'event'`),
+  * non-event frames dropped silently,
+  * `--forward-to file://` and `--forward-to http://` (downstream mocked with
+    `pytest-httpserver`),
+  * `--pretty` and `--quiet` rendering,
+  * reconnect after WS close,
+  * auth token threaded into the WS upgrade headers,
+  * argparse + registry wiring.
+
+We mock the underlying aiohttp WS session so the suite stays hermetic; an
+end-to-end check against a real `/api/ws` will land once the WS server
+(unit #28) and typed client (unit #29) are merged.
+"""
 from __future__ import annotations
 
 import asyncio
 import json
-import socket
-import threading
-import time
-from collections.abc import Iterator
+from typing import Any
 
 import pytest
-import requests
 
 pytest.importorskip("aiohttp")
 pytest.importorskip("pytest_httpserver")
 
-from aiohttp import web  # noqa: E402
+import aiohttp  # noqa: E402
 
 from timberbot.cli.commands import listen as listen_cmd  # noqa: E402
 
-# ---------- in-process server harness -----------------------------------------
-
-def _free_port() -> int:
-    """Reserve a free TCP port and immediately release it."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
+# ---------------------------------------------------------------------------
+# Fake aiohttp WS session / message plumbing.
+# ---------------------------------------------------------------------------
 
 
-class _Server:
-    """Run an aiohttp app in a background thread driving its own event loop.
+class _FakeMessage:
+    """Stand-in for `aiohttp.WSMessage` carrying the bits `_consume` reads."""
 
-    We can't use `web.run_app` from a thread because it installs signal
-    handlers. `AppRunner` + `TCPSite` is the documented embedding entry point.
+    def __init__(self, type_: aiohttp.WSMsgType, data: Any = "") -> None:
+        self.type = type_
+        self.data = data
+
+
+def _text(payload: dict[str, Any]) -> _FakeMessage:
+    return _FakeMessage(aiohttp.WSMsgType.TEXT, json.dumps(payload))
+
+
+_CLOSED = _FakeMessage(aiohttp.WSMsgType.CLOSED)
+
+
+class _FakeWebSocket:
+    """Async iterator over a fixed message list. Mimics `ClientWebSocketResponse`."""
+
+    def __init__(self, messages: list[_FakeMessage]) -> None:
+        self._messages = list(messages)
+
+    def __aiter__(self) -> _FakeWebSocket:
+        return self
+
+    async def __anext__(self) -> _FakeMessage:
+        if not self._messages:
+            raise StopAsyncIteration
+        return self._messages.pop(0)
+
+    async def __aenter__(self) -> _FakeWebSocket:
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+
+class _FakeWSContext:
+    """`async with session.ws_connect(...)` returns one of these."""
+
+    def __init__(self, ws: _FakeWebSocket) -> None:
+        self._ws = ws
+
+    async def __aenter__(self) -> _FakeWebSocket:
+        return self._ws
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+
+class _FakeSession:
+    """Programmable replacement for `aiohttp.ClientSession`.
+
+    Each call to `ws_connect` pops the next scripted outcome from
+    `connect_plan`. An outcome is either a list of `_FakeMessage`s (success)
+    or an exception class (raised when entering the context manager). HTTP
+    forwarding still flows through `session.post`, so the test wires a
+    callable to intercept those — defaults to a 200 no-op.
     """
 
-    def __init__(self, app: web.Application, port: int) -> None:
-        self.app = app
-        self.port = port
-        self._thread: threading.Thread | None = None
-        self._loop = None
-        self._ready = threading.Event()
-        self._stop = threading.Event()
+    def __init__(
+        self,
+        connect_plan: list[Any],
+        *,
+        post_handler: Any = None,
+    ) -> None:
+        self.connect_plan = list(connect_plan)
+        self.connect_calls: list[dict[str, Any]] = []
+        self.post_calls: list[tuple[str, Any]] = []
+        self._post_handler = post_handler
 
-    def start(self) -> None:
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
-        assert self._ready.wait(timeout=5), "server failed to start within 5s"
-        # Confirm the port actually accepts connections.
-        deadline = time.time() + 5
-        while time.time() < deadline:
-            try:
-                with socket.create_connection(("127.0.0.1", self.port), timeout=0.5):
-                    return
-            except OSError:
-                time.sleep(0.05)
-        raise RuntimeError("server port never became reachable")
+    # `async with _FakeSession()` returns self, mirroring real ClientSession.
+    async def __aenter__(self) -> _FakeSession:
+        return self
 
-    def stop(self) -> None:
-        self._stop.set()
-        if self._loop is not None:
-            self._loop.call_soon_threadsafe(lambda: None)
-        if self._thread is not None:
-            self._thread.join(timeout=5)
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
 
-    def _run(self) -> None:
-        loop = asyncio.new_event_loop()
-        self._loop = loop
-        asyncio.set_event_loop(loop)
+    def ws_connect(self, url: str, *, headers: dict[str, str] | None = None) -> Any:
+        self.connect_calls.append({"url": url, "headers": dict(headers or {})})
+        if not self.connect_plan:
+            raise RuntimeError("FakeSession: no more connect outcomes scripted")
+        outcome = self.connect_plan.pop(0)
+        if isinstance(outcome, type) and issubclass(outcome, BaseException):
+            raise outcome("scripted failure")
+        return _FakeWSContext(_FakeWebSocket(outcome))
 
-        async def _serve() -> None:
-            runner = web.AppRunner(self.app)
-            await runner.setup()
-            site = web.TCPSite(runner, "127.0.0.1", self.port)
-            await site.start()
-            self._ready.set()
-            while not self._stop.is_set():
-                await asyncio.sleep(0.05)
-            await runner.cleanup()
+    def post(self, url: str, *, json: Any = None, timeout: float | None = None) -> Any:
+        self.post_calls.append((url, json))
 
-        try:
-            loop.run_until_complete(_serve())
-        finally:
-            loop.close()
+        class _Resp:
+            async def __aenter__(self_inner) -> _Resp:
+                return self_inner
+
+            async def __aexit__(self_inner, *exc: Any) -> None:
+                return None
+
+            async def read(self_inner) -> bytes:
+                return b""
+
+        if self._post_handler is not None:
+            self._post_handler(url, json)
+        return _Resp()
 
 
-@pytest.fixture
-def server_factory() -> Iterator[callable]:
-    """Yield a builder that starts a `_Server` and tears it down."""
-    instances: list[_Server] = []
+def _make_factory(session: _FakeSession):
+    """Return a zero-arg callable that yields the same session each call.
 
-    def _build(**app_kwargs) -> tuple[_Server, str]:
-        port = _free_port()
-        app = listen_cmd.build_app(**app_kwargs)
-        srv = _Server(app, port)
-        srv.start()
-        instances.append(srv)
-        return srv, f"http://127.0.0.1:{port}"
-
-    yield _build
-
-    for s in instances:
-        s.stop()
+    `subscribe` calls `session_factory()` once per connect attempt; production
+    builds a fresh ClientSession each time. Tests reuse a single fake so
+    `post_calls` accumulates across reconnects.
+    """
+    return lambda: session
 
 
-# ---------- payload fixtures --------------------------------------------------
-
-SAMPLE_BATCH = [
-    {"event": "drought.start", "day": 45, "timestamp": 1711300000, "data": {"duration": 8}},
-    {"event": "beaver.died", "day": 45, "timestamp": 1711300000, "data": None},
-]
+async def _no_sleep(_seconds: float) -> None:
+    """Skip the reconnect backoff so tests don't real-time-wait."""
+    return None
 
 
-# ---------- tests -------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Fixtures / sample payloads.
+# ---------------------------------------------------------------------------
 
-def test_server_accepts_batched_payload(server_factory, capsys):
-    _, base_url = server_factory()
-    resp = requests.post(base_url + "/", json=SAMPLE_BATCH, timeout=5)
-    assert resp.status_code == 200
-    assert resp.json() == {"received": 2}
 
-    captured = capsys.readouterr().out
-    assert "drought.start" in captured
-    assert "beaver.died" in captured
-    # Default mode is raw JSON: each event line round-trips through json.loads.
-    lines = [ln for ln in captured.splitlines() if ln.strip().startswith("{")]
-    assert len(lines) == 2
+SAMPLE_EVENT = {
+    "type": "event",
+    "event": "drought.start",
+    "day": 45,
+    "timestamp": 1711300000,
+    "data": {"duration": 8},
+}
+
+OTHER_EVENT = {
+    "type": "event",
+    "event": "beaver.died",
+    "day": 45,
+    "timestamp": 1711300000,
+    "data": None,
+}
+
+NON_EVENT_FRAME = {"type": "heartbeat", "ts": 1711300000}
+
+
+# ---------------------------------------------------------------------------
+# subscribe() behaviour.
+# ---------------------------------------------------------------------------
+
+
+def test_event_frames_passthrough_to_stdout(capsys):
+    session = _FakeSession([[_text(SAMPLE_EVENT), _text(OTHER_EVENT), _CLOSED]])
+    rc = asyncio.run(listen_cmd.subscribe(
+        host="127.0.0.1", ws_port=8085,
+        max_attempts=1, sleep=_no_sleep,
+        session_factory=_make_factory(session),
+    ))
+    assert rc == 0
+    out = capsys.readouterr().out.splitlines()
+    # Two raw-JSON lines (default mode).
+    assert len(out) == 2
+    assert json.loads(out[0])["event"] == "drought.start"
+    assert json.loads(out[1])["event"] == "beaver.died"
+
+
+def test_non_event_frames_dropped(capsys):
+    session = _FakeSession([[_text(NON_EVENT_FRAME), _text(SAMPLE_EVENT), _CLOSED]])
+    asyncio.run(listen_cmd.subscribe(
+        host="127.0.0.1", ws_port=8085,
+        max_attempts=1, sleep=_no_sleep,
+        session_factory=_make_factory(session),
+    ))
+    lines = capsys.readouterr().out.splitlines()
+    assert len(lines) == 1
     assert json.loads(lines[0])["event"] == "drought.start"
 
 
-def test_events_endpoint_alias(server_factory, capsys):
-    _, base_url = server_factory()
-    resp = requests.post(base_url + "/events", json=SAMPLE_BATCH[:1], timeout=5)
-    assert resp.status_code == 200
+def test_pretty_mode_human_friendly(capsys):
+    session = _FakeSession([[_text(SAMPLE_EVENT), _CLOSED]])
+    asyncio.run(listen_cmd.subscribe(
+        host="127.0.0.1", ws_port=8085, pretty=True,
+        max_attempts=1, sleep=_no_sleep,
+        session_factory=_make_factory(session),
+    ))
     out = capsys.readouterr().out
-    assert "drought.start" in out
-
-
-def test_single_event_object_accepted(server_factory, capsys):
-    # The receiver is permissive: a single event object also works.
-    _, base_url = server_factory()
-    resp = requests.post(base_url + "/", json=SAMPLE_BATCH[0], timeout=5)
-    assert resp.status_code == 200
-    assert resp.json() == {"received": 1}
-    assert "drought.start" in capsys.readouterr().out
-
-
-def test_pretty_mode_human_friendly(server_factory, capsys):
-    _, base_url = server_factory(pretty=True)
-    requests.post(base_url + "/", json=SAMPLE_BATCH, timeout=5)
-    out = capsys.readouterr().out
-    # Pretty lines start with "[day N HH:MM:SS] event" — not raw JSON.
     assert "[day 45" in out
     assert "drought.start" in out
     # Raw JSON should NOT appear in pretty mode.
     assert '"event":' not in out and '"event": ' not in out
 
 
-def test_forward_to_file_writes_jsonl(tmp_path, server_factory, capsys):
-    sink = tmp_path / "events.jsonl"
-    _, base_url = server_factory(forward_to=f"file://{sink}")
-    requests.post(base_url + "/", json=SAMPLE_BATCH, timeout=5)
+def test_quiet_suppresses_stdout(capsys, tmp_path):
+    sink = tmp_path / "out.jsonl"
+    session = _FakeSession([[_text(SAMPLE_EVENT), _CLOSED]])
+    asyncio.run(listen_cmd.subscribe(
+        host="127.0.0.1", ws_port=8085,
+        quiet=True, forward_to=f"file://{sink}",
+        max_attempts=1, sleep=_no_sleep,
+        session_factory=_make_factory(session),
+    ))
+    out = capsys.readouterr().out
+    assert out == ""
+    # The file still receives the event.
+    lines = sink.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    assert json.loads(lines[0])["event"] == "drought.start"
 
+
+def test_forward_to_file_writes_jsonl(tmp_path):
+    sink = tmp_path / "events.jsonl"
+    session = _FakeSession([[_text(SAMPLE_EVENT), _text(OTHER_EVENT), _CLOSED]])
+    asyncio.run(listen_cmd.subscribe(
+        host="127.0.0.1", ws_port=8085,
+        quiet=True, forward_to=f"file://{sink}",
+        max_attempts=1, sleep=_no_sleep,
+        session_factory=_make_factory(session),
+    ))
     lines = sink.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 2
     assert json.loads(lines[0])["event"] == "drought.start"
     assert json.loads(lines[1])["event"] == "beaver.died"
 
 
-def test_forward_to_bare_path_also_works(tmp_path, server_factory):
-    # No file:// prefix → treat as plain path.
+def test_forward_to_bare_path_also_works(tmp_path):
     sink = tmp_path / "nested" / "events.jsonl"
-    _, base_url = server_factory(forward_to=str(sink), quiet=True)
-    requests.post(base_url + "/", json=SAMPLE_BATCH, timeout=5)
+    session = _FakeSession([[_text(SAMPLE_EVENT), _CLOSED]])
+    asyncio.run(listen_cmd.subscribe(
+        host="127.0.0.1", ws_port=8085,
+        quiet=True, forward_to=str(sink),
+        max_attempts=1, sleep=_no_sleep,
+        session_factory=_make_factory(session),
+    ))
     assert sink.exists()
-    assert len(sink.read_text(encoding="utf-8").splitlines()) == 2
+    assert len(sink.read_text(encoding="utf-8").splitlines()) == 1
 
 
-def test_forward_to_http_posts_downstream(server_factory, httpserver, capsys):
-    received: list[list[dict]] = []
+def test_forward_to_http_posts_downstream(httpserver):
+    received: list[Any] = []
 
     def _capture(request):
         received.append(request.get_json())
@@ -186,64 +280,119 @@ def test_forward_to_http_posts_downstream(server_factory, httpserver, capsys):
     httpserver.expect_request("/sink", method="POST").respond_with_handler(_capture)
     downstream = httpserver.url_for("/sink")
 
-    _, base_url = server_factory(forward_to=downstream)
-    requests.post(base_url + "/", json=SAMPLE_BATCH, timeout=5)
+    # Real aiohttp.ClientSession is needed here because our forwarder posts
+    # via session.post — pytest-httpserver speaks real HTTP. We still mock the
+    # WS upgrade so the test is hermetic on that side.
+    session = _FakeSession([[_text(SAMPLE_EVENT), _CLOSED]])
 
-    # Give aiohttp's ClientSession time to flush (request is awaited in-handler,
-    # so it should be done by the time our POST returned, but be defensive).
-    deadline = time.time() + 3
-    while time.time() < deadline and not received:
-        time.sleep(0.05)
+    asyncio.run(listen_cmd.subscribe(
+        host="127.0.0.1", ws_port=8085,
+        forward_to=downstream, quiet=True,
+        max_attempts=1, sleep=_no_sleep,
+        session_factory=_make_factory(session),
+    ))
 
-    assert received, "downstream never received the batch"
-    assert received[0] == SAMPLE_BATCH
-
-
-def test_quiet_suppresses_stdout(server_factory, capsys, tmp_path):
-    sink = tmp_path / "out.jsonl"
-    _, base_url = server_factory(quiet=True, forward_to=f"file://{sink}")
-    requests.post(base_url + "/", json=SAMPLE_BATCH, timeout=5)
-    out = capsys.readouterr().out
-    assert out == ""
-    # The file still gets the events.
-    assert len(sink.read_text(encoding="utf-8").splitlines()) == 2
+    assert session.post_calls, "downstream never received the event"
+    url, body = session.post_calls[0]
+    assert url == downstream
+    # The wire shape is a 1-element batch so HTTP collectors that already
+    # speak the old webhook batch shape don't need to special-case the
+    # migration.
+    assert body == [SAMPLE_EVENT]
 
 
-def test_invalid_json_returns_400(server_factory):
-    _, base_url = server_factory(quiet=True)
-    resp = requests.post(
-        base_url + "/",
-        data="not json",
-        headers={"Content-Type": "application/json"},
-        timeout=5,
-    )
-    assert resp.status_code == 400
+def test_reconnects_after_close(capsys):
+    """Two scripted sessions: the first closes after one event, the second
+    closes after another. `max_attempts=2` lets the loop run both and exit."""
+    session = _FakeSession([
+        [_text(SAMPLE_EVENT), _CLOSED],
+        [_text(OTHER_EVENT), _CLOSED],
+    ])
+    rc = asyncio.run(listen_cmd.subscribe(
+        host="127.0.0.1", ws_port=8085,
+        max_attempts=2, sleep=_no_sleep,
+        session_factory=_make_factory(session),
+    ))
+    assert rc == 0
+    assert len(session.connect_calls) == 2
+    out = capsys.readouterr().out.splitlines()
+    assert [json.loads(line)["event"] for line in out] == ["drought.start", "beaver.died"]
 
 
-def test_dropped_non_dict_entries_logged_to_stderr(server_factory, capsys):
-    _, base_url = server_factory(quiet=True)
-    # Two valid events flanking two garbage entries.
-    payload = [SAMPLE_BATCH[0], None, "not an object", SAMPLE_BATCH[1]]
-    resp = requests.post(base_url + "/", json=payload, timeout=5)
-    assert resp.status_code == 200
-    assert resp.json() == {"received": 2}
-    err = capsys.readouterr().err
-    assert "dropped 2 non-object" in err
+def test_reconnects_after_client_error(capsys):
+    """A connect that raises `ClientError` should backoff and retry, not crash."""
+    session = _FakeSession([
+        aiohttp.ClientError,
+        [_text(SAMPLE_EVENT), _CLOSED],
+    ])
+    rc = asyncio.run(listen_cmd.subscribe(
+        host="127.0.0.1", ws_port=8085, quiet=True,
+        max_attempts=2, sleep=_no_sleep,
+        session_factory=_make_factory(session),
+    ))
+    assert rc == 0
+    assert len(session.connect_calls) == 2
 
 
-def test_forward_to_file_error_does_not_500(server_factory, capsys, tmp_path):
-    # Point --forward-to at a path whose parent already exists as a file —
-    # mkdir(parents=True) will raise NotADirectoryError. Receiver should
-    # log and still respond 200.
-    blocker = tmp_path / "blocker"
-    blocker.write_text("not a directory")
-    bad_sink = blocker / "out.jsonl"
-    _, base_url = server_factory(quiet=True, forward_to=str(bad_sink))
+def test_auth_token_threaded_into_headers():
+    session = _FakeSession([[_CLOSED]])
+    asyncio.run(listen_cmd.subscribe(
+        host="127.0.0.1", ws_port=8085,
+        auth_token="sekret", quiet=True,
+        max_attempts=1, sleep=_no_sleep,
+        session_factory=_make_factory(session),
+    ))
+    assert session.connect_calls[0]["url"] == "ws://127.0.0.1:8085/api/ws"
+    assert session.connect_calls[0]["headers"]["Authorization"] == "Bearer sekret"
 
-    resp = requests.post(base_url + "/", json=SAMPLE_BATCH, timeout=5)
-    assert resp.status_code == 200
-    assert resp.json() == {"received": 2}
-    assert "forward error" in capsys.readouterr().err
+
+def test_no_auth_header_when_token_missing():
+    session = _FakeSession([[_CLOSED]])
+    asyncio.run(listen_cmd.subscribe(
+        host="127.0.0.1", ws_port=8085, quiet=True,
+        max_attempts=1, sleep=_no_sleep,
+        session_factory=_make_factory(session),
+    ))
+    assert "Authorization" not in session.connect_calls[0]["headers"]
+
+
+def test_malformed_frame_logged_but_connection_kept(capsys):
+    """A bad TEXT frame should hit stderr but the connection keeps draining."""
+    bad = _FakeMessage(aiohttp.WSMsgType.TEXT, "not-json{{{")
+    session = _FakeSession([[bad, _text(SAMPLE_EVENT), _CLOSED]])
+    asyncio.run(listen_cmd.subscribe(
+        host="127.0.0.1", ws_port=8085,
+        max_attempts=1, sleep=_no_sleep,
+        session_factory=_make_factory(session),
+    ))
+    captured = capsys.readouterr()
+    assert "malformed frame" in captured.err
+    lines = captured.out.splitlines()
+    assert len(lines) == 1
+    assert json.loads(lines[0])["event"] == "drought.start"
+
+
+# ---------------------------------------------------------------------------
+# Argparse / wiring.
+# ---------------------------------------------------------------------------
+
+
+def test_argparse_accepts_new_flags():
+    ns = listen_cmd._parse([
+        "--pretty", "--quiet", "--forward-to", "events.jsonl",
+        "--ws-port", "9999", "--host", "10.0.0.1", "--auth-token", "abc",
+    ])
+    assert ns.pretty is True
+    assert ns.quiet is True
+    assert ns.forward_to == "events.jsonl"
+    assert ns.ws_port == 9999
+    assert ns.host == "10.0.0.1"
+    assert ns.auth_token == "abc"
+
+
+def test_argparse_rejects_legacy_port_flag():
+    with pytest.raises(SystemExit):
+        listen_cmd._parse(["--port", "9000"])
 
 
 def test_registered_in_main_registry():
@@ -254,3 +403,24 @@ def test_registered_in_main_registry():
     assert cmd is not None
     assert cmd.handler is listen_cmd.run
     assert "listen" in cli_main._BUILTIN_COMMANDS
+    # The usage string should advertise the WS surface, not the old --port.
+    assert "--ws-port" in cmd.usage
+    assert "--port" not in cmd.usage.replace("--ws-port", "")
+
+
+# ---------------------------------------------------------------------------
+# Pure helpers.
+# ---------------------------------------------------------------------------
+
+
+def test_format_pretty_handles_missing_fields():
+    line = listen_cmd._format_pretty({"event": "x"})
+    assert "x" in line
+    assert "day ?" in line
+
+
+def test_is_event_frame_strict():
+    assert listen_cmd._is_event_frame({"type": "event"})
+    assert not listen_cmd._is_event_frame({"type": "heartbeat"})
+    assert not listen_cmd._is_event_frame("event")
+    assert not listen_cmd._is_event_frame(None)

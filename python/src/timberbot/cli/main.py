@@ -98,9 +98,10 @@ def _build_registry() -> CommandRegistry:
     ))
     registry.register(Command(
         name="listen",
-        summary="reference webhook receiver (POST / or /events)",
+        summary="subscribe to mod WebSocket and stream events",
         handler=listen_cmd.run,
-        usage="  listen [--port 9000] [--pretty] [--forward-to PATH_OR_URL] [--quiet]",
+        usage=("  listen [--pretty] [--forward-to PATH_OR_URL] [--quiet] "
+               "[--ws-port N] [--host HOST] [--auth-token T]"),
     ))
     registry.register(Command(
         name="watch",
