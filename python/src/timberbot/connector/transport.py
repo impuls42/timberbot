@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 
@@ -44,21 +45,22 @@ class SubprocessTransport:
         assert self._proc and self._proc.stdout
         try:
             line = await self._proc.stdout.readline()
-            if not line:
-                return None
+        except Exception as exc:
+            log.warning("recv_line stdout read failed: %s", exc)
+            return None
+        if not line:
+            return None
+        try:
             return json.loads(line)
-        except Exception:
+        except json.JSONDecodeError as exc:
+            log.warning("recv_line dropping non-JSON frame (%s): %r", exc, line[:200])
             return None
 
     async def close(self) -> None:
         if self._stderr_task:
             self._stderr_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._stderr_task
-            except asyncio.CancelledError:
-                pass
         if self._proc:
-            try:
+            with contextlib.suppress(ProcessLookupError):
                 self._proc.terminate()
-            except ProcessLookupError:
-                pass

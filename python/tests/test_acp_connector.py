@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 import pytest
 
@@ -18,6 +19,7 @@ class FakeTransport:
     def __init__(self, responses: list[dict]) -> None:
         self._responses = list(responses)
         self.sent: list[dict] = []
+        self.closed = False
         self._inbox: asyncio.Queue[dict | None] = asyncio.Queue()
 
     async def start(self) -> None:
@@ -33,7 +35,7 @@ class FakeTransport:
         return await self._inbox.get()
 
     async def close(self) -> None:
-        pass
+        self.closed = True
 
     async def push_notification(self, msg: dict) -> None:
         """Inject a server-initiated notification (not tied to a request)."""
@@ -59,10 +61,8 @@ async def test_initialize_transitions_to_active():
     await handle.initialize()
     assert handle.state == SessionState.ACTIVE
     task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass
 
 
 @pytest.mark.asyncio
@@ -78,10 +78,8 @@ async def test_new_session_returns_session_id():
     assert sid == "abc"
     assert handle.session_id == "abc"
     task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass
 
 
 @pytest.mark.asyncio
@@ -109,10 +107,8 @@ async def test_session_update_fires_callback():
 
     assert ("abc", "hello") in received
     task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass
 
 
 @pytest.mark.asyncio
@@ -137,10 +133,8 @@ async def test_permission_auto_approved_for_allowed_tool():
     assert permission_responses, "no response sent for permission request"
     assert permission_responses[0]["result"]["approved"] is True
     task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass
 
 
 @pytest.mark.asyncio
@@ -165,10 +159,8 @@ async def test_permission_auto_rejected_for_unknown_tool():
     assert permission_responses, "no response sent for permission request"
     assert permission_responses[0]["result"]["approved"] is False
     task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass
 
 
 @pytest.mark.asyncio
@@ -197,10 +189,8 @@ async def test_game_elicitation_fires_callback():
     assert received, "on_elicitation was not called"
     assert received[0][0] == "abc"
     task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass
 
 
 @pytest.mark.asyncio
@@ -229,7 +219,27 @@ async def test_cancel_transitions_to_halting():
     await handle.cancel("abc")
     assert handle.state == SessionState.HALTING
     task.cancel()
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await task
-    except asyncio.CancelledError:
-        pass
+
+
+@pytest.mark.asyncio
+async def test_close_cancels_read_task_and_pending_futures():
+    transport = FakeTransport([
+        {"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2026-05"}},
+    ])
+    handle = SessionHandle(transport)
+    asyncio.get_running_loop().create_task(handle.read_loop())
+    await handle.initialize()
+    await _drain()  # let read_loop register itself
+
+    pending_fut: asyncio.Future = asyncio.get_running_loop().create_future()
+    handle._pending[999] = pending_fut
+
+    await handle.close()
+
+    assert handle.state == SessionState.ENDED
+    assert handle._read_task is None
+    assert pending_fut.cancelled()
+    assert 999 not in handle._pending
+    assert transport.closed is True
