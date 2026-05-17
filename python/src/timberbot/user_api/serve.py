@@ -1,0 +1,93 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+from dataclasses import dataclass, field
+from timberbot.user_api.session_manager import SessionManager
+
+log = logging.getLogger("timberbot.user_api")
+
+
+@dataclass
+class ServeConfig:
+    host: str = "127.0.0.1"
+    port: int = 8085
+    ws_port: int = 8086
+    auth_token: str | None = None
+    mcp_host: str = "127.0.0.1"
+    mcp_port: int = 8091
+    backend: str = "claude"
+    model: str = "claude-opus-4-7"
+    acp_binary: str = "claude"
+    allowed_tools: list[str] = field(default_factory=lambda: ["game.*"])
+    telegram_token: str = ""
+
+
+async def _user_message_loop(
+    user_adapter: object,
+    session_mgr: SessionManager,
+    acp: object,
+    cfg: ServeConfig,
+) -> None:
+    _handles: dict[str, object] = {}       # user_id -> SessionHandle
+    _acp_sessions: dict[str, str] = {}     # user_id -> ACP session_id
+
+    async for msg in user_adapter.messages():  # type: ignore[union-attr]
+        user_id = msg.user_id
+        session_mgr.get_or_create(user_id)
+        log.debug("User %s: %r", user_id, msg.text)
+        try:
+            if user_id not in _handles:
+                handle = await acp.connect(  # type: ignore[union-attr]
+                    binary=cfg.acp_binary, model=cfg.model,
+                )
+                acp_session_id = await handle.new_session(  # type: ignore[union-attr]
+                    cwd=".",
+                    mcp_servers=[{"name": "game", "url": f"http://{cfg.mcp_host}:{cfg.mcp_port}/sse"}],
+                )
+                _handles[user_id] = handle
+                _acp_sessions[user_id] = acp_session_id
+            handle = _handles[user_id]
+            await handle.prompt(_acp_sessions[user_id], msg.text)  # type: ignore[union-attr]
+        except Exception:
+            log.exception("Error dispatching message for user %s", user_id)
+
+
+async def run_serve(cfg: ServeConfig) -> None:
+    # Deferred imports — requires [serve] extra installed
+    from timberbot.connector import ACPConnector  # noqa: PLC0415
+    from timberbot.connector.adapters.claude_code import ClaudeCodeAdapter  # noqa: PLC0415
+    from timberbot.connector.adapters.opencode import OpencodeAdapter  # noqa: PLC0415
+    from timberbot.game_mcp import EventBus, EventIngestor, create_mcp_server  # noqa: PLC0415
+    from timberbot.api.client import TimberbotClient  # noqa: PLC0415
+    from timberbot.api.wsclient import TimberbotWsClient  # noqa: PLC0415
+
+    client = TimberbotClient(
+        host=cfg.host,
+        port=cfg.port,
+        auth_token=cfg.auth_token,
+        json_mode=True,
+    )
+    bus = EventBus()
+    ws_client = TimberbotWsClient(cfg.host, cfg.ws_port, cfg.auth_token)
+    ingestor = EventIngestor(ws_client, bus)
+    mcp = create_mcp_server(client, bus)
+
+    adapter_cls = ClaudeCodeAdapter if cfg.backend == "claude" else OpencodeAdapter
+    acp = ACPConnector(adapter=adapter_cls(), allowed_tools=cfg.allowed_tools)
+
+    from timberbot.user_api.telegram.bot import TelegramAdapter  # noqa: PLC0415
+    user_adapter = TelegramAdapter(cfg.telegram_token)
+    session_mgr = SessionManager()
+
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(ingestor.run(), name="ingestor")
+        tg.create_task(
+            mcp.run_http_async(transport="sse", host=cfg.mcp_host, port=cfg.mcp_port),
+            name="mcp",
+        )
+        tg.create_task(user_adapter.start(), name="telegram")
+        tg.create_task(
+            _user_message_loop(user_adapter, session_mgr, acp, cfg),
+            name="msg-loop",
+        )
