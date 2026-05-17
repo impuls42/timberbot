@@ -105,6 +105,91 @@ Switching modes is instant and doesn't restart the connector. Stop is always one
 
 The widget doesn't let you pick a model or effort — those live in `~/.config/timberbot/config.toml` (see [`config.toml`](#configtoml) below). The widget only owns mode + prompt/goal + Launch state.
 
+## Talk to the agent over Telegram (`tbot serve`)
+
+`tbot watch` dispatches one-shot agent runs triggered by the in-game widget. `tbot serve` is the *interactive* alternative: it runs the agent as a long-lived ACP session and routes user input through a Telegram bot, while exposing the game as an MCP server the agent observes in real time.
+
+```bash
+pip install 'timberbot[serve]'              # pulls fastmcp + python-telegram-bot
+export TBOT_TELEGRAM_TOKEN=123456:AA…       # from @BotFather
+tbot serve                                   # foreground; Ctrl-C to stop
+```
+
+What it starts (one process, three concurrent tasks via `asyncio.TaskGroup`):
+
+1. **Game MCP server** — `fastmcp` HTTP/SSE on `127.0.0.1:8091` by default. Wraps `TimberbotClient` as 60 tools. Every tool response carries an *event envelope* (`meta.cursor`, `meta.events`, `meta.advisory`, `meta.hint`) so the agent sees game-side changes (droughts, building collapses, beaver deaths) without polling. The connector spawns the agent runtime (`claude` or `opencode`) in ACP mode and points it at this URL.
+2. **ACP connector** — speaks JSON-RPC 2.0 over the agent subprocess's stdin/stdout. Tool permission requests are auto-resolved against `[serve] allowed_tools` (glob patterns, default `["game.*"]`) — the user is **never** prompted to approve MCP tool calls. Only explicit in-game player choices (`game/elicitation`) surface to Telegram.
+3. **Telegram adapter** — long-polls Telegram's Bot API for `/prompt`, `/cancel`, `/halt`, `/status` commands. Streaming agent output edits a single Telegram message (500-char or 500ms flush window) to stay under Telegram's edit-rate limits. Game elicitation choices render as inline-keyboard buttons.
+
+### First-run Telegram setup
+
+1. Open Telegram, search for `@BotFather`, send `/newbot`. Pick a name and username. BotFather returns a token like `7912345678:AAH9w7xY…`.
+2. Set the token in **one** of these (precedence: CLI > env > config):
+    - `tbot serve --telegram-token 7912345678:AAH…`
+    - `export TBOT_TELEGRAM_TOKEN=7912345678:AAH…`
+    - `~/.config/timberbot/config.toml`:
+      ```toml
+      [serve.telegram]
+      token = "7912345678:AAH..."
+      ```
+3. Start a chat with your bot (find it by the username you chose, send `/start`).
+4. Run `tbot serve`. From Telegram, send `/prompt build a plank chain near the river`.
+
+### `tbot serve` flags
+
+```text
+tbot serve [--backend {claude,opencode}] [--model MODEL] [--acp-binary PATH]
+           [--telegram-token TOKEN] [--mcp-host HOST] [--mcp-port N]
+           [--ws-port N] [--verbose]
+```
+
+| Flag | Env | Config | Default | What it does |
+|---|---|---|---|---|
+| `--backend` | — | `[serve] backend` | `claude` | Which ACP runtime to spawn. Only `claude` or `opencode` are accepted. |
+| `--model` | — | `[serve] model` | `claude-opus-4-7` | Model identifier passed to the agent CLI. Set this when switching backends (e.g. `glm-4.6` for opencode). |
+| `--acp-binary` | — | `[serve] acp_binary` | matches `backend` | Path or name of the agent CLI. Use this if `claude` or `opencode` isn't on `$PATH`. |
+| `--telegram-token` | `TBOT_TELEGRAM_TOKEN` | `[serve.telegram] token` | — *(required)* | Bot token from BotFather. `tbot serve` exits with an error if missing. |
+| `--mcp-host` | — | `[serve] mcp_host` | `127.0.0.1` | Bind address for the game MCP HTTP/SSE server. |
+| `--mcp-port` | — | `[serve] mcp_port` | `8091` | Port for the game MCP HTTP/SSE server. |
+| `--ws-port` | `TBOT_WS_PORT` | `[client] ws_port` | `8086` | Mod-side WebSocket port (shared with `tbot watch` / `tbot listen`). |
+| `--verbose` / `-v` | — | — | WARNING | Logging level. `-v` = INFO, `-vv` = DEBUG. |
+| — | — | `[serve] allowed_tools` | `["game.*"]` | Glob list of MCP tool names the connector auto-approves. Anything else is auto-rejected without prompting the user. |
+
+`--host` / `--port` / `--auth-token` from the global `tbot` flags still apply: they configure the connection from `tbot serve` *to the running mod*, the same as for `tbot summary`.
+
+### Example `[serve]` config
+
+```toml
+# ~/.config/timberbot/config.toml
+[serve]
+backend = "claude"
+model = "claude-opus-4-7"
+mcp_host = "127.0.0.1"
+mcp_port = 8091
+allowed_tools = ["game.*"]   # only game tools auto-approved; everything else rejected
+
+[serve.telegram]
+token = "7912345678:AAH..."
+```
+
+For opencode the model needs to be set explicitly since the default targets Claude:
+
+```toml
+[serve]
+backend = "opencode"
+model = "glm-4.6"
+```
+
+### How it differs from `tbot watch`
+
+| | `tbot watch` | `tbot serve` |
+|---|---|---|
+| Trigger | In-game widget Launch button + autonomous cadence | Telegram `/prompt` command |
+| Agent lifetime | One process per dispatch, then exit | One long-lived ACP session per user |
+| Events to agent | Logged but not pushed to the agent | Embedded in every MCP tool response (`meta.events`) |
+| User input | Set once via widget textarea | Continuous via Telegram chat |
+| Required infrastructure | None (just the mod) | MCP server + Telegram bot |
+
 ## Output formats
 
 === "TOON (default)"
@@ -247,7 +332,7 @@ Timberbot reads client settings from four places, in this order (first match win
 | Tier | Where | Owns |
 |---|---|---|
 | 1. CLI flags | `tbot --host=X --port=Y --auth-token=T` | per-invocation overrides |
-| 2. Environment | `TBOT_HOST`, `TBOT_PORT`, `TBOT_AUTH_TOKEN`, `TBOT_CONFIG_DIR`, `TBOT_DATA_DIR` | per-shell overrides |
+| 2. Environment | `TBOT_HOST`, `TBOT_PORT`, `TBOT_AUTH_TOKEN`, `TBOT_WS_PORT`, `TBOT_TELEGRAM_TOKEN`, `TBOT_CONFIG_DIR`, `TBOT_DATA_DIR` | per-shell overrides |
 | 3. User config | `~/.config/timberbot/config.toml` (or platform equivalent) | per-user defaults — client target, bearer token, per-backend model/effort |
 | 4. Built-in | hard-coded | `127.0.0.1:8085`, etc. |
 
@@ -255,15 +340,16 @@ The mod's `settings.json` is the canonical place for **server-side** settings (`
 
 ### `config.toml`
 
-The `tbot` CLI looks for a TOML file at your platform's user-config directory. Three sections matter today:
+The `tbot` CLI looks for a TOML file at your platform's user-config directory. The sections that matter:
 
 ```toml
 [client]
 host = "127.0.0.1"        # default target host for the CLI
-port = 8085               # default target port
+port = 8085               # default target port (mod HTTP API)
+ws_port = 8086            # default target port (mod WebSocket)
 auth_token = ""           # bearer token; required when the mod sets `authToken` (mandatory for non-localhost listenAddress)
 
-[backends.claude]
+[backends.claude]         # used by `tbot watch` and `tbot agent run`
 model = "claude-opus-4-7"
 effort = "high"
 
@@ -273,9 +359,20 @@ attach_url = "http://127.0.0.1:4096"   # attach to a long-running `opencode serv
 
 [backends.custom]
 command = "aider --system-prompt-file {skill} {prompt}"   # template
+
+[serve]                   # used by `tbot serve` only
+backend = "claude"        # or "opencode"
+model = "claude-opus-4-7"
+acp_binary = "claude"     # path/name of the agent CLI; default matches `backend`
+mcp_host = "127.0.0.1"
+mcp_port = 8091
+allowed_tools = ["game.*"]
+
+[serve.telegram]
+token = "7912345678:AAH..."  # also: TBOT_TELEGRAM_TOKEN env, --telegram-token flag
 ```
 
-Per-backend keys (`model`, `effort`, `command`, `binary`, `terminal_prefix`, `attach_url`) are fed into the `tbot agent run` argv — explicit CLI flags still win.
+Per-backend keys under `[backends.*]` (`model`, `effort`, `command`, `binary`, `terminal_prefix`, `attach_url`) are fed into the `tbot agent run` argv — explicit CLI flags still win. The `[serve]` section is read only by `tbot serve` — it intentionally does *not* fall back to `[backends.*]` so the two stacks can have independent model/binary choices.
 
 ### Settings and configuration (server / mod)
 
@@ -325,6 +422,15 @@ Some runtime settings are applied on load, so changing them may require reloadin
     `pipx install timberbot` pulls these in automatically. If you installed via
     `pip` into the system Python and dependencies are missing, reinstall via
     `pipx` so the CLI gets its own environment.
+
+!!! warning "`tbot serve` errors: 'requires extra dependencies'"
+    `tbot serve` needs `fastmcp` and `python-telegram-bot`, which ship in the optional `[serve]` extra. Install with `pip install 'timberbot[serve]'` (or `pipx install 'timberbot[serve]'`).
+
+!!! warning "`tbot serve` errors: 'no Telegram token found'"
+    Set `TBOT_TELEGRAM_TOKEN`, pass `--telegram-token`, or add `[serve.telegram] token = "..."` to `config.toml`. The token comes from `@BotFather` on Telegram.
+
+!!! warning "`tbot serve` agent never starts: 'claude: command not found' in logs"
+    The connector spawns the agent CLI via `acp_binary` (default: the backend name). If `claude` or `opencode` isn't on `$PATH`, pass `--acp-binary /full/path/to/binary` or set `[serve] acp_binary = "/full/path/to/binary"`.
 
 !!! bug "Building placement creates ghost buildings"
     Failed placements can sometimes create invisible entities. See [Known Issues](api-reference.md#known-issues) in the API reference.

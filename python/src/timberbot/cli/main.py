@@ -58,9 +58,9 @@ def _build_registry() -> CommandRegistry:
     from timberbot.cli.commands import launch as launch_cmd
     from timberbot.cli.commands import listen as listen_cmd
     from timberbot.cli.commands import manager as manager_cmd
+    from timberbot.cli.commands import serve as serve_cmd
     from timberbot.cli.commands import top as top_cmd
     from timberbot.cli.commands import watch as watch_cmd
-    from timberbot.cli.commands import serve as serve_cmd
 
     registry = CommandRegistry()
     registry.register(Command(

@@ -6,9 +6,9 @@ import logging
 import os
 import sys
 
+from timberbot.cli.commands.watch import resolve_ws_port
 from timberbot.settings import resolve_auth_token, resolve_endpoint
 from timberbot.user_config import serve_config, serve_telegram_config
-from timberbot.cli.commands.watch import resolve_ws_port
 
 log = logging.getLogger("timberbot.serve")
 
@@ -31,8 +31,11 @@ def resolve_telegram_token(explicit: str | None = None) -> str:
 
 def _parse(args: list[str]) -> argparse.Namespace:
     p = argparse.ArgumentParser(prog="tbot serve", add_help=True)
-    p.add_argument("--backend", default=None, help="ACP runtime backend: 'claude' or 'opencode' (default: claude).")
+    p.add_argument("--backend", default=None, choices=["claude", "opencode"],
+                   help="ACP runtime backend (default: claude).")
     p.add_argument("--model", default=None, help="Model identifier passed to the backend.")
+    p.add_argument("--acp-binary", dest="acp_binary", default=None,
+                   help="Path or name of the agent CLI to spawn (default: matches backend).")
     p.add_argument("--telegram-token", dest="telegram_token", default=None,
                    help="Telegram bot token (also: TBOT_TELEGRAM_TOKEN env).")
     p.add_argument("--mcp-port", dest="mcp_port", type=int, default=None,
@@ -65,6 +68,11 @@ def run(args: list[str]) -> int:
     ws_port = resolve_ws_port(ns.ws_port)
     token = resolve_telegram_token(ns.telegram_token)
 
+    backend = ns.backend or cfg_data.get("backend", "claude")
+    if backend not in ("claude", "opencode"):
+        print(f"error: unknown backend {backend!r}; expected 'claude' or 'opencode'", file=sys.stderr)
+        return 1
+
     cfg = ServeConfig(
         host=host,
         port=port,
@@ -72,8 +80,9 @@ def run(args: list[str]) -> int:
         auth_token=auth_token,
         mcp_host=ns.mcp_host or cfg_data.get("mcp_host", "127.0.0.1"),
         mcp_port=ns.mcp_port or int(cfg_data.get("mcp_port", 8091)),
-        backend=ns.backend or cfg_data.get("backend", "claude"),
+        backend=backend,
         model=ns.model or cfg_data.get("model", "claude-opus-4-7"),
+        acp_binary=ns.acp_binary or cfg_data.get("acp_binary", backend),
         telegram_token=token,
         allowed_tools=cfg_data.get("allowed_tools", ["game.*"]),
     )
