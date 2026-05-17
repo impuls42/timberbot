@@ -29,18 +29,28 @@ async def _user_message_loop(
     acp: object,
     cfg: ServeConfig,
 ) -> None:
+    _handles: dict[str, object] = {}       # user_id -> SessionHandle
+    _acp_sessions: dict[str, str] = {}     # user_id -> ACP session_id
+
     async for msg in user_adapter.messages():  # type: ignore[union-attr]
-        session = session_mgr.get_or_create(msg.user_id)
-        log.debug("User %s → session %s: %r", msg.user_id, session.session_id, msg.text)
+        user_id = msg.user_id
+        session_mgr.get_or_create(user_id)
+        log.debug("User %s: %r", user_id, msg.text)
         try:
-            handle = await acp.connect(  # type: ignore[union-attr]
-                session_id=session.session_id,
-                mcp_url=f"http://{cfg.mcp_host}:{cfg.mcp_port}/sse",
-                model=cfg.model,
-            )
-            await handle.prompt(msg.text)
+            if user_id not in _handles:
+                handle = await acp.connect(  # type: ignore[union-attr]
+                    binary=cfg.acp_binary, model=cfg.model,
+                )
+                acp_session_id = await handle.new_session(  # type: ignore[union-attr]
+                    cwd=".",
+                    mcp_servers=[{"name": "game", "url": f"http://{cfg.mcp_host}:{cfg.mcp_port}/sse"}],
+                )
+                _handles[user_id] = handle
+                _acp_sessions[user_id] = acp_session_id
+            handle = _handles[user_id]
+            await handle.prompt(_acp_sessions[user_id], msg.text)  # type: ignore[union-attr]
         except Exception:
-            log.exception("Error dispatching message for user %s", msg.user_id)
+            log.exception("Error dispatching message for user %s", user_id)
 
 
 async def run_serve(cfg: ServeConfig) -> None:
