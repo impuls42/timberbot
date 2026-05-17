@@ -11,7 +11,18 @@ from timberbot.user_api.protocol import UserMessage
 log = logging.getLogger("timberbot.user_api")
 
 
-def make_handlers(queue: asyncio.Queue) -> dict:  # type: ignore[type-arg]
+def make_handlers(
+    queue: asyncio.Queue,  # type: ignore[type-arg]
+    allowed_users: set[int] | None = None,
+) -> dict:  # type: ignore[type-arg]
+    # None and empty-set both mean "open" per the [serve.telegram] allowed_users spec.
+    allowed: set[int] = allowed_users if allowed_users is not None else set()
+
+    def _user_allowed(uid: int | None) -> bool:
+        if not allowed:
+            return True
+        return uid is not None and uid in allowed
+
     async def prompt_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.effective_user is None or update.message is None or update.effective_chat is None:
             return
@@ -55,6 +66,10 @@ def make_handlers(queue: asyncio.Queue) -> dict:  # type: ignore[type-arg]
     async def choice_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
         if query is None or query.from_user is None or query.data is None or update.effective_chat is None:
+            return
+        if not _user_allowed(query.from_user.id):
+            log.info("Dropping callback from non-allowed user %s", query.from_user.id)
+            await query.answer()
             return
         await query.answer()
         # callback_data format: "choice:<correlation_id>:<choice_text>"

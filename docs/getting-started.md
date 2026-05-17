@@ -154,6 +154,7 @@ tbot serve [--backend {claude,opencode}] [--model MODEL] [--acp-binary PATH]
 | `--ws-port` | `TBOT_WS_PORT` | `[client] ws_port` | `8086` | Mod-side WebSocket port (shared with `tbot watch` / `tbot listen`). |
 | `--verbose` / `-v` | — | — | WARNING | Logging level. `-v` = INFO, `-vv` = DEBUG. |
 | — | — | `[serve] allowed_tools` | `["game.*"]` | Glob list of MCP tool names the connector auto-approves. Anything else is auto-rejected without prompting the user. |
+| — | — | `[serve.telegram] allowed_users` | `[]` *(open + warn)* | List of Telegram user IDs allowed to talk to the bot. Empty/unset means **any** Telegram user who finds the bot can `/prompt` it — `tbot serve` logs a warning at startup in that case. |
 
 `--host` / `--port` / `--auth-token` from the global `tbot` flags still apply: they configure the connection from `tbot serve` *to the running mod*, the same as for `tbot summary`.
 
@@ -170,6 +171,7 @@ allowed_tools = ["game.*"]   # only game tools auto-approved; everything else re
 
 [serve.telegram]
 token = "7912345678:AAH..."
+allowed_users = [12345678]    # your Telegram user ID (see Troubleshooting); empty/unset = open bot + WARN
 ```
 
 For opencode the model needs to be set explicitly since the default targets Claude:
@@ -370,6 +372,7 @@ allowed_tools = ["game.*"]
 
 [serve.telegram]
 token = "7912345678:AAH..."  # also: TBOT_TELEGRAM_TOKEN env, --telegram-token flag
+allowed_users = [12345678]   # Telegram user IDs allowed to talk to the bot; empty = open + WARN
 ```
 
 Per-backend keys under `[backends.*]` (`model`, `effort`, `command`, `binary`, `terminal_prefix`, `attach_url`) are fed into the `tbot agent run` argv — explicit CLI flags still win. The `[serve]` section is read only by `tbot serve` — it intentionally does *not* fall back to `[backends.*]` so the two stacks can have independent model/binary choices.
@@ -431,6 +434,14 @@ Some runtime settings are applied on load, so changing them may require reloadin
 
 !!! warning "`tbot serve` agent never starts: 'claude: command not found' in logs"
     The connector spawns the agent CLI via `acp_binary` (default: the backend name). If `claude` or `opencode` isn't on `$PATH`, pass `--acp-binary /full/path/to/binary` or set `[serve] acp_binary = "/full/path/to/binary"`.
+
+!!! warning "`tbot serve` logs 'no allowed_users configured' at startup"
+    The Telegram bot is currently open to anyone who guesses its username. Find your numeric Telegram user ID (DM `@userinfobot`, or look at any of your messages via the Telegram API), then add it to `~/.config/timberbot/config.toml`:
+    ```toml
+    [serve.telegram]
+    allowed_users = [12345678]
+    ```
+    Any user not in this list is silently dropped — they get no acknowledgement that the bot exists. Empty/unset means "open + warn" (current behaviour, kept for backwards compatibility).
 
 !!! bug "Building placement creates ghost buildings"
     Failed placements can sometimes create invisible entities. See [Known Issues](api-reference.md#known-issues) in the API reference.

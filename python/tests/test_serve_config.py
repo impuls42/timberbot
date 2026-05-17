@@ -87,3 +87,51 @@ def test_parse_acp_binary_explicit():
     from timberbot.cli.commands.serve import _parse
     ns = _parse(["--acp-binary", "/opt/bin/claude"])
     assert ns.acp_binary == "/opt/bin/claude"
+
+
+# -- allowlist config validation ------------------------------------------
+
+def _stub_serve(monkeypatch, tg_data: dict) -> None:
+    """Minimal stub so `serve_mod.run([...])` can reach the allowlist branch
+    without spinning up the actual asyncio.run(run_serve(...)) flow."""
+    monkeypatch.setattr(serve_mod, "serve_config", lambda: {})
+    monkeypatch.setattr(serve_mod, "serve_telegram_config", lambda: tg_data)
+    monkeypatch.setattr(serve_mod, "resolve_telegram_token", lambda *_: "fake-token")
+    monkeypatch.setattr(serve_mod, "resolve_endpoint", lambda: ("127.0.0.1", 8085))
+    monkeypatch.setattr(serve_mod, "resolve_auth_token", lambda: None)
+    monkeypatch.setattr(serve_mod, "resolve_ws_port", lambda *_: 8086)
+    # Stop short of actually running the orchestrator — patch asyncio.run
+    # so we exit cleanly after ServeConfig is built. Close the coroutine
+    # so pytest doesn't emit a "never awaited" RuntimeWarning.
+    def _fake_run(coro, *args, **kwargs):
+        coro.close()
+        return 0
+    monkeypatch.setattr(serve_mod.asyncio, "run", _fake_run)
+
+
+def test_run_rejects_allowed_users_not_a_list(monkeypatch, capsys):
+    _stub_serve(monkeypatch, {"allowed_users": 12345})
+    rc = serve_mod.run([])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "must be a list of integers" in err
+    assert "int" in err   # mentions the offending type
+
+
+def test_run_rejects_allowed_users_with_non_integer(monkeypatch, capsys):
+    _stub_serve(monkeypatch, {"allowed_users": [123, "alice"]})
+    rc = serve_mod.run([])
+    assert rc == 1
+    assert "must contain integers" in capsys.readouterr().err
+
+
+def test_run_accepts_empty_allowed_users(monkeypatch):
+    _stub_serve(monkeypatch, {})
+    rc = serve_mod.run([])
+    assert rc == 0
+
+
+def test_run_accepts_valid_allowed_users(monkeypatch):
+    _stub_serve(monkeypatch, {"allowed_users": [123, 456]})
+    rc = serve_mod.run([])
+    assert rc == 0
