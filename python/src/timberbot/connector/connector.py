@@ -23,7 +23,7 @@ class ACPConnector:
         await transport.start()
 
         handle = SessionHandle(transport, self._allowed_tools)
-        handle._read_task = asyncio.get_running_loop().create_task(handle.read_loop())
+        asyncio.get_running_loop().create_task(handle.read_loop())
 
         await handle.initialize()
         return handle

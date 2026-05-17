@@ -86,14 +86,11 @@ class SessionHandle:
         self.state = SessionState.HALTING
 
     async def read_loop(self) -> None:
+        self._read_task = asyncio.current_task()
         while True:
             msg = await self._transport.recv_line()
             if msg is None:
-                self.state = SessionState.ENDED
-                for fut in self._pending.values():
-                    if not fut.done():
-                        fut.cancel()
-                self._pending.clear()
+                self._finalize()
                 break
 
             if "id" in msg and "method" not in msg:
@@ -133,14 +130,20 @@ class SessionHandle:
             elif method == NOTIF_SESSION_ENDED:
                 self.state = SessionState.ENDED
 
-    async def close(self) -> None:
-        if self._read_task is not None and not self._read_task.done():
-            self._read_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._read_task
-            self._read_task = None
+    def _finalize(self) -> None:
         for fut in self._pending.values():
             if not fut.done():
                 fut.cancel()
         self._pending.clear()
         self.state = SessionState.ENDED
+
+    async def close(self) -> None:
+        if self._read_task is not None and not self._read_task.done():
+            self._read_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._read_task
+        self._read_task = None
+        self._finalize()
+        close = getattr(self._transport, "close", None)
+        if close is not None:
+            await close()
