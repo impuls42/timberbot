@@ -5,17 +5,30 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-    paths:
-      - 'timberbot/src/TimberbotPure.cs'
-      - 'timberbot/src/TimberbotJw.cs'
-      - 'timberbot/test/**'
-      - '.github/workflows/dotnet-tests.yml'
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - 'timberbot/src/TimberbotPure.cs'
+              - 'timberbot/src/TimberbotJw.cs'
+              - 'timberbot/test/**'
+              - '.github/workflows/dotnet-tests.yml'
+
   test:
     # The test csproj is structured to compile only Unity-free files
     # (TimberbotPure.cs + TimberbotJw.cs), so no Timberborn game DLLs are needed.
     # Anything testable from this workflow lives in the pure-helpers compile set.
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,3 +46,17 @@ jobs:
 
       - name: Test
         run: dotnet test timberbot/test/Timberbot.Tests.csproj --no-build --configuration Release --verbosity normal
+
+  dotnet-tests-required:
+    name: dotnet-tests-required
+    needs: [changes, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on test result
+        run: |
+          if [[ "${{ needs.test.result }}" == "failure" || "${{ needs.test.result }}" == "cancelled" ]]; then
+            echo "C# tests failed"
+            exit 1
+          fi
+          echo "OK (tests passed or skipped — no relevant changes)"

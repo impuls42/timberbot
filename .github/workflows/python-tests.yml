@@ -5,12 +5,25 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-    paths:
-      - 'python/**'
-      - '.github/workflows/python-tests.yml'
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - 'python/**'
+              - '.github/workflows/python-tests.yml'
+
   test:
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -34,3 +47,17 @@ jobs:
       - name: Test (pytest)
         working-directory: python
         run: pytest -q
+
+  python-tests-required:
+    name: python-tests-required
+    needs: [changes, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on test result
+        run: |
+          if [[ "${{ needs.test.result }}" == "failure" || "${{ needs.test.result }}" == "cancelled" ]]; then
+            echo "Python tests failed"
+            exit 1
+          fi
+          echo "OK (tests passed or skipped — no relevant changes)"
