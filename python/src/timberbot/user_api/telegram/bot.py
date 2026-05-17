@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, filters
 
 from timberbot.user_api.protocol import (
     ConnectorMessage,
@@ -21,11 +21,18 @@ log = logging.getLogger("timberbot.user_api")
 
 
 class TelegramAdapter:
-    def __init__(self, token: str) -> None:
+    def __init__(self, token: str, allowed_users: list[int] | None = None) -> None:
         self._app = Application.builder().token(token).build()
         self._queue: asyncio.Queue[UserMessage] = asyncio.Queue()
         self._buffers: dict[str, StreamBuffer] = {}  # keyed by session_id
         self._chat_ids: dict[str, int] = {}  # session_id -> chat_id
+        self._allowed_users: set[int] = set(allowed_users or [])
+        if not self._allowed_users:
+            log.warning(
+                "TelegramAdapter: no allowed_users configured — any Telegram user "
+                "who finds this bot can /prompt it. Add `[serve.telegram] "
+                "allowed_users = [<your-telegram-user-id>]` to restrict access."
+            )
 
     async def send(self, msg: ConnectorMessage) -> None:
         if isinstance(msg, TextChunk):
@@ -82,11 +89,10 @@ class TelegramAdapter:
             yield await self._queue.get()
 
     async def start(self) -> None:
-        handlers = make_handlers(self._queue)
-        self._app.add_handler(CommandHandler("prompt", handlers["prompt"]))
-        self._app.add_handler(CommandHandler("cancel", handlers["cancel"]))
-        self._app.add_handler(CommandHandler("halt", handlers["halt"]))
-        self._app.add_handler(CommandHandler("status", handlers["status"]))
+        handlers = make_handlers(self._queue, self._allowed_users)
+        cmd_filter = filters.User(user_id=list(self._allowed_users)) if self._allowed_users else None
+        for name in ("prompt", "cancel", "halt", "status"):
+            self._app.add_handler(CommandHandler(name, handlers[name], filters=cmd_filter))
         self._app.add_handler(CallbackQueryHandler(handlers["choice_callback"]))
 
         await self._app.initialize()

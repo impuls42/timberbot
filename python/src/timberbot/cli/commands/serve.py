@@ -63,6 +63,7 @@ def run(args: list[str]) -> int:
         return 1
 
     cfg_data = serve_config()
+    tg_data = serve_telegram_config()
     host, port = resolve_endpoint()
     auth_token = resolve_auth_token()
     ws_port = resolve_ws_port(ns.ws_port)
@@ -71,6 +72,16 @@ def run(args: list[str]) -> int:
     backend = ns.backend or cfg_data.get("backend", "claude")
     if backend not in ("claude", "opencode"):
         print(f"error: unknown backend {backend!r}; expected 'claude' or 'opencode'", file=sys.stderr)
+        return 1
+
+    allowed_users_raw = tg_data.get("allowed_users", [])
+    try:
+        allowed_users = [int(u) for u in allowed_users_raw] if isinstance(allowed_users_raw, list) else []
+    except (TypeError, ValueError):
+        print(
+            "error: [serve.telegram] allowed_users must be a list of integers (Telegram user IDs)",
+            file=sys.stderr,
+        )
         return 1
 
     cfg = ServeConfig(
@@ -84,6 +95,7 @@ def run(args: list[str]) -> int:
         model=ns.model or cfg_data.get("model", "claude-opus-4-7"),
         acp_binary=ns.acp_binary or cfg_data.get("acp_binary", backend),
         telegram_token=token,
+        telegram_allowed_users=allowed_users,
         allowed_tools=cfg_data.get("allowed_tools", ["game.*"]),
     )
 

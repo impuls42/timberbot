@@ -23,6 +23,7 @@ class ServeConfig:
     acp_binary: str = "claude"
     allowed_tools: list[str] = field(default_factory=lambda: ["game.*"])
     telegram_token: str = ""
+    telegram_allowed_users: list[int] = field(default_factory=list)
 
 
 async def _user_message_loop(
@@ -88,7 +89,7 @@ async def run_serve(cfg: ServeConfig) -> None:
     adapter_cls = ClaudeCodeAdapter if cfg.backend == "claude" else OpencodeAdapter
     acp = ACPConnector(adapter=adapter_cls(), allowed_tools=cfg.allowed_tools)
 
-    user_adapter = TelegramAdapter(cfg.telegram_token)
+    user_adapter = TelegramAdapter(cfg.telegram_token, allowed_users=cfg.telegram_allowed_users)
     session_mgr = SessionManager()
 
     async with asyncio.TaskGroup() as tg:
