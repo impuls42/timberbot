@@ -66,8 +66,11 @@ nav:
   - Timberbot Guide: timberbot.md
   - Features: features.md
   - Events: events.md
+  - WebSocket Protocol: websocket-protocol.md
   - Architecture: architecture.md
   - Performance: performance.md
+  - macOS Testing: macos-testing.md
   - Developing: developing.md
+  - Changelog: unreleased.md
 
 copyright: Timberbot API &mdash; Play Timberborn with an AI &middot; Modified fork of <a href="https://github.com/abix-/TimberbornMods">abix-/TimberbornMods</a>

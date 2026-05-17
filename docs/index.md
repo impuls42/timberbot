@@ -6,6 +6,8 @@
 
 **Full read/write HTTP API for controlling Timberborn with AI.**
 
+Gameplay is stable; AI integration and automation features are under active development.
+
 Timberbot gives Claude, Codex, ChatGPT, or your own scripts complete access to a running Timberborn colony over HTTP. Read game state, place buildings, manage workers, plant crops, wire automation, and keep your beavers alive.
 
 !!! info "Modified fork"

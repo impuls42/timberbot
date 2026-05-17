@@ -1,17 +1,15 @@
 """User-facing config file at `<config_dir>/config.toml`.
 
-Client-only settings (target host/port, default format) and per-backend
-defaults (model, effort, command template) live here so users can set them
-once instead of repeating them on every `tbot agent run` invocation. The
-mod's own `settings.json` stays scoped to server-side concerns (bind,
-security, perf, webhook).
+Client-only settings (target host/port) and per-backend defaults (model,
+effort, command template) live here so users can set them once instead of
+repeating them on every `tbot agent run` invocation. The mod's own
+`settings.json` stays scoped to server-side concerns (bind, security, perf).
 
 Schema::
 
     [client]
     host = "127.0.0.1"
     port = 8085
-    default_format = "toon"    # or "json"
     auth_token = "shared-secret"  # matches mod's authToken in settings.json
 
     [backends.claude]
@@ -24,6 +22,9 @@ Schema::
     # spawning a fresh process per cycle (matches the Steam Deck / phone-driven
     # workflow). Overridden by `tbot agent run --attach-url <url>`.
     attach_url = "http://127.0.0.1:4096"
+
+    [serve.telegram]
+    token = "..."  # or TBOT_TELEGRAM_TOKEN env var
 
 Missing file or parse errors are non-fatal: the loader returns an empty
 mapping and the rest of the resolution chain fills in defaults. Each load

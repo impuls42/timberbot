@@ -17,7 +17,7 @@
 | [Workers](api-reference.md#post-apiworkers) | Count, priority, pause, haul priority | Yes |
 | [Distribution](api-reference.md#get-apidistribution) | Import/export per good, beaver migration between districts | Yes |
 | [Production](api-reference.md#post-apirecipe) | Recipes, farmhouse action, forester priority | Yes |
-| [Stockpiles](api-reference.md#post-apistockpilecapacity) | Capacity and allowed goods per stockpile | Yes |
+| [Stockpiles](api-reference.md#post-apibuildingstorage) | Capacity and allowed goods per stockpile | Yes |
 | [Floodgates](api-reference.md#post-apifloodgate) | Water gate height | Yes |
 | [Work schedule](api-reference.md#post-apiworkhours) | Work end hour | Yes |
 | [Game speed](api-reference.md#post-apispeed) | Pause, normal, fast, fastest | Yes |
@@ -45,6 +45,7 @@
 | [In-game agent widget](getting-started.md#start-a-session) | Movable corner widget with `Launch`, `Stop`, mode dropdown, prompt/goal textarea, and live agent status | Yes |
 | [In-game settings](getting-started.md#settings-and-configuration-server-mod) | Primary configuration surface for runtime + security settings. All changes persist to `settings.json` | Yes |
 | [`tbot watch` agent connector](getting-started.md#start-a-session) | Long-running Python process that holds a WebSocket to the mod, reacts to `state` frames, and dispatches the agent on Launch | Yes |
+| [`tbot serve` Telegram bot](getting-started.md#talk-to-the-agent-over-telegram-tbot-serve) | Chat-driven agent mode; routes agent output back to a Telegram chat | Yes |
 | [Pagination](api-reference.md#pagination) | Server-side limit/offset on all list endpoints (default 100 items) | Yes |
 | [Filtering](api-reference.md#filtering) | Server-side name and proximity filtering on list endpoints | Yes |
 | [Error codes](api-reference.md#error-format) | Structured `"code: detail"` error format with machine-readable prefixes | Yes |
