@@ -21,6 +21,14 @@ Typical usage in tbot serve::
 """
 from timberbot.game_mcp.bus import EventBus
 from timberbot.game_mcp.ingest import EventIngestor
-from timberbot.game_mcp.server import create_mcp_server
 
 __all__ = ["EventBus", "EventIngestor", "create_mcp_server"]
+
+
+def __getattr__(name: str) -> object:
+    # Lazy-import server so importing this package doesn't require the
+    # `[serve]` extra (fastmcp). EventBus / EventIngestor work without it.
+    if name == "create_mcp_server":
+        from timberbot.game_mcp.server import create_mcp_server  # noqa: PLC0415
+        return create_mcp_server
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
