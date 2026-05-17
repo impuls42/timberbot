@@ -91,15 +91,13 @@ Total measured cost: ~0.4ms/sec (0.04% of frame budget at 60fps).
 | `StreamWriter` internal buffer | 1 per request, ~1KB | .NET runtime |
 | `$"{interpolation}"` in toon endpoints | ~5 per summary | Negligible (low issues #12-14) |
 
-### Webhooks (main thread, only with subscribers)
+### WebSocket event broadcast (main thread, per game event)
 
-No subscribers (common case): `PushEvent()` returns immediately when `_webhooks.Count == 0`. Zero allocations.
-
-With subscribers: `TimberbotJw` payload string (1 per event), field-level `_webhookSb` (reused), `sb.ToString()` per flush, `new StringContent()` on ThreadPool. 200ms batching window, circuit breaker at 30 failures.
+`TimberbotEvents` handlers call `TimberbotWebSocketServer.BroadcastEvent()`. With no connected subscribers the call returns immediately after the queue check — zero allocations. With subscribers, one `TimberbotJw` payload string is built per event and pushed to each subscriber's send channel; the channel is bounded so slow consumers are dropped rather than blocking the main thread.
 
 ### Entity lifecycle (per add/remove)
 
-Entity registration in `TimberbotEntityRegistry` + projection buffer slot allocation. Once per entity lifetime. Webhook events only with subscribers.
+Entity registration in `TimberbotEntityRegistry` + projection buffer slot allocation. Once per entity lifetime.
 
 ## Benchmarks
 

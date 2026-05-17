@@ -18,7 +18,7 @@ Beyond this file:
 
 - **Build:** Open `timberbot/src/Timberbot.csproj` in an IDE with .NET support, or run `dotnet build` from that directory. The post-build target auto-deploys to the game's mod folder. Override the game DLL path with `-p:GameManagedDir=<path>` if the default doesn't match your install.
 - **Run (game side):** Launch Timberborn with the mod enabled. The HTTP server starts on `httpPort` (default `8085`) and the WebSocket server on `wsPort` (default `8086`). Player presses **Launch** in the widget to open the ready gate.
-- **Run (client side):** `tbot watch` is the long-running connector — it opens a single WebSocket to the mod. `tbot listen` is a pure WS client for the game-event stream. `tbot <command>` and `tbot agent run` still work for one-shots. Install with `pipx install timberbot`.
+- **Run (client side):** `tbot watch` is the long-running connector — it opens a single WebSocket to the mod. `tbot serve` is the Telegram bot mode — spawns an in-process MCP server (`127.0.0.1:8091` default) and routes agent output to Telegram (requires `TBOT_TELEGRAM_TOKEN` or `[serve.telegram].token` in `config.toml`; needs `pip install 'timberbot[serve]'`). `tbot listen` is a pure WS client for the game-event stream. `tbot <command>` and `tbot agent run` still work for one-shots. Install with `pipx install timberbot`.
 - **Tests:** Python unit tests via `python -m pytest python/tests/`; C# xUnit tests via `dotnet test timberbot/test/`.
 
 ## Architecture
@@ -95,7 +95,9 @@ timberbot/
 │   │   ├── agent/               # Pluggable backends + runner
 │   │   ├── agent_prompts/       # Runtime prompts shipped as package data
 │   │   ├── formatters/          # Map, dashboard, table renderers
-│   │   └── paths.py             # Documents/mod-dir resolver (incl. Proton)
+│   │   ├── game_mcp/            # MCP server wrapping TimberbotClient as tools
+│   │   ├── user_api/            # Telegram adapter + SessionManager for tbot serve
+│   │   └── connector/           # WS connector shared by watch + serve
 │   └── tests/                   # Unit + contract + integration suites
 ├── openapi.yaml                 # Single source of truth for the HTTP contract
 ├── mkdocs.yml                   # MkDocs config for documentation site

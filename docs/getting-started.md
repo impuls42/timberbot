@@ -278,6 +278,28 @@ tbot mark_trees x1:100 y1:120 x2:110 y2:130 z:2
 
 Get building IDs from `tbot buildings`. Get prefab names from `tbot prefabs`.
 
+### Automation wiring
+
+Wire sensors to relay/buildings to pause them based on thresholds:
+
+```bash
+tbot buildings name:Relay                          # find relay IDs
+tbot link source_id:42 target_id:44 input:a        # wire sensor → relay input
+tbot configure_automation id:42 property:threshold value:50
+tbot unlink source_id:42 target_id:44              # remove a wire
+```
+
+See [API Reference](api-reference.md#post-apiautomationlink) for the full wiring API.
+
+### Colony memory
+
+`brain` combines a live colony snapshot with persistent goal/task/location state stored in `~/.local/share/timberbot/memory/<settlement>/`:
+
+```bash
+tbot brain                                         # live summary + saved goals and tasks
+tbot brain goal:"reach 50 beavers with 77 wellbeing"  # set a persistent goal
+```
+
 ### Raw HTTP
 
 You don't need Python for raw HTTP calls alone. But Python is required for the
@@ -357,7 +379,7 @@ Timberbot reads client settings from four places, in this order (first match win
 |---|---|---|
 | 1. CLI flags | `tbot --host=X --port=Y --auth-token=T` | per-invocation overrides |
 | 2. Environment | `TBOT_HOST`, `TBOT_PORT`, `TBOT_AUTH_TOKEN`, `TBOT_WS_PORT`, `TBOT_TELEGRAM_TOKEN`, `TBOT_CONFIG_DIR`, `TBOT_DATA_DIR` | per-shell overrides |
-| 3. User config | `~/.config/timberbot/config.toml` (or platform equivalent) | per-user defaults — client target, bearer token, per-backend model/effort |
+| 3. User config | `~/.config/timberbot/config.toml` (or platform equivalent) | per-user defaults — client target, bearer token, per-backend model/effort, `tbot serve` settings |
 | 4. Built-in | hard-coded | `127.0.0.1:8085`, etc. |
 
 The mod's `settings.json` is the canonical place for **server-side** settings (`httpPort`, `wsPort`, `listenAddress`, `authToken`, etc.) and is not consulted for client endpoint resolution — use `config.toml` or the env vars above for client overrides.

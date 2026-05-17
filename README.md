@@ -4,7 +4,7 @@
   <img src="timberbot/src/thumbnail.png" alt="Timberbot — a cybernetic beaver playing Timberborn at a desk">
 </p>
 
-**Status: active. mod works, still adding features**
+**Status: gameplay is stable; AI integration and automation features are under active development**
 
 > Modified fork of [abix-/TimberbornMods](https://github.com/abix-/TimberbornMods). Extends the original mod with an expanded read/write HTTP API, automation wiring endpoints, a WebSocket event/state channel, and AI-agent integrations. All credit for the original mod goes to [abix-](https://github.com/abix-).
 
@@ -45,11 +45,12 @@ tbot science                                       # science points + unlockable
 tbot distribution                                  # import/export settings per district
 tbot link source_id:42 target_id:44 input:a        # wire sensor -> building
 tbot configure_automation id:42 property:threshold value:50
+tbot brain                                         # live colony state + persistent memory
 tbot top                                           # live colony dashboard
 tbot                                               # list all commands
 ```
 
-Auto-launch a save directly:
+Auto-launch a save (Linux/Windows) or generate Steam launch args (macOS):
 
 ```bash
 tbot launch settlement:MyCastle save:day5
@@ -98,7 +99,7 @@ tbot watch --backend claude                         # long-running agent connect
 - [Timberbot AI](docs/timberbot.md). AI guide for agents playing Timberborn
 - [Architecture](docs/architecture.md). internals, thread model, read/write pipeline, WS broadcaster
 - [Automation Plan](docs/automation-plan.md). decompiled wiring API and `/api/automation/*` design
-- [Agent Prompts](python/src/timberbot/agent_prompts/). drop-in gameplay prompts (`timberbot`, `scout`, `wirer`, `auditor`). Materialize editable copies into your user config dir with `tbot init`. The development-agent prompt for working on this codebase lives separately at [`agents/beaver-developer.md`](agents/beaver-developer.md).
+- [Agent Prompts](python/src/timberbot/agent_prompts/). drop-in gameplay prompts (`timberbot`, `scout`, `wirer`, `auditor`, `connector-mode`). Materialize editable copies into your user config dir with `tbot init`. The development-agent prompt for working on this codebase lives separately at [`agents/beaver-developer.md`](agents/beaver-developer.md).
 - [Repo Guide](AGENTS.md). project layout, build commands, conventions
 - [Developing](docs/developing.md). build from source, add endpoints, cutting a GitHub release
 
