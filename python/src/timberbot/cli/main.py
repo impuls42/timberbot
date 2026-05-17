@@ -114,8 +114,8 @@ def _build_registry() -> CommandRegistry:
         name="serve",
         summary="run MCP game server + ACP agent connector + Telegram UI",
         handler=serve_cmd.run,
-        usage=("  serve [--backend NAME] [--model M] [--telegram-token T]\n"
-               "        [--mcp-port N] [--mcp-host HOST] [--ws-port N]"),
+        usage=("  serve [--backend {claude,opencode}] [--model M] [--acp-binary PATH] \\\n"
+               "        [--telegram-token T] [--mcp-host HOST] [--mcp-port N] [--ws-port N]"),
     ))
     return registry
 
