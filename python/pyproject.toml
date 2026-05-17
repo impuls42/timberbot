@@ -34,6 +34,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+serve = [
+  "fastmcp>=2.0",
+  "python-telegram-bot[asyncio]>=21.0",
+]
 dev = [
   "pytest>=8",
   "pytest-asyncio>=0.23",

@@ -98,6 +98,20 @@ def backend_defaults(backend: str, config: dict[str, Any] | None = None) -> dict
     return section if isinstance(section, dict) else {}
 
 
+def serve_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return the `[serve]` section as a plain dict. Empty if absent."""
+    data = config if config is not None else load_user_config()
+    section = data.get("serve")
+    return section if isinstance(section, dict) else {}
+
+
+def serve_telegram_config(config: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Return the `[serve.telegram]` subsection as a plain dict. Empty if absent."""
+    serve = serve_config(config)
+    section = serve.get("telegram")
+    return section if isinstance(section, dict) else {}
+
+
 def reset_warning_cache() -> None:
     """Test helper: clear the warned-paths cache so re-loads can re-warn."""
     _warned_paths.clear()
