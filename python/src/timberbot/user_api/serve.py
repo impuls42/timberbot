@@ -4,7 +4,12 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 
-from timberbot.user_api.protocol import UserAdapter
+from timberbot.user_api.protocol import (
+    GameElicitation,
+    SessionStateChange,
+    TextChunk,
+    UserAdapter,
+)
 from timberbot.user_api.session_manager import SessionManager
 
 log = logging.getLogger("timberbot.user_api")
@@ -26,6 +31,24 @@ class ServeConfig:
     telegram_allowed_users: list[int] = field(default_factory=list)
 
 
+def _bind_callbacks(handle: object, user_adapter: UserAdapter) -> None:
+    """Forward `session/update` and `game/elicitation` notifications to the user adapter."""
+
+    async def _on_update(sid: str, chunk: str) -> None:
+        await user_adapter.send(TextChunk(session_id=sid, text=chunk))
+
+    async def _on_elicitation(sid: str, params: dict) -> None:
+        await user_adapter.send(GameElicitation(
+            session_id=sid,
+            question=str(params.get("question", "")),
+            choices=list(params.get("choices", [])),
+            correlation_id=str(params.get("correlationId", "")),
+        ))
+
+    handle.on_update = _on_update           # type: ignore[attr-defined]
+    handle.on_elicitation = _on_elicitation  # type: ignore[attr-defined]
+
+
 async def _user_message_loop(
     user_adapter: UserAdapter,
     session_mgr: SessionManager,
@@ -38,9 +61,46 @@ async def _user_message_loop(
 
     async for msg in user_adapter.messages():
         user_id = msg.user_id
-        session = session_mgr.get_or_create(user_id)
-        log.debug("User %s: %r", user_id, msg.text)
+        text = msg.text
+        log.debug("User %s: %r", user_id, text)
+
         try:
+            # Control commands — route to ACP session lifecycle, not prompt
+            if text in ("/cancel", "/halt"):
+                if user_id in _handles:
+                    handle = _handles[user_id]
+                    await handle.cancel(_acp_sessions[user_id])  # type: ignore[union-attr]
+                    await user_adapter.send(SessionStateChange(
+                        session_id=_acp_sessions[user_id],
+                        state="halting",
+                        detail=f"acked {text}",
+                    ))
+                continue
+
+            if text == "/status":
+                if user_id in _handles:
+                    handle = _handles[user_id]
+                    state = getattr(handle, "state", "unknown")
+                    await user_adapter.send(SessionStateChange(
+                        session_id=_acp_sessions.get(user_id, ""),
+                        state=str(getattr(state, "value", state)),
+                    ))
+                else:
+                    await user_adapter.send(SessionStateChange(
+                        session_id="",
+                        state="no session",
+                        detail=f"no agent connected yet for user {user_id}",
+                    ))
+                continue
+
+            # Elicitation answer — rewrite to a prompt the agent can read on its next turn
+            if text.startswith("choice:"):
+                parts = text.split(":", 2)
+                if len(parts) == 3:
+                    text = f"User selected: {parts[2]} (correlationId={parts[1]})"
+
+            # First contact: bring up an ACP session and wire callbacks
+            session = session_mgr.get_or_create(user_id)
             if user_id not in _handles:
                 handle = await acp.connect(  # type: ignore[union-attr]
                     binary=cfg.acp_binary, model=cfg.model,
@@ -49,13 +109,18 @@ async def _user_message_loop(
                     cwd=".",
                     mcp_servers=[{"name": "game", "url": f"http://{cfg.mcp_host}:{cfg.mcp_port}/sse"}],
                 )
+                _bind_callbacks(handle, user_adapter)
                 _handles[user_id] = handle
                 _acp_sessions[user_id] = acp_session_id
                 if register is not None and msg.chat_id is not None:
                     register(session.session_id, msg.chat_id)
                     register(acp_session_id, msg.chat_id)
+                await user_adapter.send(SessionStateChange(
+                    session_id=acp_session_id, state="active",
+                ))
+
             handle = _handles[user_id]
-            await handle.prompt(_acp_sessions[user_id], msg.text)  # type: ignore[union-attr]
+            await handle.prompt(_acp_sessions[user_id], text)  # type: ignore[union-attr]
         except Exception:
             log.exception("Error dispatching message for user %s", user_id)
 

@@ -135,6 +135,28 @@ What it starts (one process, three concurrent tasks via `asyncio.TaskGroup`):
 3. Start a chat with your bot (find it by the username you chose, send `/start`).
 4. Run `tbot serve`. From Telegram, send `/prompt build a plank chain near the river`.
 
+### What you can do from Telegram
+
+The bot accepts these inbound surfaces:
+
+| Telegram input | What happens |
+|---|---|
+| `/prompt <text>` | First time: spawns the agent subprocess, starts an ACP session pointed at the game MCP server, and forwards `<text>` as the initial prompt. Subsequent times: forwarded as a follow-up turn on the same session. |
+| `/cancel` | Sends `session/cancel` to the agent. The connector transitions to the `HALTING` state and acks with a status message. |
+| `/halt` | Same as `/cancel` for now — both are wired to the ACP cancel path. |
+| `/status` | Replies with the current ACP session state (`active`, `halting`, `ended`, or `no session`). |
+| *Tap an inline-keyboard button* | Sent when the game has asked the agent a `game/elicitation` choice — your tap is forwarded back to the agent as `User selected: <choice>` on its next turn. |
+
+What you'll see come back:
+
+| Source | Telegram rendering |
+|---|---|
+| Agent reasoning + tool-call narration (`session/update` notifications, streaming) | A single Telegram message that gets edited in place as the agent talks — flush throttled to 500 chars or 500 ms so Telegram doesn't rate-limit. |
+| Game elicitation (`game/elicitation`) — the game has asked a player-only question | A new message with an inline keyboard, one button per choice. |
+| Session lifecycle (`active`, `halting`, `ended`) | A short plain-text status line. |
+
+Tool permission requests for MCP tools never reach Telegram — they are auto-approved against `[serve] allowed_tools` (default `["game.*"]`) or auto-rejected, so the player only sees game-relevant prompts.
+
 ### `tbot serve` flags
 
 ```text
