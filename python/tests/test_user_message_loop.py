@@ -197,3 +197,72 @@ async def test_second_message_reuses_handle(cfg: ServeConfig) -> None:
 
     acp.connect.assert_awaited_once()
     assert handle.prompts == [("acp-sess-1", "first"), ("acp-sess-1", "second")]
+
+
+async def test_prompt_after_cancel_reconnects(cfg: ServeConfig) -> None:
+    """After /cancel, the next /prompt must reconnect, not reuse the cancelled handle."""
+    adapter = _FakeAdapter([
+        UserMessage(user_id="u1", text="first", chat_id=42),
+        UserMessage(user_id="u1", text="/cancel", chat_id=42),
+        UserMessage(user_id="u1", text="second", chat_id=42),
+    ])
+    handle1 = _FakeHandle()
+    handle2 = _FakeHandle()
+    acp = MagicMock()
+    acp.connect = AsyncMock(side_effect=[handle1, handle2])
+
+    await _user_message_loop(adapter, SessionManager(), acp, cfg)
+
+    assert acp.connect.await_count == 2, "should reconnect after /cancel"
+    assert handle1.prompts == [("acp-sess-1", "first")]
+    assert handle1.cancelled == ["acp-sess-1"]
+    assert handle2.prompts == [("acp-sess-1", "second")]
+
+
+async def test_status_after_cancel_says_no_session(cfg: ServeConfig) -> None:
+    """After /cancel the handle is evicted, so /status sees no session."""
+    adapter = _FakeAdapter([
+        UserMessage(user_id="u1", text="first", chat_id=42),
+        UserMessage(user_id="u1", text="/cancel", chat_id=42),
+        UserMessage(user_id="u1", text="/status", chat_id=42),
+    ])
+    acp = _FakeACP()
+
+    await _user_message_loop(adapter, SessionManager(), acp, cfg)
+
+    states = [m for m in adapter.sent if isinstance(m, SessionStateChange)]
+    # active (connect) → halting (cancel ack) → no session (status)
+    assert states[-1].state == "no session"
+
+
+async def test_stale_ended_handle_is_evicted(cfg: ServeConfig) -> None:
+    """If the handle's state is ENDED (e.g. agent process died), the next prompt reconnects."""
+    adapter = _FakeAdapter([
+        UserMessage(user_id="u1", text="first", chat_id=42),
+        UserMessage(user_id="u1", text="second", chat_id=42),
+    ])
+    handle1 = _FakeHandle()
+    handle1.state = "ended"  # simulate agent dying after the first prompt completed
+    handle2 = _FakeHandle()
+    acp = MagicMock()
+    acp.connect = AsyncMock(side_effect=[handle1, handle2])
+
+    await _user_message_loop(adapter, SessionManager(), acp, cfg)
+
+    assert acp.connect.await_count == 2, "ended handle must be evicted on next prompt"
+    assert handle2.prompts == [("acp-sess-1", "second")]
+
+
+async def test_prompt_error_emits_error_state_to_user(cfg: ServeConfig) -> None:
+    """If handle.prompt() raises, the user gets a SessionStateChange(state='error')."""
+    adapter = _FakeAdapter([UserMessage(user_id="u1", text="hi", chat_id=42)])
+    handle = _FakeHandle()
+    handle.prompt = AsyncMock(side_effect=RuntimeError("agent crashed"))  # type: ignore[method-assign]
+    acp = MagicMock()
+    acp.connect = AsyncMock(return_value=handle)
+
+    await _user_message_loop(adapter, SessionManager(), acp, cfg)
+
+    errors = [m for m in adapter.sent if isinstance(m, SessionStateChange) and m.state == "error"]
+    assert errors, "user must be told when the agent fails"
+    assert "agent crashed" in (errors[0].detail or "")

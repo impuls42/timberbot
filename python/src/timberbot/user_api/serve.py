@@ -49,6 +49,11 @@ def _bind_callbacks(handle: object, user_adapter: UserAdapter) -> None:
     handle.on_elicitation = _on_elicitation  # type: ignore[attr-defined]
 
 
+def _handle_state(handle: object) -> str:
+    s = getattr(handle, "state", None)
+    return str(getattr(s, "value", s)) if s is not None else "unknown"
+
+
 async def _user_message_loop(
     user_adapter: UserAdapter,
     session_mgr: SessionManager,
@@ -68,10 +73,14 @@ async def _user_message_loop(
             # Control commands — route to ACP session lifecycle, not prompt
             if text in ("/cancel", "/halt"):
                 if user_id in _handles:
-                    handle = _handles[user_id]
-                    await handle.cancel(_acp_sessions[user_id])  # type: ignore[union-attr]
+                    handle = _handles.pop(user_id)
+                    acp_sid = _acp_sessions.pop(user_id)
+                    try:
+                        await handle.cancel(acp_sid)  # type: ignore[union-attr]
+                    except Exception:
+                        log.exception("Error sending cancel for user %s", user_id)
                     await user_adapter.send(SessionStateChange(
-                        session_id=_acp_sessions[user_id],
+                        session_id=acp_sid,
                         state="halting",
                         detail=f"acked {text}",
                     ))
@@ -79,11 +88,9 @@ async def _user_message_loop(
 
             if text == "/status":
                 if user_id in _handles:
-                    handle = _handles[user_id]
-                    state = getattr(handle, "state", "unknown")
                     await user_adapter.send(SessionStateChange(
-                        session_id=_acp_sessions.get(user_id, ""),
-                        state=str(getattr(state, "value", state)),
+                        session_id=_acp_sessions[user_id],
+                        state=_handle_state(_handles[user_id]),
                     ))
                 else:
                     await user_adapter.send(SessionStateChange(
@@ -99,8 +106,14 @@ async def _user_message_loop(
                 if len(parts) == 3:
                     text = f"User selected: {parts[2]} (correlationId={parts[1]})"
 
-            # First contact: bring up an ACP session and wire callbacks
-            session = session_mgr.get_or_create(user_id)
+            # Evict stale handles (the agent process died, or a previous /cancel left ENDED state)
+            if user_id in _handles and _handle_state(_handles[user_id]) in ("halting", "ended"):
+                log.info("Evicting stale handle for user %s", user_id)
+                _handles.pop(user_id, None)
+                _acp_sessions.pop(user_id, None)
+
+            # First contact (or reconnect after eviction): bring up an ACP session
+            session_mgr.get_or_create(user_id)
             if user_id not in _handles:
                 handle = await acp.connect(  # type: ignore[union-attr]
                     binary=cfg.acp_binary, model=cfg.model,
@@ -113,7 +126,6 @@ async def _user_message_loop(
                 _handles[user_id] = handle
                 _acp_sessions[user_id] = acp_session_id
                 if register is not None and msg.chat_id is not None:
-                    register(session.session_id, msg.chat_id)
                     register(acp_session_id, msg.chat_id)
                 await user_adapter.send(SessionStateChange(
                     session_id=acp_session_id, state="active",
@@ -121,8 +133,16 @@ async def _user_message_loop(
 
             handle = _handles[user_id]
             await handle.prompt(_acp_sessions[user_id], text)  # type: ignore[union-attr]
-        except Exception:
+        except Exception as exc:
             log.exception("Error dispatching message for user %s", user_id)
+            try:
+                await user_adapter.send(SessionStateChange(
+                    session_id=_acp_sessions.get(user_id, ""),
+                    state="error",
+                    detail=str(exc),
+                ))
+            except Exception:
+                log.exception("Also failed to inform user %s about the error", user_id)
 
 
 async def run_serve(cfg: ServeConfig) -> None:
