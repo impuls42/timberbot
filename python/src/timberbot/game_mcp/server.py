@@ -81,7 +81,7 @@ def create_mcp_server(client: TimberbotClient, bus: EventBus) -> fastmcp.FastMCP
         ),
     )
 
-    loop_getter = asyncio.get_event_loop
+    loop_getter = asyncio.get_running_loop
 
     # ------------------------------------------------------------------
     # Observation tool (no game-side effect)
