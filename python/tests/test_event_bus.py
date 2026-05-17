@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import time
 
-import pytest
-
 from timberbot.game_mcp.bus import EventBus, classify_severity
 from timberbot.game_mcp.models import GameEvent, Severity
 

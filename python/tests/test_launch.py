@@ -6,8 +6,6 @@ URL-encoded fallback path when only `xdg-open` is available.
 """
 from __future__ import annotations
 
-import sys
-
 import pytest
 
 from timberbot.cli.commands import launch
