@@ -74,6 +74,7 @@ testpaths = ["tests"]
 # (requires a live Timberborn + Timberbot mod listening on localhost:8085).
 addopts = "-ra --strict-markers -m 'not integration'"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
   "integration: hits a live Timberbot mod; skipped without --tbot-host or a local game.",
   "live_game: alias kept for clarity (every integration test is also live_game).",
