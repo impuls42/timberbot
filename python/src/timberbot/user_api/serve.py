@@ -4,6 +4,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 
+from timberbot.user_api.protocol import UserAdapter
 from timberbot.user_api.session_manager import SessionManager
 
 log = logging.getLogger("timberbot.user_api")
@@ -25,33 +26,33 @@ class ServeConfig:
 
 
 async def _user_message_loop(
-    user_adapter: object,
+    user_adapter: UserAdapter,
     session_mgr: SessionManager,
     acp: object,
     cfg: ServeConfig,
 ) -> None:
     _handles: dict[str, object] = {}       # user_id -> SessionHandle
     _acp_sessions: dict[str, str] = {}     # user_id -> ACP session_id
+    register = getattr(user_adapter, "register_chat", None)
 
-    async for msg in user_adapter.messages():  # type: ignore[union-attr]
+    async for msg in user_adapter.messages():
         user_id = msg.user_id
         session = session_mgr.get_or_create(user_id)
         log.debug("User %s: %r", user_id, msg.text)
-        if msg.chat_id is not None and hasattr(user_adapter, "register_chat"):
-            user_adapter.register_chat(session.session_id, msg.chat_id)  # type: ignore[union-attr]
         try:
             if user_id not in _handles:
                 handle = await acp.connect(  # type: ignore[union-attr]
                     binary=cfg.acp_binary, model=cfg.model,
                 )
-                acp_session_id = await handle.new_session(  # type: ignore[union-attr]
+                acp_session_id = await handle.new_session(
                     cwd=".",
                     mcp_servers=[{"name": "game", "url": f"http://{cfg.mcp_host}:{cfg.mcp_port}/sse"}],
                 )
                 _handles[user_id] = handle
                 _acp_sessions[user_id] = acp_session_id
-                if hasattr(user_adapter, "register_chat") and msg.chat_id is not None:
-                    user_adapter.register_chat(acp_session_id, msg.chat_id)  # type: ignore[union-attr]
+                if register is not None and msg.chat_id is not None:
+                    register(session.session_id, msg.chat_id)
+                    register(acp_session_id, msg.chat_id)
             handle = _handles[user_id]
             await handle.prompt(_acp_sessions[user_id], msg.text)  # type: ignore[union-attr]
         except Exception:

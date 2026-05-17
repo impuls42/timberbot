@@ -54,7 +54,7 @@ def make_handlers(queue: asyncio.Queue) -> dict:  # type: ignore[type-arg]
 
     async def choice_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
-        if query is None or query.from_user is None or query.data is None:
+        if query is None or query.from_user is None or query.data is None or update.effective_chat is None:
             return
         await query.answer()
         # callback_data format: "choice:<correlation_id>:<choice_text>"
@@ -63,11 +63,10 @@ def make_handlers(queue: asyncio.Queue) -> dict:  # type: ignore[type-arg]
             log.warning("Unexpected callback_data format: %s", query.data)
             return
         _, correlation_id, choice = parts
-        chat_id = update.effective_chat.id if update.effective_chat is not None else None
         await queue.put(UserMessage(
             user_id=str(query.from_user.id),
             text=f"choice:{correlation_id}:{choice}",
-            chat_id=chat_id,
+            chat_id=update.effective_chat.id,
         ))
 
     return {
