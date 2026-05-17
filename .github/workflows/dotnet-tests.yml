@@ -2,9 +2,9 @@ name: C# tests
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
     paths:
       - 'timberbot/src/TimberbotPure.cs'
       - 'timberbot/src/TimberbotJw.cs'

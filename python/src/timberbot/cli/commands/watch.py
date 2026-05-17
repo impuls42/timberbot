@@ -33,7 +33,7 @@ The WS client is `timberbot.api.wsclient.TimberbotWsClient` (lands in
 Unit 2 / sub-issue #29). Until that module is importable, `_default_ws_client`
 falls back to a thin local wrapper around `aiohttp.ClientSession.ws_connect()`
 that implements the same minimal protocol — `connect / send_message /
-messages / close`. Once #29 merges to master, the fallback is dead code and
+messages / close`. Once #29 merges to main, the fallback is dead code and
 the import can be tightened.
 
 All time-dependent behavior goes through `time_source` / `asyncio.sleep` /

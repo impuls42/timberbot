@@ -23,7 +23,7 @@ NEVER switch to GitHub docs without user approval.
 
 1. Check `docs/timberbot.md` in the current working directory.
 2. Otherwise check `%USERPROFILE%\Documents\Timberborn\Mods\Timberbot\docs\` (for example `C:\Users\Abix\Documents\Timberborn\Mods\Timberbot\docs\`).
-3. If neither exists, ask the user if it is okay to use the GitHub docs at `https://github.com/abix-/TimberbornMods/tree/master/docs`.
+3. If neither exists, ask the user if it is okay to use the GitHub docs at `https://github.com/abix-/TimberbornMods/tree/main/docs`.
 
 ALWAYS use `tbot` directly.
 NEVER infer repo paths from Workshop paths or Workshop paths from repo paths.

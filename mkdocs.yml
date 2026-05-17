@@ -3,7 +3,7 @@ site_description: Full read/write HTTP API for controlling Timberborn with AI (m
 site_url: https://impuls42.github.io/timberbot/
 repo_url: https://github.com/impuls42/timberbot
 repo_name: impuls42/timberbot
-edit_uri: edit/master/docs/
+edit_uri: edit/main/docs/
 
 theme:
   name: material
