@@ -13,7 +13,7 @@ log = logging.getLogger("timberbot.user_api")
 
 def make_handlers(queue: asyncio.Queue) -> dict:  # type: ignore[type-arg]
     async def prompt_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.effective_user is None or update.message is None:
+        if update.effective_user is None or update.message is None or update.effective_chat is None:
             return
         text = " ".join(context.args or [])  # type: ignore[arg-type]
         if not text:
@@ -22,30 +22,34 @@ def make_handlers(queue: asyncio.Queue) -> dict:  # type: ignore[type-arg]
         await queue.put(UserMessage(
             user_id=str(update.effective_user.id),
             text=text,
+            chat_id=update.effective_chat.id,
         ))
 
     async def cancel_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.effective_user is None or update.message is None:
+        if update.effective_user is None or update.message is None or update.effective_chat is None:
             return
         await queue.put(UserMessage(
             user_id=str(update.effective_user.id),
             text="/cancel",
+            chat_id=update.effective_chat.id,
         ))
 
     async def halt_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.effective_user is None or update.message is None:
+        if update.effective_user is None or update.message is None or update.effective_chat is None:
             return
         await queue.put(UserMessage(
             user_id=str(update.effective_user.id),
             text="/halt",
+            chat_id=update.effective_chat.id,
         ))
 
     async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.effective_user is None or update.message is None:
+        if update.effective_user is None or update.message is None or update.effective_chat is None:
             return
         await queue.put(UserMessage(
             user_id=str(update.effective_user.id),
             text="/status",
+            chat_id=update.effective_chat.id,
         ))
 
     async def choice_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -59,9 +63,11 @@ def make_handlers(queue: asyncio.Queue) -> dict:  # type: ignore[type-arg]
             log.warning("Unexpected callback_data format: %s", query.data)
             return
         _, correlation_id, choice = parts
+        chat_id = update.effective_chat.id if update.effective_chat is not None else None
         await queue.put(UserMessage(
             user_id=str(query.from_user.id),
             text=f"choice:{correlation_id}:{choice}",
+            chat_id=chat_id,
         ))
 
     return {

@@ -33,6 +33,7 @@ ConnectorMessage = TextChunk | SessionStateChange | GameElicitation
 class UserMessage:
     user_id: str
     text: str
+    chat_id: int | None = None  # opaque adapter-specific delivery handle
     session_id: str | None = None  # None = let session manager create one
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
+
 from timberbot.user_api.session_manager import SessionManager
 
 log = logging.getLogger("timberbot.user_api")
@@ -34,8 +35,10 @@ async def _user_message_loop(
 
     async for msg in user_adapter.messages():  # type: ignore[union-attr]
         user_id = msg.user_id
-        session_mgr.get_or_create(user_id)
+        session = session_mgr.get_or_create(user_id)
         log.debug("User %s: %r", user_id, msg.text)
+        if msg.chat_id is not None and hasattr(user_adapter, "register_chat"):
+            user_adapter.register_chat(session.session_id, msg.chat_id)  # type: ignore[union-attr]
         try:
             if user_id not in _handles:
                 handle = await acp.connect(  # type: ignore[union-attr]
@@ -47,6 +50,8 @@ async def _user_message_loop(
                 )
                 _handles[user_id] = handle
                 _acp_sessions[user_id] = acp_session_id
+                if hasattr(user_adapter, "register_chat") and msg.chat_id is not None:
+                    user_adapter.register_chat(acp_session_id, msg.chat_id)  # type: ignore[union-attr]
             handle = _handles[user_id]
             await handle.prompt(_acp_sessions[user_id], msg.text)  # type: ignore[union-attr]
         except Exception:
@@ -54,13 +59,19 @@ async def _user_message_loop(
 
 
 async def run_serve(cfg: ServeConfig) -> None:
-    # Deferred imports — requires [serve] extra installed
+    if not cfg.telegram_token:
+        raise ValueError(
+            "ServeConfig.telegram_token is empty; set [serve.telegram].token in "
+            "config.toml, $TBOT_TELEGRAM_TOKEN, or pass --telegram-token."
+        )
+
+    from timberbot.api.client import TimberbotClient  # noqa: PLC0415
+    from timberbot.api.wsclient import TimberbotWsClient  # noqa: PLC0415
     from timberbot.connector import ACPConnector  # noqa: PLC0415
     from timberbot.connector.adapters.claude_code import ClaudeCodeAdapter  # noqa: PLC0415
     from timberbot.connector.adapters.opencode import OpencodeAdapter  # noqa: PLC0415
     from timberbot.game_mcp import EventBus, EventIngestor, create_mcp_server  # noqa: PLC0415
-    from timberbot.api.client import TimberbotClient  # noqa: PLC0415
-    from timberbot.api.wsclient import TimberbotWsClient  # noqa: PLC0415
+    from timberbot.user_api.telegram.bot import TelegramAdapter  # noqa: PLC0415
 
     client = TimberbotClient(
         host=cfg.host,
@@ -76,7 +87,6 @@ async def run_serve(cfg: ServeConfig) -> None:
     adapter_cls = ClaudeCodeAdapter if cfg.backend == "claude" else OpencodeAdapter
     acp = ACPConnector(adapter=adapter_cls(), allowed_tools=cfg.allowed_tools)
 
-    from timberbot.user_api.telegram.bot import TelegramAdapter  # noqa: PLC0415
     user_adapter = TelegramAdapter(cfg.telegram_token)
     session_mgr = SessionManager()
 
