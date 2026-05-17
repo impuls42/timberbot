@@ -170,7 +170,8 @@ async def run_serve(cfg: ServeConfig) -> None:
     from timberbot.connector import ACPConnector  # noqa: PLC0415
     from timberbot.connector.adapters.claude_code import ClaudeCodeAdapter  # noqa: PLC0415
     from timberbot.connector.adapters.opencode import OpencodeAdapter  # noqa: PLC0415
-    from timberbot.game_mcp import EventBus, EventIngestor, create_mcp_server  # noqa: PLC0415
+    from timberbot.game_mcp import EventBus, EventIngestor  # noqa: PLC0415
+    from timberbot.game_mcp.server import create_mcp_server  # noqa: PLC0415
     from timberbot.user_api.telegram.bot import TelegramAdapter  # noqa: PLC0415
 
     client = TimberbotClient(
