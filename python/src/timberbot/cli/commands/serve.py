@@ -74,15 +74,27 @@ def run(args: list[str]) -> int:
         print(f"error: unknown backend {backend!r}; expected 'claude' or 'opencode'", file=sys.stderr)
         return 1
 
-    allowed_users_raw = tg_data.get("allowed_users", [])
-    try:
-        allowed_users = [int(u) for u in allowed_users_raw] if isinstance(allowed_users_raw, list) else []
-    except (TypeError, ValueError):
-        print(
-            "error: [serve.telegram] allowed_users must be a list of integers (Telegram user IDs)",
-            file=sys.stderr,
-        )
-        return 1
+    if "allowed_users" in tg_data:
+        raw = tg_data["allowed_users"]
+        if not isinstance(raw, list):
+            print(
+                "error: [serve.telegram] allowed_users must be a list of integers "
+                "(Telegram user IDs); got "
+                f"{type(raw).__name__}. Refusing to start with a misconfigured allowlist.",
+                file=sys.stderr,
+            )
+            return 1
+        try:
+            allowed_users = [int(u) for u in raw]
+        except (TypeError, ValueError):
+            print(
+                "error: [serve.telegram] allowed_users must contain integers "
+                "(Telegram user IDs). Refusing to start with a misconfigured allowlist.",
+                file=sys.stderr,
+            )
+            return 1
+    else:
+        allowed_users = []
 
     cfg = ServeConfig(
         host=host,

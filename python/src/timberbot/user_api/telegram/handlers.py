@@ -15,7 +15,8 @@ def make_handlers(
     queue: asyncio.Queue,  # type: ignore[type-arg]
     allowed_users: set[int] | None = None,
 ) -> dict:  # type: ignore[type-arg]
-    allowed = allowed_users or set()
+    # None and empty-set both mean "open" per the [serve.telegram] allowed_users spec.
+    allowed: set[int] = allowed_users if allowed_users is not None else set()
 
     def _user_allowed(uid: int | None) -> bool:
         if not allowed:
