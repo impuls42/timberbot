@@ -5,7 +5,7 @@ import pytest
 
 import timberbot.cli.commands.serve as serve_mod
 from timberbot.cli.commands.serve import resolve_telegram_token
-from timberbot.user_config import serve_config, serve_telegram_config, reset_warning_cache
+from timberbot.user_config import reset_warning_cache, serve_config, serve_telegram_config
 
 
 @pytest.fixture(autouse=True)
@@ -57,3 +57,33 @@ def test_resolve_telegram_token_missing_exits(monkeypatch):
     monkeypatch.setattr(serve_mod, "serve_telegram_config", lambda: {})
     with pytest.raises(SystemExit):
         resolve_telegram_token(None)
+
+
+def test_parse_defaults_to_none():
+    from timberbot.cli.commands.serve import _parse
+    ns = _parse([])
+    assert ns.backend is None
+    assert ns.model is None
+    assert ns.acp_binary is None
+    assert ns.telegram_token is None
+    assert ns.mcp_port is None
+    assert ns.mcp_host is None
+    assert ns.ws_port is None
+
+
+def test_parse_rejects_unknown_backend():
+    from timberbot.cli.commands.serve import _parse
+    with pytest.raises(SystemExit):
+        _parse(["--backend", "gpt-4"])
+
+
+def test_parse_accepts_known_backends():
+    from timberbot.cli.commands.serve import _parse
+    assert _parse(["--backend", "claude"]).backend == "claude"
+    assert _parse(["--backend", "opencode"]).backend == "opencode"
+
+
+def test_parse_acp_binary_explicit():
+    from timberbot.cli.commands.serve import _parse
+    ns = _parse(["--acp-binary", "/opt/bin/claude"])
+    assert ns.acp_binary == "/opt/bin/claude"
