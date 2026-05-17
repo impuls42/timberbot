@@ -579,6 +579,7 @@ namespace Timberbot
                     var sock = Socket;
                     var label = reason ?? "closed";
                     var tcp = _tcp;
+                    var signal = _signal;
                     Task.Run(async () =>
                     {
                         try
@@ -592,6 +593,7 @@ namespace Timberbot
                         {
                             try { sock.Dispose(); } catch { }
                             try { tcp?.Close(); } catch { }
+                            try { signal.Dispose(); } catch { }
                         }
                     });
                 }
@@ -599,6 +601,7 @@ namespace Timberbot
                 {
                     try { Socket.Dispose(); } catch { }
                     try { _tcp?.Close(); } catch { }
+                    try { _signal.Dispose(); } catch { }
                 }
             }
         }

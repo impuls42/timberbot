@@ -7,18 +7,18 @@ from unittest.mock import MagicMock
 
 import pytest
 
-pytest.importorskip("fastmcp", reason="fastmcp extra not installed (pip install timberbot[serve])")
+pytest.importorskip("fastmcp", reason="fastmcp (serve extra) not installed")
 
-from timberbot.api.client import TimberbotClient  # noqa: E402
-from timberbot.api.models._generated import (  # noqa: E402
+from timberbot.api.client import TimberbotClient
+from timberbot.api.models._generated import (
     BuildingList,
     Summary,
     Time,
     Weather,
 )
-from timberbot.game_mcp.bus import EventBus  # noqa: E402
-from timberbot.game_mcp.models import GameEvent, Severity  # noqa: E402
-from timberbot.game_mcp.server import create_mcp_server  # noqa: E402
+from timberbot.game_mcp.bus import EventBus
+from timberbot.game_mcp.models import GameEvent, Severity
+from timberbot.game_mcp.server import create_mcp_server
 
 
 @pytest.fixture

@@ -69,6 +69,10 @@ def run(args: list[str]) -> int:
     ws_port = resolve_ws_port(ns.ws_port)
     token = resolve_telegram_token(ns.telegram_token)
 
+    if ns.acp_binary is not None and ns.acp_binary == "":
+        print("error: --acp-binary must not be empty", file=sys.stderr)
+        return 1
+
     backend = ns.backend or cfg_data.get("backend", "claude")
     if backend not in ("claude", "opencode"):
         print(f"error: unknown backend {backend!r}; expected 'claude' or 'opencode'", file=sys.stderr)

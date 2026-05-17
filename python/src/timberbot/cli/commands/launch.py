@@ -199,7 +199,6 @@ def run(args: list[str]) -> int:
 
     extra_args = _build_extra_args(settlement, save_name)
     label = f"{settlement} / {save_name}" if save_name else f"{settlement} (most recent save)"
-    print(f"  {BOLD}launching{RST} {label}")
 
     if platform.system() == "Darwin":
         opts = " ".join(extra_args)
@@ -208,6 +207,7 @@ def run(args: list[str]) -> int:
         print(f"  {DIM}or run: open -a Steam --args -applaunch {TIMBERBORN_APPID} {opts}{RST}")
         return 0
 
+    print(f"  {BOLD}launching{RST} {label}")
     if sys.platform == "win32":
         started = _windows_kill_and_launch(extra_args)
     else:

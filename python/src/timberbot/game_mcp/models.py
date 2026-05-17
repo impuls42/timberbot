@@ -29,7 +29,7 @@ Advisory = Literal["normal", "attention", "urgent", "halt"]
 
 class GameEvent(BaseModel):
     """A single game event as seen by the agent."""
-    seq: int = Field(..., description="Monotonically increasing sequence number.")
+    seq: int = Field(default=0, description="Monotonically increasing sequence number. Assigned by EventBus.push().")
     type: str = Field(..., description="Namespaced event type, e.g. 'drought.start'.")
     day: int
     timestamp: int = Field(..., description="Unix epoch seconds.")

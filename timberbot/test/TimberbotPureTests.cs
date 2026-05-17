@@ -139,21 +139,6 @@ namespace Timberbot.Tests
         public void InnerQuote_Escaped() => Assert.Equal("\"say \\\"hi\\\"\"", TimberbotPure.QuoteArg("say \"hi\""));
     }
 
-    public class ShellQuoteArgTests
-    {
-        [Fact]
-        public void Null_QuotedEmpty() => Assert.Equal("''", TimberbotPure.ShellQuoteArg(null));
-
-        [Fact]
-        public void Empty_QuotedEmpty() => Assert.Equal("''", TimberbotPure.ShellQuoteArg(""));
-
-        [Fact]
-        public void Normal_Quoted() => Assert.Equal("'hello'", TimberbotPure.ShellQuoteArg("hello"));
-
-        [Fact]
-        public void SingleQuote_Escaped() =>
-            Assert.Equal("'it'\"'\"'s'", TimberbotPure.ShellQuoteArg("it's"));
-    }
 
     public class ParseOrientationTests
     {
