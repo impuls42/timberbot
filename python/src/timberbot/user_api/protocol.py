@@ -14,7 +14,8 @@ class TextChunk:
 @dataclass
 class SessionStateChange:
     session_id: str
-    state: str  # "active" | "halting" | "ended"
+    # active | halting | ended | no session | error
+    state: str
     detail: str | None = None
 
 
