@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import fnmatch
 import logging
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from enum import Enum
-from typing import Callable
 
 from timberbot.connector.protocol import (
     ACP_VERSION,
@@ -45,6 +45,7 @@ class SessionHandle:
         self.session_id: str | None = None
         self.on_update: Callable[[str, str], Awaitable[None]] | None = None
         self.on_elicitation: Callable[[str, dict], Awaitable[None]] | None = None
+        self._read_task: asyncio.Task | None = None
 
     def _alloc_id(self) -> int:
         self._next_id += 1
@@ -131,3 +132,15 @@ class SessionHandle:
 
             elif method == NOTIF_SESSION_ENDED:
                 self.state = SessionState.ENDED
+
+    async def close(self) -> None:
+        if self._read_task is not None and not self._read_task.done():
+            self._read_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._read_task
+            self._read_task = None
+        for fut in self._pending.values():
+            if not fut.done():
+                fut.cancel()
+        self._pending.clear()
+        self.state = SessionState.ENDED

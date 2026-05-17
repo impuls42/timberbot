@@ -233,3 +233,23 @@ async def test_cancel_transitions_to_halting():
         await task
     except asyncio.CancelledError:
         pass
+
+
+@pytest.mark.asyncio
+async def test_close_cancels_read_task_and_pending_futures():
+    transport = FakeTransport([
+        {"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2026-05"}},
+    ])
+    handle = SessionHandle(transport)
+    handle._read_task = asyncio.get_running_loop().create_task(handle.read_loop())
+    await handle.initialize()
+
+    pending_fut: asyncio.Future = asyncio.get_running_loop().create_future()
+    handle._pending[999] = pending_fut
+
+    await handle.close()
+
+    assert handle.state == SessionState.ENDED
+    assert handle._read_task is None
+    assert pending_fut.cancelled()
+    assert 999 not in handle._pending
