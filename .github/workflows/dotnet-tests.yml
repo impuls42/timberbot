@@ -55,6 +55,10 @@ jobs:
     steps:
       - name: Gate on test result
         run: |
+          if [[ "${{ needs.changes.result }}" != "success" ]]; then
+            echo "changes job did not succeed (was: ${{ needs.changes.result }}) — refusing to pass without verifying test outcome"
+            exit 1
+          fi
           if [[ "${{ needs.test.result }}" == "failure" || "${{ needs.test.result }}" == "cancelled" ]]; then
             echo "C# tests failed"
             exit 1
