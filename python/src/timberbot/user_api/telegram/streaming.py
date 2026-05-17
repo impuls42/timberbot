@@ -15,12 +15,12 @@ class StreamBuffer:
         self._chat_id = chat_id
         self._bot = bot
         self._message_id = message_id
-        self._buffer: list[str] = []
+        self._text: str = ""
         self._since_flush: int = 0
         self._task: asyncio.Task | None = None  # type: ignore[type-arg]
 
     def feed(self, chunk: str) -> None:
-        self._buffer.append(chunk)
+        self._text += chunk
         self._since_flush += len(chunk)
         if self._since_flush >= self.CHAR_THRESHOLD:
             asyncio.create_task(self.flush())
@@ -28,14 +28,13 @@ class StreamBuffer:
     async def flush(self) -> None:
         if self._message_id is None:
             return
-        text = "".join(self._buffer)
-        if not text:
+        if not self._text:
             return
         try:
             await self._bot.edit_message_text(  # type: ignore[union-attr]
                 chat_id=self._chat_id,
                 message_id=self._message_id,
-                text=text,
+                text=self._text,
             )
         except Exception:
             log.exception("Failed to edit message %s in chat %s", self._message_id, self._chat_id)

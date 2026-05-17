@@ -42,7 +42,7 @@ log = logging.getLogger("timberbot.game_mcp.server")
 
 def _make_envelope(bus: EventBus, cursor: int, result: Any) -> dict[str, Any]:
     """Build the standard EventEnvelope dict for a tool response."""
-    events, hw, truncated, dropped = bus.consume(cursor)
+    events, hw, truncated, dropped = bus.events_since(cursor)
     adv = bus.advisory(events)
     return {
         "result": result.model_dump(mode="json") if isinstance(result, BaseModel) else result,

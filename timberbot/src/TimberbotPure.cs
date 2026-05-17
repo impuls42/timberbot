@@ -149,13 +149,6 @@ namespace Timberbot
             return "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
         }
 
-        public static string ShellQuoteArg(string value)
-        {
-            if (value == null)
-                value = "";
-            return "'" + value.Replace("'", "'\"'\"'") + "'";
-        }
-
         // BuildTbotAgentRunArgv / FormatArgvForDisplay used to live here. The
         // mod no longer spawns `tbot agent run` from C#: the new architecture
         // (see #12) inverts the relationship — the Python `tbot watch`

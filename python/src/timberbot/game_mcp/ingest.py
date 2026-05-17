@@ -33,7 +33,6 @@ class EventIngestor:
                 continue
             push = msg.payload  # EventPush
             event = GameEvent(
-                seq=0,  # assigned by bus.push()
                 type=push.event,
                 day=push.day,
                 timestamp=push.timestamp,

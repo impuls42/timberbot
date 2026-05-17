@@ -129,6 +129,7 @@ class TimberbotClient:
         data["format"] = "json"
         r = self.s.post(f"{self.url}{path}", json=data, timeout=self._write_timeout)
         self._check_auth(r)
+        r.raise_for_status()
         return self._check(r.json())
 
     # Back-compat aliases: kept so external callers (integration tests, etc.)

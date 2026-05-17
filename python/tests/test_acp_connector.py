@@ -5,6 +5,7 @@ import contextlib
 
 import pytest
 
+from timberbot.connector.connector import ACPConnector
 from timberbot.connector.session import SessionHandle, SessionState
 
 
@@ -243,3 +244,26 @@ async def test_close_cancels_read_task_and_pending_futures():
     assert pending_fut.cancelled()
     assert 999 not in handle._pending
     assert transport.closed is True
+
+
+@pytest.mark.asyncio
+async def test_connect_returns_active_handle(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ACPConnector.connect() spawns transport, sends initialize, and returns an ACTIVE handle."""
+
+    class _FakeAdapter:
+        def build_argv(self, binary: str, model: str) -> list[str]:
+            return [binary, "--model", model]
+
+    class _FakeSubprocessTransport(FakeTransport):
+        def __init__(self, argv: list[str], cwd: str | None = None) -> None:
+            super().__init__([
+                {"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2026-05"}},
+            ])
+
+    monkeypatch.setattr("timberbot.connector.connector.SubprocessTransport", _FakeSubprocessTransport)
+
+    connector = ACPConnector(adapter=_FakeAdapter(), allowed_tools=["game.*"])
+    handle = await connector.connect("claude", "claude-opus-4-7")
+
+    assert handle.state == SessionState.ACTIVE
+    await handle.close()

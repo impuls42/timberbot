@@ -71,7 +71,7 @@ def classify_severity(event_type: str) -> Severity:
 class EventBus:
     """Ring-buffer event bus. One instance per serve session.
 
-    push() is called by EventIngestor; consume() is called by MCP tool wrappers.
+    push() is called by EventIngestor; events_since() is called by MCP tool wrappers.
     Both must run on the same asyncio event loop — no locking is done.
     """
 
@@ -91,12 +91,12 @@ class EventBus:
         self._buf.append((self._seq, stored))
         return self._seq
 
-    def consume(
+    def events_since(
         self,
         cursor: int,
         limit: int = 64,
     ) -> tuple[list[GameEvent], int, bool, int]:
-        """Return events after *cursor*.
+        """Return events with seq > cursor. Does not remove events from the buffer.
 
         Returns:
             (events, high_water, truncated, dropped)

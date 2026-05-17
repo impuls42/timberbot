@@ -53,7 +53,7 @@ def test_push_increments_seq():
 def test_push_assigns_seq_to_stored_event():
     bus = EventBus()
     bus.push(_event())
-    events, _, _, _ = bus.consume(0)
+    events, _, _, _ = bus.events_since(0)
     assert events[0].seq == 1
 
 
@@ -64,7 +64,7 @@ def test_push_assigns_seq_to_stored_event():
 
 def test_consume_empty_bus():
     bus = EventBus()
-    events, hw, truncated, dropped = bus.consume(0)
+    events, hw, truncated, dropped = bus.events_since(0)
     assert events == []
     assert hw == 0
     assert truncated is False
@@ -74,7 +74,7 @@ def test_consume_empty_bus():
 def test_consume_cursor_at_high_water_returns_empty():
     bus = EventBus()
     bus.push(_event())
-    events, hw, _, _ = bus.consume(1)
+    events, hw, _, _ = bus.events_since(1)
     assert events == []
     assert hw == 1
 
@@ -83,7 +83,7 @@ def test_consume_all_from_zero():
     bus = EventBus()
     for _ in range(5):
         bus.push(_event())
-    events, hw, truncated, dropped = bus.consume(0)
+    events, hw, truncated, dropped = bus.events_since(0)
     assert len(events) == 5
     assert hw == 5
     assert truncated is False
@@ -96,7 +96,7 @@ def test_consume_partial_from_cursor():
     bus = EventBus()
     for _ in range(5):
         bus.push(_event())
-    events, hw, _, _ = bus.consume(3)
+    events, hw, _, _ = bus.events_since(3)
     assert [e.seq for e in events] == [4, 5]
     assert hw == 5
 
@@ -110,7 +110,7 @@ def test_consume_truncated_at_limit():
     bus = EventBus(capacity=256)
     for _ in range(70):
         bus.push(_event())
-    events, hw, truncated, dropped = bus.consume(0, limit=64)
+    events, hw, truncated, dropped = bus.events_since(0, limit=64)
     assert len(events) == 64
     assert truncated is True
     assert hw == 70
@@ -121,7 +121,7 @@ def test_consume_not_truncated_when_within_limit():
     bus = EventBus()
     for _ in range(10):
         bus.push(_event())
-    events, _, truncated, _ = bus.consume(0, limit=64)
+    events, _, truncated, _ = bus.events_since(0, limit=64)
     assert len(events) == 10
     assert truncated is False
 
@@ -136,7 +136,7 @@ def test_ring_rotation_evicts_oldest():
     for _ in range(6):
         bus.push(_event())
     assert bus.high_water == 6
-    events, hw, _, _ = bus.consume(0)
+    events, hw, _, _ = bus.events_since(0)
     # Only the last 4 survive (seq 3-6)
     assert len(events) == 4
     assert events[0].seq == 3
@@ -147,7 +147,7 @@ def test_dropped_count_after_overflow():
     bus = EventBus(capacity=4)
     for _ in range(6):
         bus.push(_event())
-    _, _, _, dropped = bus.consume(0)
+    _, _, _, dropped = bus.events_since(0)
     # Events at seq 1 and 2 were evicted; cursor was 0 so they're "dropped"
     assert dropped == 2
 
@@ -157,7 +157,7 @@ def test_dropped_zero_when_cursor_past_evicted():
     for _ in range(6):
         bus.push(_event())
     # Consume up to seq 6 first, then push more
-    _, _, _, dropped = bus.consume(2)
+    _, _, _, dropped = bus.events_since(2)
     # First retained seq is 3; cursor is 2 → gap = 3-2-1 = 0
     assert dropped == 0
 
@@ -234,5 +234,5 @@ def test_reset_clears_bus():
         bus.push(_event())
     bus.reset()
     assert bus.high_water == 0
-    events, _, _, _ = bus.consume(0)
+    events, _, _, _ = bus.events_since(0)
     assert events == []
