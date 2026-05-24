@@ -80,7 +80,15 @@ def configure_logging(verbosity: int = 0, *, debug: bool = False) -> int:
 # alongside our `HH:MM:SS name LEVEL message` line, which is jarring. Strip
 # their handlers, disable propagation guards, and route them through our
 # handler so every line in `tbot serve` output looks the same.
-_THIRD_PARTY_LOGGERS = ("fastmcp", "uvicorn", "uvicorn.error", "uvicorn.access")
+_THIRD_PARTY_LOGGERS = (
+    "fastmcp", "uvicorn", "uvicorn.error", "uvicorn.access",
+    # python-telegram-bot polling + the httpx client it uses underneath.
+    # Without these, `tbot serve` is silent about Telegram traffic even at
+    # --debug, which makes "I sent a /prompt and nothing happened" impossible
+    # to diagnose without attaching a debugger.
+    "telegram", "telegram.ext", "telegram.bot",
+    "httpx", "httpcore",
+)
 
 
 def _adopt_third_party_loggers(level: int) -> None:
