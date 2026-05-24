@@ -30,6 +30,8 @@ class GlobalFlags:
     host: str | None
     port: int | None
     auth_token: str | None
+    verbosity: int
+    debug: bool
     positional: list[str]
 
 
@@ -39,14 +41,42 @@ _VALUE_PREFIXES = (
     "--auth-token=",
 )
 
+# Boolean global flags consumed by the dispatcher (not forwarded to subcommands).
+_BOOL_GLOBALS = frozenset({
+    "--", "--json", "--help", "-h",
+    "--verbose", "-v", "-vv", "-vvv",
+    "--debug",
+})
+
 
 def parse_flags(argv: list[str]) -> GlobalFlags:
     """Pull out global flags. Returns the rest as positional.
 
-    Recognised flags: --json, --help/-h, --host=, --port=, --auth-token=.
+    Recognised flags:
+        --json                output JSON instead of TOON
+        --help / -h           print help and exit
+        --host=HOST           override target host
+        --port=PORT           override target port
+        --auth-token=TOKEN    override bearer token
+        -v / --verbose        increase verbosity (counted: -v = INFO, -vv = DEBUG)
+        --debug               same as -vv (alias)
+
+    Global flags are stripped from `positional` so subcommands see clean
+    argv. Method-forward dispatch never sees `--flag`-style tokens.
     """
     help_mode = "--help" in argv or "-h" in argv
     json_mode = "--json" in argv
+    debug = "--debug" in argv
+    # `-v` (counted), plus `-vv` / `-vvv` shortcuts and `--verbose` aliasing -v.
+    verbosity = 0
+    for a in argv:
+        if a == "--verbose" or a == "-v":
+            verbosity += 1
+        elif a == "-vv":
+            verbosity += 2
+        elif a == "-vvv":
+            verbosity += 3
+
     host: str | None = None
     port: int | None = None
     auth_token: str | None = None
@@ -58,10 +88,9 @@ def parse_flags(argv: list[str]) -> GlobalFlags:
                 port = int(a.split("=", 1)[1])
         elif a.startswith("--auth-token="):
             auth_token = a.split("=", 1)[1]
-    skip = {"--", "--json", "--help", "-h"}
     positional = [
         a for a in argv
-        if a not in skip and not any(a.startswith(p) for p in _VALUE_PREFIXES)
+        if a not in _BOOL_GLOBALS and not any(a.startswith(p) for p in _VALUE_PREFIXES)
     ]
     return GlobalFlags(
         json_mode=json_mode,
@@ -69,6 +98,8 @@ def parse_flags(argv: list[str]) -> GlobalFlags:
         host=host,
         port=port,
         auth_token=auth_token,
+        verbosity=verbosity,
+        debug=debug,
         positional=positional,
     )
 

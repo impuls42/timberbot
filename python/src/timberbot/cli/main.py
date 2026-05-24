@@ -17,10 +17,12 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import logging
 import platform
 import sys
 from typing import Any
 
+import requests
 from pydantic import BaseModel
 
 from timberbot.api.client import TimberbotClient
@@ -38,6 +40,10 @@ from timberbot.cli.dispatcher import (
     doc_first_line,
     public_method_names,
 )
+from timberbot.cli.logging_setup import configure_logging
+from timberbot.settings import source_summary
+
+log = logging.getLogger("timberbot.cli")
 
 # Built-in subcommands route their own argv (they own the rest after the name).
 # Anything not in this set falls through to TimberbotClient method dispatch.
@@ -122,11 +128,15 @@ def _build_registry() -> CommandRegistry:
 
 def _print_help_index(registry: CommandRegistry) -> None:
     """Print the no-args help screen listing every command."""
-    print("usage: tbot [--json] [--host=HOST] [--port=PORT] [--auth-token=TOKEN]")
+    print("usage: tbot [--json] [-v|-vv|--debug]")
+    print("            [--host=HOST] [--port=PORT] [--auth-token=TOKEN]")
     print("            <command> key:value ...")
     print()
     print("global flags:")
     print("  --json                output JSON instead of TOON")
+    print("  -v, --verbose         log resolved endpoint + each HTTP request (INFO)")
+    print("  -vv, --debug          also log request/response bodies (DEBUG)")
+    print("                        env: TBOT_DEBUG=1 forces DEBUG")
     print("  --host=HOST           override target host (env: TBOT_HOST)")
     print("  --port=PORT           override target port (env: TBOT_PORT)")
     print("  --auth-token=TOKEN    bearer token for mod auth (env: TBOT_AUTH_TOKEN)")
@@ -219,6 +229,14 @@ def _dispatch_method(
     bot = TimberbotClient(
         host=host, port=port, json_mode=json_mode, auth_token=auth_token,
     )
+    # INFO line so `tbot -v <cmd>` users can see exactly which server we're
+    # about to hit and where each setting came from (cli/env/config/default).
+    # Logged here rather than inside the client so non-method-forward
+    # commands (top, watch, listen, ...) can log their own state.
+    log.info(
+        "dispatch method=%s -> %s (%s)",
+        method_name, bot.url, source_summary(host, port, auth_token),
+    )
 
     if not hasattr(bot, method_name):
         print(f"error: unknown method '{method_name}'", file=sys.stderr)
@@ -247,6 +265,17 @@ def _dispatch_method(
     except TimberbotError as e:
         _format_error(e, json_mode)
         return 1
+    except (requests.ConnectionError, requests.Timeout) as e:
+        # The client already logged a helpful one-liner at ERROR level
+        # (see _log_response / connection-failed branch). Surface the same
+        # to stderr in a stable shape so scripts can grep for it without
+        # needing -v.
+        print(
+            f"error: cannot reach mod at {bot.url} ({type(e).__name__}). "
+            f"Is Timberborn running with the mod loaded? Run with -vv for details.",
+            file=sys.stderr,
+        )
+        return 2
 
     _format_output(result, json_mode)
     return 0
@@ -256,6 +285,13 @@ def main(argv: list[str] | None = None) -> int:
     _ensure_utf8_stdout()
     raw = list(sys.argv[1:] if argv is None else argv)
     flags = parse_flags(raw)
+
+    # Wire logging before any other work so even early errors (unknown
+    # command, missing host, ...) flow through the configured sink at the
+    # right level. Subcommands (watch, serve) that still call their own
+    # _configure_logging are idempotent and will just re-apply this level.
+    configure_logging(flags.verbosity, debug=flags.debug)
+
     registry = _build_registry()
 
     if not flags.positional:
@@ -268,6 +304,8 @@ def main(argv: list[str] | None = None) -> int:
     if flags.help_mode:
         return _print_method_help(method_name)
 
+    log.debug("argv=%s flags=%s", raw, flags)
+
     cmd = registry.get(method_name)
     if cmd is not None and method_name in _BUILTIN_COMMANDS:
         # Built-in subcommand owns its own argv handling. For `listen` we
@@ -278,6 +316,7 @@ def main(argv: list[str] | None = None) -> int:
         argv = rest
         if method_name == "listen":
             argv = _inject_listen_globals(rest, flags)
+        log.info("dispatch builtin=%s", method_name)
         return cmd.handler(argv)
 
     return _dispatch_method(

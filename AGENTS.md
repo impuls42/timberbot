@@ -121,7 +121,7 @@ timberbot/
 
 ### Python Client Side
 - **Persistent state:** The agent uses `brain.toon` files in `memory/` subdirectories, keyed by settlement name. The `goal` parameter is saved here for cross-session persistence.
-- **CLI pattern:** `tbot <command> key:value key:value`. Parameters are colon-separated, not `--flags`.
+- **CLI pattern:** `tbot <command> key:value key:value`. Parameters are colon-separated, not `--flags`. Global flags (`--json`, `-v`/`--verbose`, `--debug`, `--host=`, `--port=`, `--auth-token=`) are recognised before the command and stripped before method dispatch. `-v` logs the resolved endpoint + each HTTP request to stderr; `-vv` / `--debug` also logs request/response bodies. `TBOT_DEBUG=1` env var forces DEBUG when an agent is shelling out to `tbot`.
 - **Sequential mutations:** Always run mutating game API calls sequentially, never in parallel.
 - **Boot flow:** Run the `brain` command once at session start to establish settlement context.
 

@@ -83,6 +83,70 @@ def resolve_endpoint(
     return resolved_host, resolved_port
 
 
+def endpoint_source(
+    host: str | None = None,
+    port: int | None = None,
+    user_config: dict[str, Any] | None = None,
+) -> tuple[str, str]:
+    """Return `(host_source, port_source)` labels for the resolved endpoint.
+
+    Mirrors `resolve_endpoint` precedence but reports *where* each field
+    came from: `"cli"`, `"env"`, `"config"`, or `"default"`. Useful for
+    verbose logging so users can see why the client is hitting the host
+    they're hitting.
+    """
+    uc = user_config if user_config is not None else client_config()
+    host_src = (
+        "cli" if host is not None
+        else "env" if os.environ.get("TBOT_HOST")
+        else "config" if isinstance(uc.get("host"), str)
+        else "default"
+    )
+    port_src = (
+        "cli" if port is not None
+        else "env" if os.environ.get("TBOT_PORT")
+        else "config" if isinstance(uc.get("port"), int)
+        else "default"
+    )
+    return host_src, port_src
+
+
+def auth_token_source(
+    auth_token: str | None = None,
+    user_config: dict[str, Any] | None = None,
+) -> str:
+    """Return the source label for the resolved auth token, or `"none"`.
+
+    Mirrors `resolve_auth_token` precedence.
+    """
+    if auth_token is not None and auth_token.strip():
+        return "cli"
+    if os.environ.get("TBOT_AUTH_TOKEN", "").strip():
+        return "env"
+    uc = user_config if user_config is not None else client_config()
+    cfg_token = uc.get("auth_token")
+    if isinstance(cfg_token, str) and cfg_token.strip():
+        return "config"
+    return "none"
+
+
+def source_summary(
+    host: str | None = None,
+    port: int | None = None,
+    auth_token: str | None = None,
+    user_config: dict[str, Any] | None = None,
+) -> str:
+    """One-line "where did each setting come from" summary for verbose logs.
+
+    Example: `host=cli port=default auth=env` — useful when users wonder
+    why the client is hitting the wrong server or sending no auth.
+    """
+    uc = user_config if user_config is not None else client_config()
+    h_src, p_src = endpoint_source(host, port, uc)
+    a_src = auth_token_source(auth_token, uc)
+    return f"host={h_src} port={p_src} auth={a_src}"
+
+
 def resolve_auth_token(
     auth_token: str | None = None,
     user_config: dict[str, Any] | None = None,

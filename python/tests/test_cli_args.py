@@ -43,7 +43,44 @@ def test_parse_flags_defaults():
     assert flags.host is None
     assert flags.port is None
     assert flags.auth_token is None
+    assert flags.verbosity == 0
+    assert flags.debug is False
     assert flags.positional == ["summary"]
+
+
+def test_parse_flags_verbose_short_counts():
+    """`-v` increments verbosity by 1, repeats stack."""
+    assert parse_flags(["summary"]).verbosity == 0
+    assert parse_flags(["-v", "summary"]).verbosity == 1
+    assert parse_flags(["-v", "-v", "summary"]).verbosity == 2
+    assert parse_flags(["-vv", "summary"]).verbosity == 2
+    assert parse_flags(["-vvv", "summary"]).verbosity == 3
+
+
+def test_parse_flags_verbose_long_alias():
+    """`--verbose` is the long form of `-v`."""
+    assert parse_flags(["--verbose", "summary"]).verbosity == 1
+    assert parse_flags(["--verbose", "-v", "summary"]).verbosity == 2
+
+
+def test_parse_flags_debug():
+    """`--debug` is a separate boolean, not counted into verbosity."""
+    flags = parse_flags(["--debug", "summary"])
+    assert flags.debug is True
+    assert flags.verbosity == 0
+
+
+def test_parse_flags_strips_verbose_and_debug_from_positional():
+    """Subcommands must see clean argv — global flags don't leak in."""
+    flags = parse_flags(["-v", "--debug", "summary", "x:1"])
+    assert flags.positional == ["summary", "x:1"]
+
+
+def test_parse_flags_verbose_does_not_collide_with_kv_value():
+    """`somecmd v:1` must not be parsed as `-v`."""
+    flags = parse_flags(["place_building", "prefab:HouseLog"])
+    assert flags.verbosity == 0
+    assert "prefab:HouseLog" in flags.positional
 
 
 def test_parse_kv_args_returns_dict_for_valid_input():
