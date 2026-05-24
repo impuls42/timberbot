@@ -42,7 +42,6 @@ WS client entirely; no real network is opened.
 """
 from __future__ import annotations
 
-import argparse
 import asyncio
 import contextlib
 import json
@@ -536,52 +535,56 @@ class _AiohttpWsClient:
 # ---------------------------------------------------------------------------
 
 
-def _parse(args: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser(prog="tbot watch", add_help=True)
-    p.add_argument("--backend", default="claude",
-                   help="Agent backend to dispatch (default: claude).")
-    p.add_argument("--model", default=None, help="Model identifier passed to the backend.")
-    p.add_argument("--effort", default=None, help="Reasoning effort passed to the backend.")
-    p.add_argument("--prompt", dest="prompt_name", default="timberbot",
-                   help="Name of the base system prompt to load (default: timberbot).")
-    p.add_argument("--ws-port", dest="ws_port", type=int, default=None,
-                   help=("WebSocket port on the mod. Resolution chain: this flag → "
-                         "TBOT_WS_PORT env → [client].ws_port in config.toml → 8086."))
-    p.add_argument("--autonomous-interval", type=float, default=60.0,
-                   help="Seconds between autonomous-mode cycles (default: 60).")
-    p.add_argument("--heartbeat-interval", type=float, default=30.0,
-                   help="Seconds between WS heartbeat frames (default: 30).")
-    p.add_argument("--once", action="store_true",
-                   help="Run until a single trigger fires, then exit (useful for debugging).")
-    p.add_argument("--verbose", "-v", action="count", default=0,
-                   help="Increase log verbosity (-v INFO, -vv DEBUG).")
-    return p.parse_args(args)
+def watch(
+    backend: str = "claude",
+    model: str | None = None,
+    effort: str | None = None,
+    prompt: str = "timberbot",
+    ws_port: int | None = None,
+    autonomous_interval: float = 60.0,
+    heartbeat_interval: float = 30.0,
+    once: bool = False,
+    *,
+    host: str | None = None,
+    port: int | None = None,
+    auth_token: str | None = None,
+) -> int:
+    """Long-running connector: subscribe to the mod's WebSocket and dispatch agent runs.
 
+    Args:
+        backend: Agent backend to dispatch (default: claude).
+        model: Model identifier passed to the backend.
+        effort: Reasoning effort passed to the backend.
+        prompt: Name of the base system prompt to load (default: timberbot).
+        ws_port: WebSocket port on the mod. Resolution chain: this flag → TBOT_WS_PORT env
+            → [client].ws_port in config.toml → 8086.
+        autonomous_interval: Seconds between autonomous-mode cycles (default: 60).
+        heartbeat_interval: Seconds between WS heartbeat frames (default: 30).
+        once: Run until a single trigger fires, then exit (useful for debugging).
 
-def run(args: list[str]) -> int:
-    """Entry point invoked from `tbot watch`."""
-    ns = _parse(args)
-    _configure_logging(ns.verbose)
-
-    host, _ = resolve_endpoint()
-    ws_port = resolve_ws_port(ns.ws_port)
-    auth_token = resolve_auth_token()
+    `host`/`port`/`auth_token` are forwarded from the global `tbot --host=` /
+    `--port=` / `--auth-token=` flags by `Tbot.watch`; they aren't part of the
+    public per-command CLI surface.
+    """
+    host, port = resolve_endpoint(host, port)
+    ws_port_resolved = resolve_ws_port(ws_port)
+    auth_token = resolve_auth_token(auth_token)
 
     cfg = WatchConfig(
-        backend=ns.backend,
-        model=ns.model,
-        effort=ns.effort,
-        prompt_name=ns.prompt_name,
-        heartbeat_interval=ns.heartbeat_interval,
-        autonomous_interval=ns.autonomous_interval,
-        once=ns.once,
+        backend=backend,
+        model=model,
+        effort=effort,
+        prompt_name=prompt,
+        heartbeat_interval=heartbeat_interval,
+        autonomous_interval=autonomous_interval,
+        once=once,
         host=host,
-        ws_port=ws_port,
+        ws_port=ws_port_resolved,
         auth_token=auth_token,
     )
 
-    client = TimberbotClient(host=host, auth_token=auth_token, json_mode=True)
-    ws_client = _default_ws_client(host, ws_port, auth_token=auth_token)
+    client = TimberbotClient(host=host, port=port, auth_token=auth_token, json_mode=True)
+    ws_client = _default_ws_client(host, ws_port_resolved, auth_token=auth_token)
     loop = WatchLoop(client, cfg, ws_client)
 
     try:
@@ -589,9 +592,3 @@ def run(args: list[str]) -> int:
     except KeyboardInterrupt:
         log.info("watch: interrupted")
         return 0
-
-
-def _configure_logging(verbosity: int) -> None:
-    """Back-compat shim; the real impl lives in `cli.logging_setup`."""
-    from timberbot.cli.logging_setup import configure_logging
-    configure_logging(verbosity)

@@ -59,46 +59,51 @@ def test_resolve_telegram_token_missing_exits(monkeypatch):
         resolve_telegram_token(None)
 
 
-def test_parse_defaults_to_none():
-    from timberbot.cli.commands.serve import _parse
-    ns = _parse([])
-    assert ns.backend is None
-    assert ns.model is None
-    assert ns.acp_binary is None
-    assert ns.telegram_token is None
-    assert ns.mcp_port is None
-    assert ns.mcp_host is None
-    assert ns.ws_port is None
+def test_serve_signature_exposes_expected_flags():
+    """Fire reflects `serve(...)`'s parameters as CLI flags. Lock the surface."""
+    import inspect
+
+    params = inspect.signature(serve_mod.serve).parameters
+    for name in (
+        "backend", "model", "acp_binary", "telegram_token",
+        "mcp_port", "mcp_host", "ws_port",
+    ):
+        assert name in params, f"missing CLI flag: --{name.replace('_', '-')}"
+        assert params[name].default is None
 
 
-def test_parse_rejects_unknown_backend():
-    from timberbot.cli.commands.serve import _parse
-    with pytest.raises(SystemExit):
-        _parse(["--backend", "gpt-4"])
+def test_serve_rejects_unknown_backend(monkeypatch, capsys):
+    _stub_serve(monkeypatch, {})
+    rc = serve_mod.serve(backend="gpt-4")
+    assert rc == 1
+    assert "unknown backend" in capsys.readouterr().err
 
 
-def test_parse_accepts_known_backends():
-    from timberbot.cli.commands.serve import _parse
-    assert _parse(["--backend", "claude"]).backend == "claude"
-    assert _parse(["--backend", "opencode"]).backend == "opencode"
+def test_serve_accepts_known_backends(monkeypatch):
+    _stub_serve(monkeypatch, {})
+    assert serve_mod.serve(backend="claude") == 0
+    assert serve_mod.serve(backend="opencode") == 0
 
 
-def test_parse_acp_binary_explicit():
-    from timberbot.cli.commands.serve import _parse
-    ns = _parse(["--acp-binary", "/opt/bin/claude"])
-    assert ns.acp_binary == "/opt/bin/claude"
+def test_serve_rejects_empty_acp_binary(monkeypatch, capsys):
+    _stub_serve(monkeypatch, {})
+    rc = serve_mod.serve(acp_binary="")
+    assert rc == 1
+    assert "--acp-binary must not be empty" in capsys.readouterr().err
 
 
 # -- allowlist config validation ------------------------------------------
 
 def _stub_serve(monkeypatch, tg_data: dict) -> None:
-    """Minimal stub so `serve_mod.run([...])` can reach the allowlist branch
+    """Minimal stub so `serve_mod.serve(...)` can reach the allowlist branch
     without spinning up the actual asyncio.run(run_serve(...)) flow."""
     monkeypatch.setattr(serve_mod, "serve_config", lambda: {})
     monkeypatch.setattr(serve_mod, "serve_telegram_config", lambda: tg_data)
     monkeypatch.setattr(serve_mod, "resolve_telegram_token", lambda *_: "fake-token")
-    monkeypatch.setattr(serve_mod, "resolve_endpoint", lambda: ("127.0.0.1", 8085))
-    monkeypatch.setattr(serve_mod, "resolve_auth_token", lambda: None)
+    # `serve()` now passes global --host/--port/--auth-token through to the
+    # resolvers; the stubs swallow whatever it forwards.
+    monkeypatch.setattr(serve_mod, "resolve_endpoint", lambda *_a, **_kw: ("127.0.0.1", 8085))
+    monkeypatch.setattr(serve_mod, "resolve_auth_token", lambda *_a, **_kw: None)
     monkeypatch.setattr(serve_mod, "resolve_ws_port", lambda *_: 8086)
     # Stop short of actually running the orchestrator — patch asyncio.run
     # so we exit cleanly after ServeConfig is built. Close the coroutine
@@ -109,29 +114,29 @@ def _stub_serve(monkeypatch, tg_data: dict) -> None:
     monkeypatch.setattr(serve_mod.asyncio, "run", _fake_run)
 
 
-def test_run_rejects_allowed_users_not_a_list(monkeypatch, capsys):
+def test_serve_rejects_allowed_users_not_a_list(monkeypatch, capsys):
     _stub_serve(monkeypatch, {"allowed_users": 12345})
-    rc = serve_mod.run([])
+    rc = serve_mod.serve()
     assert rc == 1
     err = capsys.readouterr().err
     assert "must be a list of integers" in err
     assert "int" in err   # mentions the offending type
 
 
-def test_run_rejects_allowed_users_with_non_integer(monkeypatch, capsys):
+def test_serve_rejects_allowed_users_with_non_integer(monkeypatch, capsys):
     _stub_serve(monkeypatch, {"allowed_users": [123, "alice"]})
-    rc = serve_mod.run([])
+    rc = serve_mod.serve()
     assert rc == 1
     assert "must contain integers" in capsys.readouterr().err
 
 
-def test_run_accepts_empty_allowed_users(monkeypatch):
+def test_serve_accepts_empty_allowed_users(monkeypatch):
     _stub_serve(monkeypatch, {})
-    rc = serve_mod.run([])
+    rc = serve_mod.serve()
     assert rc == 0
 
 
-def test_run_accepts_valid_allowed_users(monkeypatch):
+def test_serve_accepts_valid_allowed_users(monkeypatch):
     _stub_serve(monkeypatch, {"allowed_users": [123, 456]})
-    rc = serve_mod.run([])
+    rc = serve_mod.serve()
     assert rc == 0

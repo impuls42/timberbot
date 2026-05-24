@@ -234,7 +234,7 @@ The test project references pure utility classes (`TimberbotJw.cs`, `TimberbotPu
 pip install -e python/      # editable install from the repo
 tbot ping
 tbot buildings
-tbot brain goal:"Keep beavers alive"
+tbot brain --goal="Keep beavers alive"
 ```
 
 (Or `pipx install timberbot` to install the published wheel without a venv.)

@@ -1,80 +1,91 @@
-"""Tests for `tbot agent run` argument parsing."""
+"""Tests for `tbot agent <sub>` via the Fire-exposed `AgentCommands` class."""
 from __future__ import annotations
 
-import pytest
+from unittest.mock import patch
 
-from timberbot.cli.commands import agent as agent_cmd
-
-
-def test_run_requires_backend(capsys):
-    # argparse should error out (exit 2) when --backend is missing.
-    with pytest.raises(SystemExit) as exc:
-        agent_cmd._parse_run(["--goal", "do a thing"])
-    assert exc.value.code == 2
-    err = capsys.readouterr().err
-    assert "--backend" in err
+from timberbot.cli.commands.agent import AgentCommands
 
 
-def test_run_requires_goal(capsys):
-    with pytest.raises(SystemExit) as exc:
-        agent_cmd._parse_run(["--backend", "claude"])
-    assert exc.value.code == 2
-    err = capsys.readouterr().err
-    assert "--goal" in err
+def test_run_dispatches_to_runner_with_minimal_args():
+    """`AgentCommands().run(...)` forwards args to `run_agent` with sensible defaults."""
+    with patch("timberbot.cli.commands.agent.run_agent", return_value=0) as ra:
+        rc = AgentCommands().run(goal="do a thing", backend="claude")
+    assert rc == 0
+    ra.assert_called_once()
+    kwargs = ra.call_args.kwargs
+    assert kwargs["goal"] == "do a thing"
+    assert kwargs["backend"] == "claude"
+    assert kwargs["model"] is None
+    assert kwargs["effort"] is None
+    assert kwargs["command_template"] is None
+    assert kwargs["terminal_prefix"] is None
+    assert kwargs["prompt_name"] == "timberbot"
 
 
-def test_run_accepts_minimal_args():
-    ns = agent_cmd._parse_run(["--goal", "do a thing", "--backend", "claude"])
-    assert ns.goal == "do a thing"
-    assert ns.backend == "claude"
-    assert ns.model is None
-    assert ns.effort is None
-    assert ns.command_template is None
-    assert ns.terminal_prefix is None
-    assert ns.prompt_name == "timberbot"
+def test_run_forwards_all_optional_args():
+    with patch("timberbot.cli.commands.agent.run_agent", return_value=0) as ra:
+        AgentCommands().run(
+            goal="x",
+            backend="custom",
+            model="opus",
+            effort="high",
+            binary="/opt/aider/aider",
+            command="aider {prompt}",
+            terminal_prefix="wt -d {cwd} --",
+            prompt="wirer",
+        )
+    kwargs = ra.call_args.kwargs
+    assert kwargs["backend"] == "custom"
+    assert kwargs["model"] == "opus"
+    assert kwargs["effort"] == "high"
+    assert kwargs["binary"] == "/opt/aider/aider"
+    assert kwargs["command_template"] == "aider {prompt}"
+    assert kwargs["terminal_prefix"] == "wt -d {cwd} --"
+    assert kwargs["prompt_name"] == "wirer"
 
 
-def test_run_parses_all_optionals():
-    ns = agent_cmd._parse_run([
-        "--goal", "x",
-        "--backend", "custom",
-        "--model", "opus",
-        "--effort", "high",
-        "--binary", "/opt/aider/aider",
-        "--command", "aider {prompt}",
-        "--terminal-prefix", "wt -d {cwd} --",
-        "--prompt", "wirer",
-    ])
-    assert ns.backend == "custom"
-    assert ns.model == "opus"
-    assert ns.effort == "high"
-    assert ns.binary == "/opt/aider/aider"
-    assert ns.command_template == "aider {prompt}"
-    assert ns.terminal_prefix == "wt -d {cwd} --"
-    assert ns.prompt_name == "wirer"
-
-
-def test_run_dispatcher_rejects_unknown_subcommand(capsys):
-    rc = agent_cmd.run(["does-not-exist"])
+def test_run_catches_value_error_from_runner(capsys):
+    """If `run_agent` raises ValueError (e.g. unknown backend), surface it cleanly."""
+    with patch(
+        "timberbot.cli.commands.agent.run_agent",
+        side_effect=ValueError("unknown backend"),
+    ):
+        rc = AgentCommands().run(goal="x", backend="bogus")
     assert rc == 1
     err = capsys.readouterr().err
-    assert "unknown subcommand" in err
+    assert "unknown backend" in err
 
 
-def test_run_dispatcher_lists_usage_when_empty(capsys):
-    rc = agent_cmd.run([])
-    assert rc == 1
-    err = capsys.readouterr().err
-    assert "tbot agent" in err
-    assert "run" in err
-    assert "list-backends" in err
-    assert "prompts" in err
+def test_run_threads_global_connection_flags_into_client():
+    """Regression for Bug B: `tbot --host=X agent run …` must build a
+    `TimberbotClient(host=X, …)` and pass it to `run_agent`; otherwise the
+    runner falls back to the default 127.0.0.1:8085 client and silently
+    drops the global flags."""
+    with patch("timberbot.cli.commands.agent.run_agent", return_value=0) as ra:
+        AgentCommands().run(
+            goal="x", backend="claude",
+            host="10.0.0.5", port=9090, auth_token="tok",
+        )
+    client = ra.call_args.kwargs["client"]
+    assert client is not None
+    assert client.host == "10.0.0.5"
+    assert client.port == 9090
+    assert client.s.headers["Authorization"] == "Bearer tok"
+
+
+def test_run_omits_client_when_no_global_flags():
+    """When the global flags are unset, leave `client=None` so `run_agent`
+    keeps building its default client (preserves backward-compat for
+    library callers and tests)."""
+    with patch("timberbot.cli.commands.agent.run_agent", return_value=0) as ra:
+        AgentCommands().run(goal="x", backend="claude")
+    assert ra.call_args.kwargs["client"] is None
 
 
 def test_list_backends_subcommand(capsys):
-    rc = agent_cmd.run(["list-backends"])
-    assert rc == 0
+    # Returns None — Fire prints whatever the method returns, so we keep it
+    # implicit so the CLI doesn't echo a trailing "0" after the listing.
+    assert AgentCommands().list_backends() is None
     out = capsys.readouterr().out
-    # All four backends should be listed.
     for name in ("claude", "codex", "opencode", "custom"):
         assert name in out

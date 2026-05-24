@@ -1,3 +1,26 @@
+## v0.9 CLI: python-fire dispatcher
+
+The `tbot` CLI is now dispatched via [python-fire](https://github.com/google/python-fire) instead of the hand-rolled argparse + key:value dispatcher. The custom `cli/args.py` and `cli/dispatcher.py` modules are gone.
+
+!!! warning "Breaking change for shell scripts and AI prompts"
+    The legacy `tbot <command> key:value key:value` syntax no longer works. Pass arguments either positionally (in the order shown in `tbot <command> --help`) or with `--key=value` / `--key value` flags. Hyphens and underscores in flag names are interchangeable. Existing user-edited prompts under `~/.config/timberbot/agent_prompts/` need re-materializing (`tbot init --force`) or hand-updating.
+
+- [feature] **python-fire dispatcher.** `tbot <method>` introspects every public `TimberbotClient` method and exposes it as a typed subcommand. Built-in subcommands (`top`, `manager`, `launch`, `init`, `listen`, `watch`, `serve`, `agent`) live as methods on the `Tbot` class; `agent` is a sub-group with `run` / `list_backends` / `prompts`.
+- [feature] **Per-command `--help`.** `tbot <command> --help` renders the full Fire screen with positional args, flags, types, and defaults. `tbot --help` keeps a concise top-level index of builtins + client methods.
+- [feature] **Hyphen↔underscore flag aliasing.** `--source_id=42` and `--source-id=42` both work for any flag.
+- [removed] **`timberbot.cli.args` / `timberbot.cli.dispatcher`.** Scripts that imported `parse_flags`, `_build_registry`, `parse_kv_args`, `format_usage`, or `_inject_listen_globals` need updating; the same global flags (`--host=`, `--port=`, `--auth-token=`, `--json`, `-v`/`--debug`) are now parsed by `timberbot.cli.main.parse_global_flags`.
+
+### Migration cheatsheet
+
+| You were doing | Do this instead |
+|---|---|
+| `tbot set_speed speed:3` | `tbot set_speed 3` or `tbot set_speed --speed=3` |
+| `tbot buildings name:Pump` | `tbot buildings --name=Pump` |
+| `tbot place_building prefab:Path x:120 y:130 z:2 orientation:south` | `tbot place_building --prefab=Path --x=120 --y=130 --z=2 --orientation=south` |
+| `tbot link source_id:42 target_id:44 input:a` | `tbot link --source-id=42 --target-id=44 --input=a` |
+| `tbot brain goal:"reach 50 beavers"` | `tbot brain --goal="reach 50 beavers"` |
+| `tbot launch settlement:MyCastle save:day5` | `tbot launch --settlement=MyCastle --save=day5` |
+
 ## v0.9 WebSocket cutover
 
 Hard cutover — no fallback path. The heartbeat-polling channel and the outbound-HTTP-webhook channel are both replaced by a single long-lived WebSocket.

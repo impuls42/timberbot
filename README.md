@@ -37,14 +37,14 @@ tbot init                   # materialize agent prompts into ~/.config/timberbot
 tbot summary                                       # colony snapshot
 tbot buildings                                     # list all buildings
 tbot beavers                                       # beaver wellbeing + critical needs
-tbot map x1:110 y1:130 x2:130 y2:150               # ASCII map with terrain + blockers
-tbot place_building prefab:Path x:100 y:130 z:2 orientation:south
-tbot place_path x1:110 y1:130 x2:130 y2:150        # A* pathfinding with auto-stairs
-tbot set_speed speed:3                             # fast forward
+tbot map --x1=110 --y1=130 --x2=130 --y2=150               # ASCII map with terrain + blockers
+tbot place_building --prefab=Path --x=100 --y=130 --z=2 --orientation=south
+tbot place_path --x1=110 --y1=130 --x2=130 --y2=150        # A* pathfinding with auto-stairs
+tbot set_speed 3                                   # fast forward (positional)
 tbot science                                       # science points + unlockable buildings
 tbot distribution                                  # import/export settings per district
-tbot link source_id:42 target_id:44 input:a        # wire sensor -> building
-tbot configure_automation id:42 property:threshold value:50
+tbot link --source-id=42 --target-id=44 --input=a  # wire sensor -> building
+tbot configure_automation --id=42 --property=threshold --value=50
 tbot brain                                         # live colony state + persistent memory
 tbot top                                           # live colony dashboard
 tbot                                               # list all commands
@@ -53,7 +53,7 @@ tbot                                               # list all commands
 Auto-launch a save (Linux/Windows) or generate Steam launch args (macOS):
 
 ```bash
-tbot launch settlement:MyCastle save:day5
+tbot launch --settlement=MyCastle --save=day5
 ```
 
 `tbot` itself is a pure network client and does not read the game's Documents

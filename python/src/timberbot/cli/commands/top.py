@@ -12,7 +12,6 @@ from timberbot.formatters.dashboard import render_top
 
 
 def _drain_key(is_win: bool, msvcrt_mod: object | None, select_mod: object | None) -> bytes | None:
-    """Non-blocking single-key read; returns bytes or None."""
     if is_win:
         if msvcrt_mod is not None and msvcrt_mod.kbhit():  # type: ignore[attr-defined]
             return msvcrt_mod.getch()  # type: ignore[attr-defined]
@@ -26,18 +25,19 @@ def _drain_key(is_win: bool, msvcrt_mod: object | None, select_mod: object | Non
     return None
 
 
-def _parse_interval(args: list[str], default: int = 5) -> int:
-    for a in args:
-        if a.startswith("interval:"):
-            try:
-                return int(a.split(":", 1)[1])
-            except ValueError:
-                pass
-    return default
+def top(
+    interval: int = 5,
+    *,
+    host: str | None = None,
+    port: int | None = None,
+    auth_token: str | None = None,
+) -> int:
+    """Live colony dashboard. Tick every `interval` seconds. Press q to quit, 0-3 to set game speed.
 
-
-def run(args: list[str]) -> int:
-    interval = _parse_interval(args)
+    `host`/`port`/`auth_token` are forwarded from the global `tbot --host=` /
+    `--port=` / `--auth-token=` flags by `Tbot.top`; the public CLI surface is
+    `tbot top [interval]`.
+    """
     is_win = sys.platform == "win32"
     msvcrt_mod = None
     select_mod = None
@@ -50,9 +50,9 @@ def run(args: list[str]) -> int:
         import termios as termios_mod  # type: ignore[no-redef]
         import tty as tty_mod  # type: ignore[no-redef]
 
-    bot = TimberbotClient(json_mode=True)
+    bot = TimberbotClient(host=host, port=port, auth_token=auth_token, json_mode=True)
     if not bot.ping():
-        print(f"  {RED}cannot reach Timberbot on port 8085{RST}")
+        print(f"  {RED}cannot reach Timberbot at {bot.url}{RST}")
         print(f"  {DIM}start Timberborn with the mod loaded{RST}\n")
         return 1
 

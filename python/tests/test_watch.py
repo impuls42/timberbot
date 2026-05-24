@@ -488,25 +488,86 @@ def test_stop_method_unblocks_run():
 # ---------------------------------------------------------------------------
 
 
-def test_watch_command_registered_in_main():
-    from timberbot.cli.main import _build_registry
+def test_watch_command_registered_on_tbot_class(monkeypatch):
+    # `timberbot.cli.__init__` re-exports `main`, shadowing the submodule
+    # attribute. Pull the actual module from sys.modules instead.
+    import importlib
+    cli_main = importlib.import_module("timberbot.cli.main")
 
-    registry = _build_registry()
-    cmd = registry.get("watch")
-    assert cmd is not None
-    assert cmd.handler is watch_mod.run
+    assert hasattr(cli_main.Tbot, "watch")
+
+    # `Tbot.watch` is now an instance method that threads the global flags
+    # from `_CTX` into `watch_mod.watch`. Verify the indirection by patching
+    # the underlying function and checking it gets called.
+    captured: dict[str, object] = {}
+
+    def fake_watch(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(cli_main, "watch", fake_watch)
+    monkeypatch.setattr(cli_main, "_CTX", cli_main.GlobalFlags(host="10.0.0.5", port=9001))
+    cli_main.Tbot().watch(backend="claude", once=True)
+    assert captured["backend"] == "claude"
+    assert captured["once"] is True
+    assert captured["host"] == "10.0.0.5"
+    assert captured["port"] == 9001
 
 
-def test_parse_accepts_ws_port_flag():
-    ns = watch_mod._parse(["--ws-port", "9999", "--once"])
-    assert ns.ws_port == 9999
-    assert ns.once is True
+def test_watch_threads_global_port_into_client(monkeypatch):
+    """Regression for Bug A: `watch()` was dropping the port from
+    `resolve_endpoint(host, port)` and constructing `TimberbotClient(host=…,
+    auth_token=…, json_mode=True)` without `port`. The HTTP client used by
+    the connector would silently target port 8085 even when the user passed
+    `tbot --port=9090 watch`."""
+    constructed: dict[str, object] = {}
+
+    class _StubClient:
+        def __init__(self, **kwargs):
+            constructed.update(kwargs)
+
+    class _StubLoop:
+        def __init__(self, *_a, **_kw):
+            pass
+
+        async def run(self):
+            return 0
+
+    monkeypatch.setattr(watch_mod, "TimberbotClient", _StubClient)
+    monkeypatch.setattr(watch_mod, "WatchLoop", _StubLoop)
+    monkeypatch.setattr(
+        watch_mod, "resolve_endpoint",
+        lambda h, p: (h or "127.0.0.1", p or 8085),
+    )
+    monkeypatch.setattr(watch_mod, "resolve_ws_port", lambda *_a, **_kw: 8086)
+    monkeypatch.setattr(watch_mod, "resolve_auth_token", lambda t=None: t)
+    monkeypatch.setattr(
+        watch_mod, "_default_ws_client",
+        lambda *_a, **_kw: object(),
+    )
+
+    rc = watch_mod.watch(host="10.0.0.5", port=9090, auth_token="tok")
+    assert rc == 0
+    assert constructed["host"] == "10.0.0.5"
+    assert constructed["port"] == 9090, "watch() must forward port to TimberbotClient"
+    assert constructed["auth_token"] == "tok"
 
 
-def test_parse_defaults_have_no_listen_port():
-    """The legacy `--listen-port` flag is gone — confirm the CLI rejects it."""
-    with pytest.raises(SystemExit):
-        watch_mod._parse(["--listen-port", "9001"])
+def test_fire_signature_accepts_ws_port_flag():
+    """Fire reflects `watch(...)`'s signature into CLI flags."""
+    import inspect
+
+    params = inspect.signature(watch_mod.watch).parameters
+    assert "ws_port" in params
+    assert "once" in params
+
+
+def test_fire_signature_has_no_legacy_listen_port():
+    """The legacy `--listen-port` flag is gone — confirm it's no longer a parameter."""
+    import inspect
+
+    params = inspect.signature(watch_mod.watch).parameters
+    assert "listen_port" not in params
 
 
 def test_no_webhook_listener_module_state():

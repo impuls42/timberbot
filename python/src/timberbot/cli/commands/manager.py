@@ -22,10 +22,21 @@ def is_essential(name: str) -> bool:
     return any(e in name for e in ESSENTIAL)
 
 
-def run(_args: list[str]) -> int:
-    bot = TimberbotClient(json_mode=True)
+def manager(
+    *,
+    host: str | None = None,
+    port: int | None = None,
+    auth_token: str | None = None,
+) -> int:
+    """Auto-pause low-priority buildings to keep idle haulers in band (1-4).
+
+    `host`/`port`/`auth_token` are forwarded from the global `tbot --host=` /
+    `--port=` / `--auth-token=` flags by `Tbot.manager`; the public CLI surface
+    is `tbot manager` (no args).
+    """
+    bot = TimberbotClient(host=host, port=port, auth_token=auth_token, json_mode=True)
     if not bot.ping():
-        print(f"  {RED}cannot reach Timberbot on port 8085{RST}")
+        print(f"  {RED}cannot reach Timberbot at {bot.url}{RST}")
         return 1
 
     print(

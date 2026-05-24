@@ -55,19 +55,19 @@ To run a building only when a sensor fires: wire sensor → building directly.
 
 ## Workflow (every job)
 
-1. **Read current state.** For each transmitter in the target table: `tbot buildings id:<N>` (TOON format preferred) and inspect `automation.outputs`. For each automatable target: `tbot buildings id:<N>` and inspect `automation.input`. Use `tbot buildings name:X` for name-based lookups.
+1. **Read current state.** For each transmitter in the target table: `tbot buildings --id=<N>` (TOON format preferred) and inspect `automation.outputs`. For each automatable target: `tbot buildings --id=<N>` and inspect `automation.input`. Use `tbot buildings --name=X` for name-based lookups.
 2. **Compute the diff.** List the minimal changes: which inputs need a different source, which need to be cleared.
 3. **Apply changes one at a time.** For each: `unlink` the old source (if any), then `link` the new source. Run them sequentially, never in parallel.
 4. **Verify.** Re-read every target. Confirm `automation.input` matches the table.
-5. **Cache IDs.** If the main agent gave you a stable role name (e.g. "build-lever"), save it: `tbot set_location <role> <x> <y> <z> note:"id:<entity_id> role:<role>"`.
+5. **Cache IDs.** If the main agent gave you a stable role name (e.g. "build-lever"), save it: `tbot set_location --name=<role> --x=<x> --y=<y> --z=<z> --note="id:<entity_id> role:<role>"`.
 
 ## Hard rules
 
 - NEVER use `unlink` to discover what's connected. Read `automation.input` and `automation.outputs` first. Unlink is irreversible — you cannot recover the previous source.
-- NEVER guess at relay modes. If the target requires `Not` but the relay is in `Passthrough`, call `configure_automation property:mode value:Not` first.
+- NEVER guess at relay modes. If the target requires `Not` but the relay is in `Passthrough`, call `configure_automation --id=<N> --property=mode --value=Not` first.
 - NEVER touch transmitters or buildings the main agent did not list in the target table.
 - NEVER derive signal logic in your own thinking. Use the truth table above. If the target table contradicts the truth table (e.g. "make X paused when lever UP" but the request wires X to NOT relay), flag the contradiction and stop. Do not silently invert intent.
-- IDs are persistent across game reloads. Trust cached IDs from `tbot list_locations`, but verify the entity still exists with one `tbot buildings id:<N>` call before mutating.
+- IDs are persistent across game reloads. Trust cached IDs from `tbot list_locations`, but verify the entity still exists with one `tbot buildings --id=<N>` call before mutating.
 - If a `link` returns an error like `invalid_param: Relay mode X does not use input B`, stop and re-read `docs/api-reference.md` for the link/configure constraints. Do not retry blindly.
 
 ## Output

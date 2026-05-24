@@ -61,15 +61,15 @@ NEVER self-approve a mutation plan. The user must say "proceed", "go", "do it", 
 ALWAYS prefer TOON format (default) over `--json` for reading game state. TOON is ~3–5× more token-efficient. Use `--json` only when you need to pipe output to a script or parse nested structure programmatically.
 NEVER dump `--json` output of large endpoints (buildings, beavers, power) directly into context. If you must use JSON, pipe through `tq` to extract only the fields you need.
 
-ALWAYS use `tbot` CLI parameters as shown in `tbot <command>` help. List endpoints (`buildings`, `beavers`, `trees`, `crops`, `gatherables`) support server-side filtering:
-- `name:X` — case-insensitive substring match (e.g. `tbot buildings name:Pump`)
-- `x:N y:N radius:N` — proximity filter by Manhattan distance (REQUIRES BOTH x AND y)
-- `id:N` — select a single entity
-- `detail:full` — include all fields (inventory, needs, automation)
+ALWAYS use `tbot` CLI parameters as shown in `tbot <command> --help`. `tbot` is dispatched via python-fire, so flags are spelled `--key=value` (or `--key value`); positional args are also accepted in the order shown in `--help`. List endpoints (`buildings`, `beavers`, `trees`, `crops`, `gatherables`) support server-side filtering:
+- `--name=X` — case-insensitive substring match (e.g. `tbot buildings --name=Pump`)
+- `--x=N --y=N --radius=N` — proximity filter by Manhattan distance (REQUIRES BOTH `--x` AND `--y`)
+- `--id=N` — select a single entity
+- `--detail=full` — include all fields (inventory, needs, automation)
 
 NEVER use `2>&1` when piping CLI output to parsers like `tq` — CLI errors on stderr will corrupt the data stream and cause parse failures. Standard pipes (`|`) naturally separate stdout (data) from stderr (errors), allowing you to read errors without corrupting the pipe.
 
-ALWAYS treat entity IDs as persistent across game reloads. Cache them in `brain.toon` locations with `tbot set_location <name> <x> <y> <z> note:"id:<entity_id> role:<role>"` and read them back via `tbot list_locations`.
+ALWAYS treat entity IDs as persistent across game reloads. Cache them in `brain.toon` locations with `tbot set_location --name=<name> --x=<x> --y=<y> --z=<z> --note="id:<entity_id> role:<role>"` and read them back via `tbot list_locations`.
 NEVER re-discover an ID you have already cached this session unless a mutation invalidated it.
 
 ALWAYS read `buildings[].automation` to discover current wiring. Each transmitter has `automation.outputs`; each automatable building has `automation.input`.
@@ -81,15 +81,15 @@ Timberborn reuses words like "high" and "low" across three unrelated systems. Mi
 
 | System | Values | Endpoint shape |
 |---|---|---|
-| **Automation signals** | `On` / `Off` (boolean) | `link` / `unlink` / `configure_automation property:threshold value:0.5` |
-| **Priorities** (worker allocation only) | `VeryLow` / `Low` / `Normal` / `High` / `VeryHigh` | `set_priority priority:High` |
-| **Physical states** | floats (`0.5`, `1.0`) or specific enums (`accept`, `obtain`, `supply`, `empty`) | `set_floodgate height:0.5`, `set_storage mode:obtain` |
+| **Automation signals** | `On` / `Off` (boolean) | `link` / `unlink` / `configure_automation --property=threshold --value=0.5` |
+| **Priorities** (worker allocation only) | `VeryLow` / `Low` / `Normal` / `High` / `VeryHigh` | `set_priority --priority=High` |
+| **Physical states** | floats (`0.5`, `1.0`) or specific enums (`accept`, `obtain`, `supply`, `empty`) | `set_floodgate --height=0.5`, `set_storage --mode=obtain` |
 
 ALWAYS use `On`/`Off` for automation logic.
 NEVER set an automation wire to `High`/`Low` — those words don't exist in this system.
 
 ALWAYS use exact floats for floodgate heights and sensor thresholds (`height:0.5`, `threshold:0.85`).
-NEVER write `set_floodgate height:Low` or `set_floodgate height:High` — heights are floats.
+NEVER write `set_floodgate --height=Low` or `set_floodgate --height=High` — heights are floats.
 
 ALWAYS use `VeryLow`..`VeryHigh` only for `set_priority`. Priorities affect worker allocation; they do not activate machines or change physical states.
 NEVER try to "activate" a building or change its mode via priority. Priority controls who gets staffed first, nothing else.

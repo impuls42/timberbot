@@ -48,7 +48,7 @@ tbot init
 `tbot launch` on macOS prints the Steam launch options for the chosen settlement and doesn't open the game itself (Steam URL-handler launch isn't reliable on Mac from a CLI process):
 
 ```bash
-tbot launch settlement:<name> [save:<filename>]
+tbot launch --settlement=<name> [--save=<filename>]
 ```
 
 Expected:
