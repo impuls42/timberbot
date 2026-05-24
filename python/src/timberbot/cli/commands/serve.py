@@ -36,6 +36,7 @@ def serve(
     mcp_port: int | None = None,
     mcp_host: str | None = None,
     ws_port: int | None = None,
+    no_wait: bool = False,
     *,
     host: str | None = None,
     port: int | None = None,
@@ -51,6 +52,11 @@ def serve(
         mcp_port: Port for the game MCP HTTP/SSE server (default: 8091).
         mcp_host: Bind address for the game MCP server (default: 127.0.0.1).
         ws_port: WebSocket port on the mod (default: 8086).
+        no_wait: Fail fast if the mod isn't reachable at startup. By default
+            `tbot serve` retries the startup ping with exp_backoff (1s→30s)
+            until the mod responds, so you can launch the server before the
+            game. Pass `--no-wait` for the legacy fail-fast behaviour (useful
+            in scripts/CI).
 
     `host`/`port`/`auth_token` are forwarded from the global `tbot --host=` /
     `--port=` / `--auth-token=` flags by `Tbot.serve`; they aren't part of the
@@ -116,6 +122,7 @@ def serve(
         telegram_token=token,
         telegram_allowed_users=allowed_users,
         allowed_tools=cfg_data.get("allowed_tools", ["game.*"]),
+        wait_for_mod=not no_wait,
     )
 
     try:

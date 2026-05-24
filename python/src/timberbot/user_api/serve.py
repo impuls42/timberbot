@@ -40,6 +40,12 @@ class ServeConfig:
     allowed_tools: list[str] = field(default_factory=lambda: ["game.*"])
     telegram_token: str = ""
     telegram_allowed_users: list[int] = field(default_factory=list)
+    # When True (default), the startup ping probe retries forever with
+    # exp_backoff until the mod responds. Lets `tbot serve` be launched
+    # before the game so the player can start them in either order.
+    # When False, the probe fails fast with `ModUnreachableError` — kept
+    # for scripts and CI flows that want a clean exit if the mod is down.
+    wait_for_mod: bool = True
 
 
 def _bind_callbacks(handle: object, user_adapter: UserAdapter) -> None:
@@ -63,6 +69,70 @@ def _bind_callbacks(handle: object, user_adapter: UserAdapter) -> None:
 def _handle_state(handle: object) -> str:
     s = getattr(handle, "state", None)
     return str(getattr(s, "value", s)) if s is not None else "unknown"
+
+
+async def _probe_mod_until_reachable(client: object, cfg: ServeConfig) -> None:
+    """Block until the mod answers `/api/ping`, or fail fast if `wait_for_mod=False`.
+
+    Single-attempt mode (`wait_for_mod=False`) raises `ModUnreachableError`
+    on the first connection failure — the friendly handler in
+    `cli.commands.serve` turns it into a one-line CLI error.
+
+    Wait-forever mode (default) loops with `exp_backoff(1s→30s)`, the same
+    cadence `tbot watch` / `tbot listen` use. Logging is deliberately
+    minimal so it doesn't drown out the rest of the startup line-up: the
+    first retry logs `serve: waiting for mod at … Retrying every Ns…` at
+    INFO so the operator can see why startup is blocked, subsequent retries
+    log at DEBUG to avoid spam, and a final `serve: mod reachable at …`
+    line at INFO confirms when the wait clears. The probe runs once per
+    iteration in an executor so the blocking `requests` call doesn't stall
+    the event loop.
+    """
+    import requests  # noqa: PLC0415
+
+    from timberbot.utils import exp_backoff  # noqa: PLC0415
+
+    loop = asyncio.get_running_loop()
+
+    def _probe() -> tuple[bool, BaseException | None]:
+        try:
+            client._get_json("/api/ping")  # type: ignore[attr-defined]  # noqa: SLF001
+            return True, None
+        except (requests.ConnectionError, requests.Timeout) as e:
+            return False, e
+
+    if not cfg.wait_for_mod:
+        ok, exc = await loop.run_in_executor(None, _probe)
+        if not ok:
+            raise ModUnreachableError(
+                f"cannot reach mod at http://{cfg.host}:{cfg.port}: "
+                f"{type(exc).__name__}. Launch Timberborn with the Timberbot "
+                "mod loaded, then try again — or omit --no-wait to let serve "
+                "wait until the mod comes up."
+            ) from exc
+        return
+
+    attempt = 0
+    announced = False
+    while True:
+        ok, exc = await loop.run_in_executor(None, _probe)
+        if ok:
+            if announced:
+                log.info("serve: mod reachable at http://%s:%s", cfg.host, cfg.port)
+            return
+        delay = exp_backoff(attempt)
+        if not announced:
+            log.info(
+                "serve: waiting for mod at http://%s:%s (launch Timberborn + load a save). "
+                "Retrying every %.0fs…", cfg.host, cfg.port, delay,
+            )
+            announced = True
+        else:
+            log.debug(
+                "serve: mod unreachable (%s); retry in %.1fs", type(exc).__name__, delay,
+            )
+        await asyncio.sleep(delay)
+        attempt += 1
 
 
 async def _user_message_loop(
@@ -192,30 +262,23 @@ async def run_serve(cfg: ServeConfig) -> None:
         json_mode=True,
     )
 
-    # Fail-fast startup probe. Without this, an unreachable mod would let
-    # the MCP server bind and the Telegram bot connect, then the WS ingestor
-    # would silently spin in its reconnect loop forever — the user would
-    # see "MCP server started" and assume things are working. A single ping
-    # gives an immediate clean error if the player hasn't launched the
-    # game yet.
+    # Startup probe. Without this, an unreachable mod would let the MCP
+    # server bind and the Telegram bot connect, then the WS ingestor would
+    # silently spin in its reconnect loop forever — the user would see
+    # "MCP server started" and assume things are working. We probe `ping`
+    # explicitly so the user gets a clear status line.
+    #
+    # Two modes (controlled by `cfg.wait_for_mod`):
+    #   - True  (default): retry forever with exp_backoff. Lets the player
+    #     launch `tbot serve` and the game in either order. Matches
+    #     `tbot watch` / `tbot listen` UX, which also reconnect on their own.
+    #   - False: a single attempt — raise `ModUnreachableError` if it fails.
+    #     Kept for scripts and CI that want a clean exit if the mod is down.
     #
     # `client.ping()` returns False on connection error (it's designed for
     # polling), so we do the raw GET to get the actual exception with the
     # actionable error class.
-    #
-    # Blocking: this is a synchronous `requests` call inside an async
-    # function. Intentional — it runs once at startup before the TaskGroup
-    # spawns, so blocking the event loop for the 5-second timeout window
-    # is fine; the alternative (an aiohttp probe) would just duplicate the
-    # ping plumbing for a fail-fast path that doesn't need concurrency.
-    import requests  # noqa: PLC0415
-    try:
-        client._get_json("/api/ping")  # noqa: SLF001
-    except (requests.ConnectionError, requests.Timeout) as exc:
-        raise ModUnreachableError(
-            f"cannot reach mod at http://{cfg.host}:{cfg.port}: {exc.__class__.__name__}. "
-            "Launch Timberborn with the Timberbot mod loaded, then try again."
-        ) from exc
+    await _probe_mod_until_reachable(client, cfg)
 
     bus = EventBus()
     ws_client = TimberbotWsClient(cfg.host, cfg.ws_port, cfg.auth_token)
