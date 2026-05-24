@@ -79,8 +79,12 @@ async def _probe_mod_until_reachable(client: object, cfg: ServeConfig) -> None:
     `cli.commands.serve` turns it into a one-line CLI error.
 
     Wait-forever mode (default) loops with `exp_backoff(1s→30s)`, the same
-    cadence `tbot watch` / `tbot listen` use, and logs each retry at INFO
-    so the operator can see what's happening. The probe runs once per
+    cadence `tbot watch` / `tbot listen` use. Logging is deliberately
+    minimal so it doesn't drown out the rest of the startup line-up: the
+    first retry logs `serve: waiting for mod at … Retrying every Ns…` at
+    INFO so the operator can see why startup is blocked, subsequent retries
+    log at DEBUG to avoid spam, and a final `serve: mod reachable at …`
+    line at INFO confirms when the wait clears. The probe runs once per
     iteration in an executor so the blocking `requests` call doesn't stall
     the event loop.
     """
