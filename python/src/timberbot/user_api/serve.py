@@ -15,6 +15,17 @@ from timberbot.user_api.session_manager import SessionManager
 log = logging.getLogger("timberbot.user_api")
 
 
+class ModUnreachableError(RuntimeError):
+    """Raised when `tbot serve` can't reach the mod at startup.
+
+    Distinct from a transient mid-session disconnect — those are handled
+    silently by `TimberbotWsClient.messages()`'s reconnect loop. This one
+    means the player almost certainly hasn't launched Timberborn with the
+    mod loaded yet, and the CLI surface should print an actionable message
+    instead of a 100-line ExceptionGroup traceback.
+    """
+
+
 @dataclass
 class ServeConfig:
     host: str = "127.0.0.1"
@@ -180,6 +191,26 @@ async def run_serve(cfg: ServeConfig) -> None:
         auth_token=cfg.auth_token,
         json_mode=True,
     )
+
+    # Fail-fast startup probe. Without this, an unreachable mod would let
+    # the MCP server bind and the Telegram bot connect, then the WS ingestor
+    # would silently spin in its reconnect loop forever — the user would
+    # see "MCP server started" and assume things are working. A single ping
+    # gives an immediate clean error if the player hasn't launched the
+    # game yet.
+    #
+    # `client.ping()` returns False on connection error (it's designed for
+    # polling), so we do the raw GET to get the actual exception with the
+    # actionable error class.
+    import requests  # noqa: PLC0415
+    try:
+        client._get_json("/api/ping")  # noqa: SLF001
+    except (requests.ConnectionError, requests.Timeout) as exc:
+        raise ModUnreachableError(
+            f"cannot reach mod at http://{cfg.host}:{cfg.port}: {exc.__class__.__name__}. "
+            "Launch Timberborn with the Timberbot mod loaded, then try again."
+        ) from exc
+
     bus = EventBus()
     ws_client = TimberbotWsClient(cfg.host, cfg.ws_port, cfg.auth_token)
     ingestor = EventIngestor(ws_client, bus)

@@ -213,10 +213,32 @@ class TimberbotWsClient:
           * Any other condition keeps looping; transient handshake and dial
             failures are absorbed inside `_reconnect`, which keeps `_ws=None`
             and lets the next loop iteration retry with the next backoff
-            step.
+            step. The same applies to the *initial* dial: a connection-
+            refused or transient handshake error at startup is logged and
+            falls through to the retry loop instead of crashing every
+            caller that didn't think to wrap `messages()` in their own
+            try/except. Callers who want fail-fast semantics should call
+            `connect()` explicitly before iterating.
         """
         if self._ws is None and not self._closed:
-            await self.connect()
+            try:
+                await self.connect()
+            except aiohttp.WSServerHandshakeError as exc:
+                if exc.status == 401:
+                    # Bad token; bubble so caller stops the loop. Same
+                    # rationale as `_reconnect`.
+                    self._closed = True
+                    raise
+                log.warning(
+                    "wsclient: initial handshake failed (%s); will retry with backoff",
+                    exc,
+                )
+            except (aiohttp.ClientError, OSError, asyncio.TimeoutError) as exc:
+                log.warning(
+                    "wsclient: initial dial to %s failed (%s); will retry with backoff "
+                    "(is the mod running and listening on the WS port?)",
+                    self.safe_url, exc,
+                )
 
         while not self._closed:
             ws = self._ws

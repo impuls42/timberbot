@@ -404,6 +404,61 @@ async def test_messages_survives_transient_handshake_failure(server_factory):
     assert call_count == 2
 
 
+async def test_messages_survives_initial_dial_failure(server_factory):
+    """A connection-refused at the very first `messages()` iteration must
+    NOT propagate — it should fall through to the same backoff/retry path
+    that mid-stream disconnects use.
+
+    Regression: when `tbot serve` started before the mod was launched, the
+    ingestor's `async for msg in ws_client.messages()` raised
+    `ClientConnectorError` immediately, killing the TaskGroup and dumping
+    a 100-line traceback to the user.
+    """
+    call_count = 0
+
+    async def handler(ws: web.WebSocketResponse, _request: web.Request) -> None:
+        nonlocal call_count
+        call_count += 1
+        await ws.send_str(json.dumps({
+            "type": "event",
+            "payload": {"event": "hello", "day": 1, "timestamp": 1, "data": None},
+        }))
+        async for _ in ws:
+            pass
+
+    srv = await server_factory(handler=handler)
+    client = TimberbotWsClient(srv.host, srv.port,
+                               backoff_base=0.01, backoff_cap=0.05)
+
+    # Crucially, do NOT call connect() — drive messages() directly so the
+    # initial dial happens inside the iterator. Then simulate one initial
+    # failure before letting the real dial succeed.
+    real_dial = client._dial
+    attempts = {"n": 0}
+
+    async def flaky_dial():
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise aiohttp.ClientConnectorError(
+                connection_key=type("K", (), {"ssl": False, "host": srv.host,
+                                              "port": srv.port, "is_ssl": False})(),
+                os_error=ConnectionRefusedError(111, "Connection refused"),
+            )
+        return await real_dial()
+
+    client._dial = flaky_dial  # type: ignore[assignment]
+
+    try:
+        msg = await asyncio.wait_for(_next_msg_keep_open(client), timeout=3)
+    finally:
+        await client.close()
+
+    assert isinstance(msg.payload, EventPush)
+    assert msg.payload.event == "hello"
+    # We expect: 1 failed initial dial, 1 successful retry via _reconnect.
+    assert attempts["n"] >= 2
+
+
 def test_exp_backoff_imported_from_utils():
     """The `exp_backoff` helper must live in `timberbot.utils` (so `api/`
     doesn't depend on `cli/commands/`). Both the WS client and the watch
