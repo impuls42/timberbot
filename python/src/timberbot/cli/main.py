@@ -429,6 +429,7 @@ class Tbot:
         mcp_port: int | None = None,
         mcp_host: str | None = None,
         ws_port: int | None = None,
+        no_wait: bool = False,
     ) -> None:
         """Run the MCP game server + ACP agent connector + Telegram UI.
 
@@ -440,12 +441,17 @@ class Tbot:
             mcp_port: Port for the game MCP HTTP/SSE server (default: 8091).
             mcp_host: Bind address for the game MCP server (default: 127.0.0.1).
             ws_port: WebSocket port on the mod (default: 8086).
+            no_wait: Fail fast if the mod isn't reachable at startup. By default
+                `tbot serve` retries the startup ping with exp_backoff (1s→30s)
+                until the mod responds, so you can launch the server before the
+                game. Pass `--no-wait` for the legacy fail-fast behaviour.
         """
         ctx = _CTX
         rc = serve(
             backend=backend, model=model, acp_binary=acp_binary,
             telegram_token=telegram_token,
             mcp_port=mcp_port, mcp_host=mcp_host, ws_port=ws_port,
+            no_wait=no_wait,
             host=ctx.host, port=ctx.port, auth_token=ctx.auth_token,
         )
         if rc:

@@ -1,3 +1,9 @@
+## v0.9 `tbot serve` waits for the mod by default
+
+- [feature] **Launch-order-agnostic startup.** `tbot serve` no longer fails fast when the mod is unreachable at startup. It now retries the `/api/ping` probe with `exp_backoff(1s→30s)` — the same cadence `tbot watch` and `tbot listen` already use — until the game is reachable. Run `tbot serve` first, then start Timberborn; both orderings work.
+- [feature] **`--no-wait` opt-out.** Scripts and CI that prefer the legacy fail-fast behaviour (clean exit if the mod is down) can pass `--no-wait`. The friendly `ModUnreachableError` handler in `cli.commands.serve` is unchanged.
+- [behaviour] The first retry logs `serve: waiting for mod at http://… (launch Timberborn + load a save). Retrying every 1s…` at INFO so the operator can see what's happening; subsequent retries are at DEBUG to avoid log spam. Once the mod responds, `serve: mod reachable at …` is logged at INFO.
+
 ## v0.9 CLI: python-fire dispatcher
 
 The `tbot` CLI is now dispatched via [python-fire](https://github.com/google/python-fire) instead of the hand-rolled argparse + key:value dispatcher. The custom `cli/args.py` and `cli/dispatcher.py` modules are gone.

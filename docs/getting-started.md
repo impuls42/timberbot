@@ -161,7 +161,7 @@ Tool permission requests for MCP tools never reach Telegram — they are auto-ap
 ```text
 tbot serve [--backend {claude,opencode}] [--model MODEL] [--acp-binary PATH]
            [--telegram-token TOKEN] [--mcp-host HOST] [--mcp-port N]
-           [--ws-port N] [--verbose]
+           [--ws-port N] [--no-wait] [--verbose]
 ```
 
 | Flag | Env | Config | Default | What it does |
@@ -173,6 +173,7 @@ tbot serve [--backend {claude,opencode}] [--model MODEL] [--acp-binary PATH]
 | `--mcp-host` | — | `[serve] mcp_host` | `127.0.0.1` | Bind address for the game MCP HTTP/SSE server. |
 | `--mcp-port` | — | `[serve] mcp_port` | `8091` | Port for the game MCP HTTP/SSE server. |
 | `--ws-port` | `TBOT_WS_PORT` | `[client] ws_port` | `8086` | Mod-side WebSocket port (shared with `tbot watch` / `tbot listen`). |
+| `--no-wait` | — | — | off *(wait by default)* | Fail fast if the mod isn't reachable at startup. By default `tbot serve` retries the startup ping with exp_backoff (1 s → 30 s cap) until the mod responds, so you can launch the server first and start the game afterwards. Pass `--no-wait` in scripts/CI where you'd rather see a clean exit if the mod is down. Matches the existing UX of `tbot watch` and `tbot listen`, which already reconnect on their own. |
 | `--verbose` / `-v` | — | — | WARNING | Logging level. `-v` = INFO, `-vv` = DEBUG. |
 | — | — | `[serve] allowed_tools` | `["game.*"]` | Glob list of MCP tool names the connector auto-approves. Anything else is auto-rejected without prompting the user. |
 | — | — | `[serve.telegram] allowed_users` | `[]` *(open + warn)* | List of Telegram user IDs allowed to talk to the bot. Empty/unset means **any** Telegram user who finds the bot can `/prompt` it — `tbot serve` logs a warning at startup in that case. |
