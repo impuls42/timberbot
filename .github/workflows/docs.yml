@@ -6,12 +6,42 @@ on:
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
+  # On PRs, build the site but don't deploy it. The built tree is uploaded as
+  # an artifact so reviewers can download and open it locally to verify how
+  # proposed doc changes render before merge.
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
 
 permissions:
   contents: write
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install mkdocs-material
+      # `--strict` so doc bugs (broken links, missing nav entries) fail the
+      # build instead of silently shipping a broken site.
+      - run: mkdocs build --strict
+      - name: Upload built site
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site-${{ github.event.pull_request.number || github.sha }}
+          path: site/
+          retention-days: 14
+          if-no-files-found: error
+
+  # Deploy only runs on direct pushes to main (or manual dispatch) — PRs build
+  # via `build` above but never gh-deploy.
   deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
