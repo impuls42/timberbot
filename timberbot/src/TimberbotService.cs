@@ -51,6 +51,12 @@ namespace Timberbot
         // which keeps the gate semantics symmetrical with external connectors.
         public int HttpPort => _httpPort;
         public string ListenAddress => _listenAddress;
+        // Exposed so TimberbotPanel can attach an `Authorization: Bearer` header
+        // to its own /api/agent/state + /api/ready calls. When authToken is set
+        // in settings.json, the panel is a regular HTTP client of its own server
+        // and gets 401'd just like any external caller without this. Empty
+        // string means auth is disabled (the loopback default).
+        public string AuthToken => _authToken;
 
         // settings (loaded from settings.json in mod folder)
         private bool _debugEnabled = false;       // enable /api/debug endpoint (default: off)
