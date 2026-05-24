@@ -178,7 +178,7 @@ Use speed 0 to plan and queue work without spending resources. Do not unpause wi
 
 Timberborn 1.0 introduced a full automation system: sensors detect conditions, relays process logic, and wires connect them to buildings. The API exposes wiring and configuration for AI agents.
 
-> **Vocabulary warning.** Timberborn reuses "high" and "low" across three unrelated systems (automation signals, priorities, physical heights). Mixing them produces hallucinated commands. Read [`automation-states.md`](automation-states.md) for the disambiguation. The short version: automation wires carry only `On`/`Off`, priorities use `VeryLow`..`VeryHigh`, and floodgate heights are floats.
+> **Vocabulary warning.** Timberborn reuses "high" and "low" across three unrelated systems (automation signals, priorities, physical heights). Mixing them produces hallucinated commands. Read [`design/automation-states.md`](https://github.com/impuls42/timberbot/blob/main/design/automation-states.md) (in repo) for the disambiguation. The short version: automation wires carry only `On`/`Off`, priorities use `VeryLow`..`VeryHigh`, and floodgate heights are floats.
 
 ### Automation buildings
 
@@ -251,7 +251,7 @@ A regular building with a wire looks like:
 }
 ```
 
-For full API details, read `docs/api-reference.md` and `docs/automation-plan.md` (which contains the decompiled game API surface).
+For full API details, read `docs/api-reference.md` and `design/automation-plan.md` (which contains the decompiled game API surface).
 
 ## Brain
 

@@ -238,9 +238,8 @@ class District(BaseModel):
 
 
 class ImportOption(Enum):
-    Forced = "Forced"
     Auto = "Auto"
-    None_ = "None"
+    Forced = "Forced"
 
 
 class GoodDistribution(BaseModel):
@@ -646,7 +645,7 @@ class AgentState(BaseModel):
     goal: str = Field(..., description="Free-form objective text.")
     ready: bool = Field(
         ...,
-        description="Launch gate. False until the player presses Launch in the widget.",
+        description="Ready gate. False until the player presses Launch in the widget.",
     )
     pendingRequest: PendingRequest | None
     agentStatus: str = Field(

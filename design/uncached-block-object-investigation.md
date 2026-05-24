@@ -1,5 +1,7 @@
 # Uncached Block Object Investigation
 
+> **Status:** historical investigation. The fix landed in `TimberbotEntityRegistry`; this doc captures the root cause and reasoning.
+
 ## Summary
 
 Timberbot pathing attempted to route through a visible ruin on the map. The game had a real blocking object at that location, but Timberbot's normal occupancy model did not surface it. The root cause is that Timberbot currently caches only buildings, living natural resources, and beavers/bots. Other world `BlockObject` entities can exist in the raw game entity registry while remaining invisible to `/api/tiles` and path planning.

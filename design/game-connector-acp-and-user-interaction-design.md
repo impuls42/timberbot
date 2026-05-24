@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft for review |
+| Status | Design proposal — partial implementation in `tbot serve` ACP connector (see `python/src/timberbot/user_api/`). |
 | Version | 0.1 |
 | Scope | Game connector's role as ACP client toward agent runtimes; user-facing API and interaction patterns |
 | Out of scope | Game MCP server internals (see *Game Agent Event Delivery*); game runtime implementation; specific agent-runtime internals |

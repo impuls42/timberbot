@@ -78,7 +78,7 @@ tbot watch --backend claude                         # long-running agent connect
 ## Features
 
 - **WebSocket push channel**. State changes and game events stream over `ws://<host>:8086/api/ws` as `{type, payload}` JSON frames. See [WebSocket Protocol](docs/websocket-protocol.md).
-- **Launch gate**. Player presses **Launch** in the in-game widget to authorize agent activity; until then all `/api/*` calls (read + write) return `409 game_not_ready` except `/api/agent/*`, `/api/ready`, `/api/ping`.
+- **Ready gate**. Player presses **Launch** in the in-game widget to authorize agent activity; until then all `/api/*` calls (read + write) return `409 game_not_ready` except `/api/agent/*`, `/api/ready`, `/api/ping`.
 - **`tbot watch` connector**. Long-running Python process that connects over WS, heartbeats, and dispatches agent runs (request or autonomous mode).
 - **A* pathfinding**. `place_path` routes around obstacles, water, and ruins with auto-stairs.
 - **Automation wiring**. Link/unlink sensors, relays, memory cells to any pausable building, and configure thresholds, modes, logic over HTTP.
@@ -96,9 +96,9 @@ tbot watch --backend claude                         # long-running agent connect
 - [API Reference](docs/api-reference.md). all HTTP endpoints
 - [WebSocket Protocol](docs/websocket-protocol.md). `/api/ws` frame envelope, message types, reconnect
 - [Events](docs/events.md). consume the game-event stream with `tbot listen` or a custom WS client
-- [Timberbot AI](docs/timberbot.md). AI guide for agents playing Timberborn
+- [Timberbot Guide](docs/timberbot.md). AI guide for agents playing Timberborn
 - [Architecture](docs/architecture.md). internals, thread model, read/write pipeline, WS broadcaster
-- [Automation Plan](docs/automation-plan.md). decompiled wiring API and `/api/automation/*` design
+- [Automation Plan](design/automation-plan.md). decompiled wiring API and `/api/automation/*` design
 - [Agent Prompts](python/src/timberbot/agent_prompts/). drop-in gameplay prompts (`timberbot`, `scout`, `wirer`, `auditor`, `connector-mode`). Materialize editable copies into your user config dir with `tbot init`. The development-agent prompt for working on this codebase lives separately at [`agents/beaver-developer.md`](agents/beaver-developer.md).
 - [Repo Guide](AGENTS.md). project layout, build commands, conventions
 - [Developing](docs/developing.md). build from source, add endpoints, cutting a GitHub release

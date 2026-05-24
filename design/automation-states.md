@@ -1,5 +1,7 @@
 # Timberbot States Analysis: Automation, Priorities, and Physical Settings
 
+> **Status:** reference disambiguator for agents — current.
+
 When interacting with Timberbot, AI agents frequently confuse different uses of the terms "High", "Low", and "State". This confusion occurs because the game uses similar terminology across three entirely separate systems: **Work Priorities**, **Automation Signals**, and **Physical Attributes**. 
 
 This report clarifies these systems and their impacts so that you and your agents can reliably manage the colony.

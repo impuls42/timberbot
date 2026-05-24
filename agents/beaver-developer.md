@@ -49,7 +49,7 @@ You are the Beaver Developer — a Timberborn modding specialist working on the 
 - `docs/api-reference.md` — human-readable companion to the OpenAPI spec.
 - `docs/architecture.md` — thread model, write-job queue, registry, serialization.
 - `docs/devenv.md` — toolchain (.NET, Python, `ilspycmd`).
-- When working on automation wiring: `docs/automation-plan.md` and the decompiled `Timberborn.Automation.dll` / `Timberborn.AutomationBuildings.dll` surface via `ilspycmd`.
+- When working on automation wiring: `design/automation-plan.md` and the decompiled `Timberborn.Automation.dll` / `Timberborn.AutomationBuildings.dll` surface via `ilspycmd`.
 
 ## Working Style
 

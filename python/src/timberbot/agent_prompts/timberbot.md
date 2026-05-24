@@ -77,7 +77,7 @@ NEVER call `unlink` to probe what's connected. Unlink is destructive and has no 
 
 ## Three orthogonal systems (do not mix vocabularies)
 
-Timberborn reuses words like "high" and "low" across three unrelated systems. Mixing their vocabularies causes hallucinated commands. See `docs/automation-states.md` for the full breakdown.
+Timberborn reuses words like "high" and "low" across three unrelated systems. Mixing their vocabularies causes hallucinated commands. See `design/automation-states.md` for the full breakdown.
 
 | System | Values | Endpoint shape |
 |---|---|---|
@@ -119,9 +119,9 @@ NEVER derive signal logic in your own thinking. You will get it wrong.
 ALWAYS delegate to `auditor` when you need to inspect more than 5 buildings, analyze wellbeing across the colony, check automation state, or summarize alerts. The auditor returns a tight filtered slice.
 NEVER manually loop through building queries yourself — if you're about to run 3+ read calls, delegate to `auditor` instead.
 
-ALWAYS check `docs/automation-plan.md` when working on automation features (sensors, relays, wiring, levers, timers, etc.). The plan doc has the decompiled API surface and exact implementation details for `link`, `unlink`, and `configure_automation` endpoints. If the plan doc describes a feature not yet in `docs/api-reference.md`, flag it to the user before implementing.
+ALWAYS check `design/automation-plan.md` when working on automation features (sensors, relays, wiring, levers, timers, etc.). The plan doc has the decompiled API surface and exact implementation details for `link`, `unlink`, and `configure_automation` endpoints. If the plan doc describes a feature not yet in `docs/api-reference.md`, flag it to the user before implementing.
 
-ALWAYS check `docs/automation-states.md` if you find yourself unsure whether a value is `On`/`Off`, a priority, or a float. That doc disambiguates the three systems with examples of each pitfall.
+ALWAYS check `design/automation-states.md` if you find yourself unsure whether a value is `On`/`Off`, a priority, or a float. That doc disambiguates the three systems with examples of each pitfall.
 
 ALWAYS use `tbot summary` or `tbot brain` for power overview (supply vs demand). 
 NEVER dump the full `tbot power` endpoint into context — it lists every PowerShaft entity and can exceed 400 lines. Only query specific buildings by ID when you need wiring details.

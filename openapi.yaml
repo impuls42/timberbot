@@ -395,7 +395,7 @@ components:
         good: { type: string }
         importOption:
           type: string
-          enum: [Forced, Auto, None]
+          enum: [Auto, Forced]
         exportThreshold: { type: number }
       additionalProperties: true
 
@@ -803,7 +803,7 @@ components:
       properties:
         mode: { $ref: '#/components/schemas/AgentMode' }
         goal: { type: string, description: 'Free-form objective text.' }
-        ready: { type: boolean, description: 'Launch gate. False until the player presses Launch in the widget.' }
+        ready: { type: boolean, description: 'Ready gate. False until the player presses Launch in the widget.' }
         pendingRequest:
           oneOf:
             - { $ref: '#/components/schemas/PendingRequest' }
@@ -968,7 +968,7 @@ paths:
   /api/ready:
     post:
       operationId: ready
-      summary: Toggle the Launch / Stop ready gate.
+      summary: Toggle the ready gate (Launch / Stop).
       description: |
         Setting `ready=false` causes every non-whitelisted `/api/*` route
         (reads AND writes) to return 409 `game_not_ready` until the player
@@ -1120,7 +1120,7 @@ paths:
               type: object
               required: [endHours]
               properties:
-                endHours: { type: integer, minimum: 1, maximum: 24, default: 16 }
+                endHours: { type: integer, minimum: 1, maximum: 24, default: 18 }
               additionalProperties: false
       responses:
         '200':
@@ -1957,7 +1957,7 @@ paths:
                 good: { type: string }
                 import:
                   type: string
-                  description: '"Forced", "Auto", "None", or "" (leave unchanged).'
+                  description: '"Auto" or "Forced". Omit or pass "" to leave unchanged.'
                 exportThreshold:
                   type: integer
                   description: 'Export-above threshold. `-1` = leave unchanged.'

@@ -1,5 +1,7 @@
 # A* Path Building with Stair Placement. Current State
 
+> **Status:** implementation notes for the A* path placer behind `/api/placement/path` — current.
+
 ## What we're building
 
 `place_path` routes a path from `(x1,y1)` to `(x2,y2)` across a Timberborn map. Timberborn pathing is 3D: routes may stay flat, cross a single z-change with one stair, or traverse multi-level height changes using a chain of `platforms + stairs`.
