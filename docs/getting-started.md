@@ -240,20 +240,23 @@ tbot                                        # list all commands with usage
 tbot summary                                # colony snapshot: population, resources, weather, alerts
 tbot buildings                              # all buildings with workers, priority, power
 tbot beavers                                # wellbeing and critical needs per beaver
-tbot set_speed speed:3                      # fast forward (0=pause, 1/2/3)
-tbot map x1:110 y1:130 x2:130 y2:150              # ASCII map with terrain height shading
-tbot place_path x1:120 y1:140 x2:120 y2:150  # route a path with auto-stairs
+tbot set_speed 3                            # fast forward (0=pause, 1/2/3)
+tbot map --x1=110 --y1=130 --x2=130 --y2=150          # ASCII map with terrain height shading
+tbot place_path --x1=120 --y1=140 --x2=120 --y2=150   # route a path with auto-stairs
 ```
 
+!!! note "CLI flag syntax"
+    `tbot` is dispatched via [python-fire](https://github.com/google/python-fire). Pass arguments either positionally (`tbot set_speed 3`) or as flags (`tbot set_speed --speed=3`). Hyphens and underscores are interchangeable: `--source-id=42` and `--source_id=42` both work. Run `tbot <command> --help` to see the positional/flag layout for any command.
+
 !!! note "Pagination"
-    List endpoints (buildings, beavers, trees, crops) return 100 items by default. Use `limit:0` for all items, or `limit:N offset:M` for pages. Filter server-side with `name:X` or `x:N y:N radius:R`.
+    List endpoints (buildings, beavers, trees, crops) return 100 items by default. Use `--limit=0` for all items, or `--limit=N --offset=M` for pages. Filter server-side with `--name=X` or `--x=N --y=N --radius=R`.
 
 ### Visual map
 
 `map` renders a colored ASCII grid of your colony. Background shading shows terrain height, characters represent buildings, trees, water, and crops. A legend is printed below the grid.
 
 ```bash
-tbot map x1:110 y1:130 x2:130 y2:150
+tbot map --x1=110 --y1=130 --x2=130 --y2=150
 ```
 
 ### Live dashboard
@@ -266,13 +269,13 @@ Live colony dashboard. Population, resources, weather, drought countdown, wellbe
 
 ### Write commands
 
-Commands that change game state use `key:value` arguments:
+Commands that change game state take typed positional/flag arguments (run any command with `--help` to see its signature):
 
 ```bash
-tbot place_building prefab:Path x:120 y:130 z:2 orientation:south
-tbot set_priority id:12340 priority:VeryHigh
-tbot plant_crop x1:110 y1:130 x2:115 y2:135 z:2 crop:Carrot
-tbot mark_trees x1:100 y1:120 x2:110 y2:130 z:2
+tbot place_building --prefab=Path --x=120 --y=130 --z=2 --orientation=south
+tbot set_priority --id=12340 --priority=VeryHigh
+tbot plant_crop --x1=110 --y1=130 --x2=115 --y2=135 --z=2 --crop=Carrot
+tbot mark_trees --x1=100 --y1=120 --x2=110 --y2=130 --z=2
 ```
 
 Get building IDs from `tbot buildings`. Get prefab names from `tbot prefabs`.
@@ -282,10 +285,10 @@ Get building IDs from `tbot buildings`. Get prefab names from `tbot prefabs`.
 Wire sensors to relay/buildings to pause them based on thresholds:
 
 ```bash
-tbot buildings name:Relay                          # find relay IDs
-tbot link source_id:42 target_id:44 input:a        # wire sensor → relay input
-tbot configure_automation id:42 property:threshold value:50
-tbot unlink source_id:42 target_id:44              # remove a wire
+tbot buildings --name=Relay                                       # find relay IDs
+tbot link --source-id=42 --target-id=44 --input=a                 # wire sensor → relay input
+tbot configure_automation --id=42 --property=threshold --value=50
+tbot unlink --id=44 --input=a                                     # remove a wire
 ```
 
 See [API Reference](api-reference.md#post-apiautomationlink) for the full wiring API.
@@ -295,8 +298,8 @@ See [API Reference](api-reference.md#post-apiautomationlink) for the full wiring
 `brain` combines a live colony snapshot with persistent goal/task/location state stored in `~/.local/share/timberbot/memory/<settlement>/`:
 
 ```bash
-tbot brain                                         # live summary + saved goals and tasks
-tbot brain goal:"reach 50 beavers with 77 wellbeing"  # set a persistent goal
+tbot brain                                                  # live summary + saved goals and tasks
+tbot brain --goal="reach 50 beavers with 77 wellbeing"     # set a persistent goal
 ```
 
 ### Raw HTTP
@@ -472,7 +475,7 @@ Some runtime settings are applied on load, so changing them may require reloadin
 
 ## macOS launch helper
 
-`tbot launch settlement:<name>` on macOS prints the Steam launch options for the chosen settlement (`--tb-settlement <name> [--tb-save <save>]`) instead of starting the game. Paste those into Steam → Timberborn → Properties → Launch Options once, then open Timberborn manually — the mod's `TimberbotAutoLoad` reads the `--tb-*` args at the main menu and loads the save.
+`tbot launch --settlement=<name>` on macOS prints the Steam launch options for the chosen settlement (`--tb-settlement <name> [--tb-save <save>]`) instead of starting the game. Paste those into Steam → Timberborn → Properties → Launch Options once, then open Timberborn manually — the mod's `TimberbotAutoLoad` reads the `--tb-*` args at the main menu and loads the save.
 
 ## Troubleshooting
 

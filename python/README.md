@@ -24,13 +24,15 @@ Use
 ```
 tbot summary
 tbot buildings
-tbot place_building prefab:Path x:120 y:130 z:2 orientation:south
+tbot place_building --prefab=Path --x=120 --y=130 --z=2 --orientation=south
 tbot top
 tbot --help
 ```
 
-The `tbot` command is the entry point for everything. Run with no args to list
-all commands; run with `--help` for global flags.
+The `tbot` command is the entry point for everything; it is dispatched via
+[python-fire](https://github.com/google/python-fire), so each `TimberbotClient`
+method becomes a subcommand. Run with no args (or `--help`) to list every
+command; run `tbot <command> --help` for per-command flags and positional args.
 
 Layout
 ------
@@ -38,6 +40,6 @@ Layout
 - `timberbot.api.client.TimberbotClient` — pure HTTP client, one method per endpoint.
 - `timberbot.state.SettlementContext` — per-settlement persistent memory (`brain.toon`).
 - `timberbot.formatters` — colors, tables, ASCII map, live dashboard renderer.
-- `timberbot.cli` — argv parsing, command registry, main entry point.
+- `timberbot.cli` — global-flag parsing + the python-fire `Tbot` class that exposes every client method.
 
 The `from timberbot import Timberbot` alias re-exports `TimberbotClient`.

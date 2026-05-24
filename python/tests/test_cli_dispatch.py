@@ -1,8 +1,8 @@
-"""Integration tests for the CLI dispatcher.
+"""Integration tests for the Fire-based CLI dispatcher.
 
 Uses pytest-httpserver to simulate the mod's HTTP API so we can verify the
-end-to-end flow (argv → registry → method dispatch → output) without a running
-game.
+end-to-end flow (argv → global-flag parse → Fire reflection → method dispatch
+→ output formatting) without a running game.
 """
 from __future__ import annotations
 
@@ -41,18 +41,50 @@ def test_help_lists_commands(monkeypatch, capsys, httpserver):
     rc = _run(monkeypatch, ["--help"], httpserver.host, httpserver.port)
     out = capsys.readouterr().out
     assert rc == 0
-    assert "methods:" in out
-    # a few representative methods that must remain in the registry
+    # The new index has its own header text; the methods + builtins must be there.
+    assert "Built-in subcommands:" in out
+    assert "Client methods" in out
     for method in ("summary", "buildings", "place_building", "set_speed", "ping"):
         assert method in out
-    # built-in subcommands
-    for sub in ("top", "manager", "launch", "start"):
+    for sub in ("top", "manager", "launch", "serve", "watch", "listen", "agent", "init"):
         assert sub in out
+
+
+def test_method_help_renders_fire_screen(monkeypatch, capsys, httpserver):
+    """`tbot <method> --help` should show Fire's per-method help (signature + flags).
+
+    Fire writes help to stderr (FireExit(0) after).
+    """
+    rc = _run(monkeypatch, ["buildings", "--help"], httpserver.host, httpserver.port)
+    err = capsys.readouterr().err
+    assert rc == 0
+    assert "tbot buildings" in err
+    assert "--detail" in err
+    assert "--name" in err
+
+
+def test_builtin_help_renders_fire_screen(monkeypatch, capsys, httpserver):
+    """`tbot serve --help` (the original bug — was 'unknown method' before Fire)."""
+    rc = _run(monkeypatch, ["serve", "--help"], httpserver.host, httpserver.port)
+    err = capsys.readouterr().err
+    assert rc == 0
+    assert "tbot serve" in err
+    assert "--backend" in err
+
+
+def test_agent_subgroup_help(monkeypatch, capsys, httpserver):
+    """`tbot agent --help` should list the run/list_backends/prompts sub-commands."""
+    rc = _run(monkeypatch, ["agent", "--help"], httpserver.host, httpserver.port)
+    err = capsys.readouterr().err
+    assert rc == 0
+    assert "run" in err
+    assert "list_backends" in err
+    assert "prompts" in err
 
 
 def test_error_response_is_propagated(monkeypatch, capsys, httpserver):
     httpserver.expect_request("/api/buildings").respond_with_json({"error": "not_found: id 99"})
-    rc = _run(monkeypatch, ["buildings", "id:99"], httpserver.host, httpserver.port)
+    rc = _run(monkeypatch, ["buildings", "--id=99"], httpserver.host, httpserver.port)
     err = capsys.readouterr().err
     assert rc == 1
     parsed = json.loads(err)
@@ -62,15 +94,9 @@ def test_error_response_is_propagated(monkeypatch, capsys, httpserver):
 def test_unknown_method_exits_nonzero(monkeypatch, capsys, httpserver):
     rc = _run(monkeypatch, ["nonexistent_method"], httpserver.host, httpserver.port)
     err = capsys.readouterr().err
-    assert rc == 1
-    assert "unknown method" in err
-
-
-def test_unknown_param_reports_valid_set(monkeypatch, capsys, httpserver):
-    rc = _run(monkeypatch, ["summary", "bogus:1"], httpserver.host, httpserver.port)
-    err = capsys.readouterr().err
-    assert rc == 1
-    assert "unknown parameter" in err
+    # Fire prints "ERROR: Could not consume arg: nonexistent_method" and exits 2.
+    assert rc != 0
+    assert "nonexistent_method" in err
 
 
 def test_map_command_prints_rendered_string(monkeypatch, capsys, httpserver):
@@ -80,7 +106,11 @@ def test_map_command_prints_rendered_string(monkeypatch, capsys, httpserver):
             {"x": 1, "y": 0, "terrain": 5, "water": 0, "occupants": []},
         ],
     })
-    rc = _run(monkeypatch, ["map", "x1:0", "y1:0", "x2:1", "y2:0"], httpserver.host, httpserver.port)
+    rc = _run(
+        monkeypatch,
+        ["map", "--x1=0", "--y1=0", "--x2=1", "--y2=0"],
+        httpserver.host, httpserver.port,
+    )
     out = capsys.readouterr().out
     assert rc == 0
     # The CLI should print the rendered map directly, not a {"rendered": True} marker dict.
@@ -90,8 +120,6 @@ def test_map_command_prints_rendered_string(monkeypatch, capsys, httpserver):
 
 def test_verbose_logs_dispatch_and_request(monkeypatch, capsys, httpserver):
     """`-v` should surface the resolved endpoint and the HTTP round-trip."""
-    # Match the stub used by test_summary_dispatch above — Summary has
-    # required fields beyond `settlement`.
     stub = {
         "settlement": "X", "faction": "Folktails", "science": 0,
         "districts": [], "time": {}, "weather": {},
@@ -105,9 +133,8 @@ def test_verbose_logs_dispatch_and_request(monkeypatch, capsys, httpserver):
     rc = cli_main(full)
     captured = capsys.readouterr()
     assert rc == 0
-    # The two key things that were missing before: "which host am I hitting"
-    # + "what HTTP call did I make". Both land on stderr via logging.
-    assert "dispatch method=summary" in captured.err
+    # The two signals we expose at -v: where we're dispatching to + the HTTP call.
+    assert "dispatch -> http://" in captured.err
     assert "GET /api/summary" in captured.err
     assert "200" in captured.err
 

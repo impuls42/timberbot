@@ -94,7 +94,7 @@ timberbot/
 │   ├── pyproject.toml           # hatchling build; `tbot` console script
 │   ├── src/timberbot/           # Python package source
 │   │   ├── api/                 # TimberbotClient + Pydantic models
-│   │   ├── cli/                 # `tbot` CLI commands and dispatcher
+│   │   ├── cli/                 # `tbot` CLI: global-flag parser + python-fire `Tbot` class wrapping every client method as a subcommand
 │   │   ├── agent/               # Pluggable backends + runner
 │   │   ├── agent_prompts/       # Runtime prompts shipped as package data
 │   │   ├── formatters/          # Map, dashboard, table renderers
@@ -121,7 +121,7 @@ timberbot/
 
 ### Python Client Side
 - **Persistent state:** The agent uses `brain.toon` files in `memory/` subdirectories, keyed by settlement name. The `goal` parameter is saved here for cross-session persistence.
-- **CLI pattern:** `tbot <command> key:value key:value`. Parameters are colon-separated, not `--flags`. Global flags (`--json`, `-v`/`--verbose`, `--debug`, `--host=`, `--port=`, `--auth-token=`) are recognised before the command and stripped before method dispatch. `-v` logs the resolved endpoint + each HTTP request to stderr; `-vv` / `--debug` also logs request/response bodies. `TBOT_DEBUG=1` env var forces DEBUG when an agent is shelling out to `tbot`.
+- **CLI pattern:** `tbot <command> [args]`, dispatched via [python-fire](https://github.com/google/python-fire). Pass arguments either positionally (`tbot set_speed 3`) or as flags (`tbot set_speed --speed=3`, `tbot place_building --prefab=Path --x=120 --y=130 --z=2`). Hyphens and underscores are interchangeable in flag names. Global flags (`--json`, `-v`/`--verbose`, `--debug`, `--host=`, `--port=`, `--auth-token=`) are stripped *before* Fire sees argv. `-v` logs the resolved endpoint + each HTTP request to stderr; `-vv` / `--debug` also logs request/response bodies. `TBOT_DEBUG=1` env var forces DEBUG when an agent is shelling out to `tbot`. Use `tbot <command> --help` to see per-command positional/flag layout (Fire renders the typed signature).
 - **Sequential mutations:** Always run mutating game API calls sequentially, never in parallel.
 - **Boot flow:** Run the `brain` command once at session start to establish settlement context.
 

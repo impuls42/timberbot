@@ -89,7 +89,7 @@ If food or water is `<= 1d`, append `CRITICAL` after the value. If alerts are al
 
 **Note on stats:** Wellbeing averages, "miserable" counts, "critical" counts, and survival days (food/water/logs/planks/gears) strictly reflect **organic beavers** only. Bots are excluded to ensure statistics represent actual colony survival and health.
 
-If the colony state section is missing from your system prompt, fall back to running `tbot brain goal:"<goal>"` manually.
+If the colony state section is missing from your system prompt, fall back to running `tbot brain --goal="<goal>"` manually.
 
 4. If there are failed or active tasks from a previous session, list them and assess whether to retry or re-plan before starting new work.
 
@@ -216,9 +216,9 @@ Each sensor has a threshold, a comparison mode (Equal, Greater, Less, etc.), and
 
 See `docs/api-reference.md` for the full endpoint reference. The key commands are:
 
-- `tbot link source_id:<id> target_id:<id> [input:a|b]` — wire a sensor/relay to a building or relay input
-- `tbot unlink target_id:<id> [input:a|b|reset]` — remove a wire
-- `tbot configure_automation id:<id> property:<prop> value:<val>` — set threshold, mode, goodId, etc.
+- `tbot link --source-id=<id> --target-id=<id> [--input=a|b]` — wire a sensor/relay to a building or relay input
+- `tbot unlink --id=<id> [--input=a|b|reset]` — remove a wire
+- `tbot configure_automation --id=<id> --property=<prop> --value=<val>` — set threshold, mode, goodId, etc.
 
 ### Reading automation state
 
@@ -258,7 +258,7 @@ For full API details, read `docs/api-reference.md` and `design/automation-plan.m
 `brain` is the preferred first read for colony state because it combines live game state with persistent task and memory state.
 
 - `tbot brain` returns live summary from the game plus goal/tasks/locations from disk
-- `tbot brain goal:"<text>"` sets or overwrites the persistent goal
+- `tbot brain --goal="<text>"` sets or overwrites the persistent goal
 
 ### What brain returns
 

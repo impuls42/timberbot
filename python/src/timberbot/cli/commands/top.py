@@ -12,7 +12,6 @@ from timberbot.formatters.dashboard import render_top
 
 
 def _drain_key(is_win: bool, msvcrt_mod: object | None, select_mod: object | None) -> bytes | None:
-    """Non-blocking single-key read; returns bytes or None."""
     if is_win:
         if msvcrt_mod is not None and msvcrt_mod.kbhit():  # type: ignore[attr-defined]
             return msvcrt_mod.getch()  # type: ignore[attr-defined]
@@ -26,18 +25,8 @@ def _drain_key(is_win: bool, msvcrt_mod: object | None, select_mod: object | Non
     return None
 
 
-def _parse_interval(args: list[str], default: int = 5) -> int:
-    for a in args:
-        if a.startswith("interval:"):
-            try:
-                return int(a.split(":", 1)[1])
-            except ValueError:
-                pass
-    return default
-
-
-def run(args: list[str]) -> int:
-    interval = _parse_interval(args)
+def top(interval: int = 5) -> int:
+    """Live colony dashboard. Tick every `interval` seconds. Press q to quit, 0-3 to set game speed."""
     is_win = sys.platform == "win32"
     msvcrt_mod = None
     select_mod = None

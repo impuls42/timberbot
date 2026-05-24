@@ -55,11 +55,13 @@ The error string starts with a machine-readable code. Parse the prefix before `:
 All HTTP endpoints are accessible via the Python client:
 
 ```bash
-tbot <command>              # TOON format
-tbot --json <command>       # JSON format
-tbot <command> key:value    # with parameters
+tbot <command>                                # TOON format
+tbot --json <command>                         # JSON format
+tbot <command> <pos1> <pos2> --flag=value     # python-fire: positional and/or flag args
 tbot --host=192.168.1.50 --port=8085 summary  # remote connection
 ```
+
+Run `tbot <command> --help` to see the typed positional/flag signature for any command. Hyphens and underscores in flag names are interchangeable (`--source-id=42` ≡ `--source_id=42`).
 
 The in-game Timberbot widget is the primary way to launch and configure the built-in agent. The Python CLI remains available for direct API access and advanced workflows.
 
@@ -109,10 +111,10 @@ GET /api/beavers?name=Bot&limit=0               # all bots (unlimited)
 **CLI equivalent:**
 
 ```bash
-tbot buildings name:Farm                # all FarmHouses
-tbot buildings x:120 y:140 radius:20    # buildings near (120,140)
-tbot trees name:Pine limit:10           # first 10 pine trees
-tbot beavers name:Bot                   # all bots (unlimited)
+tbot buildings --name=Farm                          # all FarmHouses
+tbot buildings --x=120 --y=140 --radius=20          # buildings near (120,140)
+tbot trees --name=Pine --limit=10                   # first 10 pine trees
+tbot beavers --name=Bot                             # all bots (unlimited)
 ```
 
 ---
@@ -410,7 +412,7 @@ Current game speed. Answered on listener thread (works when paused).
 
 Set game speed.
 
-**CLI:** `tbot set_speed speed:2`
+**CLI:** `tbot set_speed 2`
 
 #### Request Body
 
@@ -459,7 +461,7 @@ Current work schedule.
 
 Set when beavers stop working.
 
-**CLI:** `tbot set_workhours end_hours:14`
+**CLI:** `tbot set_workhours --end-hours=14`
 
 #### Request Body
 
@@ -657,7 +659,7 @@ Import/export settings per good per district.
 
 Set import/export for a specific good in a district.
 
-**CLI:** `tbot set_distribution district:"District 1" good:Log import_option:Forced export_threshold:50`
+**CLI:** `tbot set_distribution --district="District 1" --good=Log --import-option=Forced --export-threshold=50`
 
 #### Request Body
 
@@ -686,7 +688,7 @@ Set import/export for a specific good in a district.
 
 Move adult beavers between districts.
 
-**CLI:** `tbot migrate from_district:"District 1" to_district:"District 2" count:3`
+**CLI:** `tbot migrate --from-district="District 1" --to-district="District 2" --count=3`
 
 #### Request Body
 
@@ -720,7 +722,7 @@ Move adult beavers between districts.
 
 All placed buildings with state.
 
-**CLI:** `tbot buildings` | `tbot --json buildings` | `tbot buildings name:Pump` | `tbot buildings x:120 y:140 radius:20`
+**CLI:** `tbot buildings` | `tbot --json buildings` | `tbot buildings --name=Pump` | `tbot buildings --x=120 --y=140 --radius=20`
 
 Supports server-side pagination (`?limit=10&offset=20`) and filtering (`?name=Farm`, `?x=120&y=140&radius=20`). All filters are available as CLI params too. See [Pagination](#pagination) above.
 
@@ -901,7 +903,7 @@ Supports server-side pagination (`?limit=10`) and filtering (`?name=Bot`). See [
 | `detail=full` | All needs (active + inactive) with `group` category field |
 | `id=<id>` | Single beaver/bot by ID, all needs with `group` field |
 
-**CLI:** `tbot beavers detail:full` | `tbot beavers id:-12345`
+**CLI:** `tbot beavers --detail=full` | `tbot beavers --id=-12345`
 
 Bots always show all 3 needs (Energy, ControlTower, Grease) regardless of detail mode.
 
@@ -1067,7 +1069,7 @@ Settlement name for the current save game. Answered on listener thread (works ev
 
 Terrain, water, occupants, and contamination for a rectangular region.
 
-**CLI:** `tbot tiles x1:100 y1:100 x2:110 y2:110`
+**CLI:** `tbot tiles --x1=100 --y1=100 --x2=110 --y2=110`
 
 #### Query Parameters
 
@@ -1185,7 +1187,7 @@ Population wellbeing breakdown by category. Shows current vs max score for each 
 
 Unlock a building using science points. Matches the exact UI flow (cost deduction + events + UI refresh).
 
-**CLI:** `tbot unlock_building building:"Engine.IronTeeth"`
+**CLI:** `tbot unlock_building --building="Engine.IronTeeth"`
 
 #### Request Body
 
@@ -1225,7 +1227,7 @@ Unlock a building using science points. Matches the exact UI flow (cost deductio
 
 Pause or unpause a building.
 
-**CLI:** `tbot pause_building id:12340` | `tbot unpause_building id:12340`
+**CLI:** `tbot pause_building 12340` | `tbot unpause_building 12340`
 
 #### Request Body
 
@@ -1256,7 +1258,7 @@ Pause or unpause a building.
 
 Engage or disengage a clutch on a building.
 
-**CLI:** `tbot set_clutch id:12340 engaged:true`
+**CLI:** `tbot set_clutch --id=12340 --engaged=true`
 
 #### Request Body
 
@@ -1277,7 +1279,7 @@ Engage or disengage a clutch on a building.
 
 Remove a building from the world.
 
-**CLI:** `tbot demolish_building id:12340`
+**CLI:** `tbot demolish_building 12340`
 
 #### Request Body
 
@@ -1303,7 +1305,7 @@ Remove a building from the world.
 
 Remove a planted crop entity from the world.
 
-**CLI:** `tbot demolish_crop id:12340`
+**CLI:** `tbot demolish_crop 12340`
 
 #### Request Body
 
@@ -1329,7 +1331,7 @@ Remove a planted crop entity from the world.
 
 Place a building in the world. Validates all tiles before placing: occupancy, terrain height, water, unlock status, underground clipping. Coordinates refer to the bottom-left corner regardless of orientation.
 
-**CLI:** `tbot place_building prefab:Path x:120 y:130 z:2 orientation:south`
+**CLI:** `tbot place_building --prefab=Path --x=120 --y=130 --z=2 --orientation=south`
 
 #### Request Body
 
@@ -1370,7 +1372,7 @@ Place a building in the world. Validates all tiles before placing: occupancy, te
 
 Find valid placements for a building within a rectangular area. Returns at most 10 results. Water buildings sort by waterDepth first (deepest water preferred). Others sort by: non-flooded > reachable > pathAccess > nearPower.
 
-**CLI:** `tbot find_placement prefab:LumberjackFlag.IronTeeth x1:110 y1:125 x2:130 y2:145`
+**CLI:** `tbot find_placement --prefab=LumberjackFlag.IronTeeth --x1=110 --y1=125 --x2=130 --y2=145`
 
 #### Request Body
 
@@ -1431,7 +1433,7 @@ Water buildings (pumps) sort by: waterDepth (deepest first). Others sort by: non
 
 Set floodgate water gate height. Value is clamped to max.
 
-**CLI:** `tbot set_floodgate id:12340 height:1.5`
+**CLI:** `tbot set_floodgate --id=12340 --height=1.5`
 
 #### Request Body
 
@@ -1458,7 +1460,7 @@ Set floodgate water gate height. Value is clamped to max.
 
 Set construction or workplace priority.
 
-**CLI:** `tbot set_priority id:12340 priority:VeryHigh`
+**CLI:** `tbot set_priority --id=12340 --priority=VeryHigh`
 
 #### Request Body
 
@@ -1490,7 +1492,7 @@ Set construction or workplace priority.
 
 Set desired worker count for a workplace.
 
-**CLI:** `tbot set_workers id:12340 count:2`
+**CLI:** `tbot set_workers --id=12340 --count=2`
 
 #### Request Body
 
@@ -1517,7 +1519,7 @@ Set desired worker count for a workplace.
 
 Prioritize hauling deliveries to a building.
 
-**CLI:** `tbot set_haul_priority id:12340 prioritized:true`
+**CLI:** `tbot set_haul_priority --id=12340 --prioritized=true`
 
 #### Request Body
 
@@ -1544,7 +1546,7 @@ Prioritize hauling deliveries to a building.
 
 Set which recipe a manufactory produces.
 
-**CLI:** `tbot set_recipe id:12340 recipe:PlankRecipe`
+**CLI:** `tbot set_recipe --id=12340 --recipe=PlankRecipe`
 
 #### Request Body
 
@@ -1575,7 +1577,7 @@ Set which recipe a manufactory produces.
 
 Prioritize planting or harvesting for a farmhouse.
 
-**CLI:** `tbot set_farmhouse_action id:12340 action:planting`
+**CLI:** `tbot set_farmhouse_action --id=12340 --action=planting`
 
 #### Request Body
 
@@ -1610,7 +1612,7 @@ Prioritize planting or harvesting for a farmhouse.
 
 Prioritize which tree/resource type a forester plants.
 
-**CLI:** `tbot set_plantable_priority id:12340 plantable:Pine`
+**CLI:** `tbot set_plantable_priority --id=12340 --plantable=Pine`
 
 #### Request Body
 
@@ -1641,7 +1643,7 @@ Prioritize which tree/resource type a forester plants.
 
 Set storage mode and/or allowed good on any storage building (piles, warehouses, tanks). Set either or both fields in one call.
 
-**CLI:** `tbot set_storage id:12340 good:Water mode:obtain`
+**CLI:** `tbot set_storage --id=12340 --good=Water --mode=obtain`
 
 #### Request Body
 
@@ -1681,7 +1683,7 @@ Set storage mode and/or allowed good on any storage building (piles, warehouses,
 
 Wire a sensor, relay, or other transmitter output to an automation input on a building.
 
-**CLI:** `tbot link source_id:42 target_id:44 input:a`
+**CLI:** `tbot link --source-id=42 --target-id=44 --input=a`
 
 #### Request Body
 
@@ -1720,7 +1722,7 @@ For Automatable targets (single-input buildings), the `input` field always retur
 
 Disconnect an automation input on a building.
 
-**CLI:** `tbot unlink id:44 input:a`
+**CLI:** `tbot unlink --id=44 --input=a`
 
 #### Request Body
 
@@ -1757,7 +1759,7 @@ For Automatable targets (single-input buildings), the `input` field always retur
 
 Configure a property on an automation component (sensor threshold, relay mode, lever state, etc.).
 
-**CLI:** `tbot configure_automation id:42 property:threshold value:50`
+**CLI:** `tbot configure_automation --id=42 --property=threshold --value=50`
 
 #### Request Body
 
@@ -1800,7 +1802,7 @@ Configure a property on an automation component (sensor threshold, relay mode, l
 
 Mark or clear a rectangular area for tree cutting.
 
-**CLI:** `tbot mark_trees x1:110 y1:130 x2:120 y2:140 z:2` | `tbot clear_trees x1:110 y1:130 x2:120 y2:140 z:2`
+**CLI:** `tbot mark_trees --x1=110 --y1=130 --x2=120 --y2=140 --z=2` | `tbot clear_trees --x1=110 --y1=130 --x2=120 --y2=140 --z=2`
 
 #### Request Body
 
@@ -1825,7 +1827,7 @@ Mark or clear a rectangular area for tree cutting.
 
 Mark an area for crop planting. Validates tiles: skips occupied, water, and wrong terrain.
 
-**CLI:** `tbot plant_crop x1:110 y1:130 x2:115 y2:135 z:2 crop:Carrot`
+**CLI:** `tbot plant_crop --x1=110 --y1=130 --x2=115 --y2=135 --z=2 --crop=Carrot`
 
 #### Request Body
 
@@ -1850,7 +1852,7 @@ Mark an area for crop planting. Validates tiles: skips occupied, water, and wron
 
 Clear planting marks from an area.
 
-**CLI:** `tbot clear_planting x1:110 y1:130 x2:115 y2:135 z:2`
+**CLI:** `tbot clear_planting --x1=110 --y1=130 --x2=115 --y2=135 --z=2`
 
 #### Request Body
 
@@ -1874,7 +1876,7 @@ Clear planting marks from an area.
 
 Find valid planting spots in an area or within a building's work range.
 
-**CLI:** `tbot find_planting crop:Kohlrabi id:-514366` or `tbot find_planting crop:Kohlrabi x1:68 y1:128 x2:72 y2:132 z:2`
+**CLI:** `tbot find_planting --crop=Kohlrabi --id=-514366` or `tbot find_planting --crop=Kohlrabi --x1=68 --y1=128 --x2=72 --y2=132 --z=2`
 
 #### Request Body
 
@@ -1902,7 +1904,7 @@ Find valid planting spots in an area or within a building's work range.
 
 Get the work range tiles for a building. Same green circle the player sees when selecting a farmhouse, lumberjack, forester, gatherer, scavenger, or district center.
 
-**CLI:** `tbot building_range id:-514366`
+**CLI:** `tbot building_range --id=-514366`
 
 #### Request Body
 
@@ -1928,7 +1930,7 @@ Get the work range tiles for a building. Same green circle the player sees when 
 
 Route a path from point A to point B using A* pathfinding over a 3D surface graph. Routes around buildings, natural resources, ruins, water, and terrain obstacles. Handles diagonal routes, multi-z transitions with auto-stairs/platforms, and reuses existing paths/stairs/platforms.
 
-**CLI:** `tbot place_path x1:120 y1:130 x2:150 y2:160`
+**CLI:** `tbot place_path --x1=120 --y1=130 --x2=150 --y2=160`
 
 #### Request Body
 
@@ -2003,7 +2005,7 @@ Game events ship as server-push frames on the mod's WebSocket channel rather tha
 
 Reflection-based inspector for game internals. Navigates object graphs, lists fields/properties/methods, and calls methods with arguments. Results can be chained with `$`.
 
-**CLI:** `tbot debug target:help`
+**CLI:** `tbot debug --target=help`
 
 #### Request Body
 
@@ -2054,7 +2056,7 @@ Reflection-based inspector for game internals. Navigates object graphs, lists fi
 
 Profile internal hot paths and server micro-benchmarks. Requires `debugEndpointEnabled: true` in settings.json.
 
-**CLI:** `tbot benchmark iterations:100`
+**CLI:** `tbot benchmark --iterations=100`
 
 #### Request Body
 
@@ -2080,7 +2082,7 @@ These are convenience methods in the `tbot` CLI that have no direct HTTP equival
 Colored ASCII grid with terrain height display. Background shading encodes z-level, foreground characters represent entities.
 
 ```bash
-tbot map x1:112 y1:126 x2:132 y2:146
+tbot map --x1=112 --y1=126 --x2=132 --y2=146
 ```
 
 | Char | Color | Meaning |
@@ -2147,7 +2149,7 @@ Background bands: z=0-9 (dark grays), z=10-19 (medium grays), z=20-22 (bright).
 Find entities by name and/or proximity.
 
 ```bash
-tbot find source:buildings name:Pump x:120 y:130 radius:20
+tbot find --source=buildings --name=Pump --x=120 --y=130 --radius=20
 ```
 
 ### place_path (CLI-only)
@@ -2155,9 +2157,9 @@ tbot find source:buildings name:Pump x:120 y:130 radius:20
 A* path routing with auto-stairs/platforms. Wraps `POST /api/path/place`.
 
 ```bash
-tbot place_path x1:120 y1:130 x2:150 y2:160
-tbot place_path x1:0 y1:0 x2:255 y2:255 style:straight
-tbot place_path x1:120 y1:130 x2:150 y2:160 sections:1 timings:true
+tbot place_path --x1=120 --y1=130 --x2=150 --y2=160
+tbot place_path --x1=0 --y1=0 --x2=255 --y2=255 --style=straight
+tbot place_path --x1=120 --y1=130 --x2=150 --y2=160 --sections=1 --timings=true
 ```
 
 ### launch (CLI-only)
@@ -2169,7 +2171,7 @@ Start Timberborn with `--tb-settlement` / `--tb-save` Steam launch args; the mod
 - Does not read or write any file under the game's Documents/Mods tree.
 
 ```bash
-tbot launch settlement:Potato save:Tomato
+tbot launch --settlement=Potato --save=Tomato
 ```
 
 ### top (CLI-only)
@@ -2185,18 +2187,18 @@ tbot top
 Persistent colony knowledge under the OS user-data dir (`~/.local/share/timberbot/memory/` on Linux, `~/Library/Application Support/timberbot/memory/` on macOS, `%LOCALAPPDATA%\timberbot\memory\` on Windows). Override with `TBOT_DATA_DIR`. Older `brain.toon` files under the legacy `Documents/Timberborn/Mods/Timberbot/memory/` tree are migrated on first run.
 
 ```bash
-tbot brain            # live summary + persistent goal/tasks/locations
-tbot brain goal:"get to 77 wellbeing"  # set persistent goal
-tbot set_location name:berries x:120 y:140 note:"south of DC"  # save a named location
-tbot remove_location name:berries     # remove a saved location
-tbot list_locations   # list saved locations
-tbot add_task action:"build roads"   # add task to work queue
-tbot update_task id:1 status:done    # update task status
-tbot list_tasks       # show all tasks
-tbot clear_tasks      # remove done tasks
+tbot brain                                                      # live summary + persistent goal/tasks/locations
+tbot brain --goal="get to 77 wellbeing"                        # set persistent goal
+tbot set_location --name=berries --x=120 --y=140 --note="south of DC"  # save a named location
+tbot remove_location --name=berries                             # remove a saved location
+tbot list_locations                                             # list saved locations
+tbot add_task --action="build roads"                            # add task to work queue
+tbot update_task --id=1 --status=done                           # update task status
+tbot list_tasks                                                 # show all tasks
+tbot clear_tasks                                                # remove done tasks
 ```
 
-`brain` returns live summary (always fresh from `/api/summary`) plus persistent state from `<user-data>/timberbot/memory/<settlement>/brain.toon` (goal, tasks, locations). Summary is never persisted. only goal, tasks, and locations survive between sessions. Set a persistent goal with `brain goal:"text"`. The built-in in-game agent also uses `brain` internally during startup before it launches Claude/Codex.
+`brain` returns live summary (always fresh from `/api/summary`) plus persistent state from `<user-data>/timberbot/memory/<settlement>/brain.toon` (goal, tasks, locations). Summary is never persisted. only goal, tasks, and locations survive between sessions. Set a persistent goal with `brain --goal="text"`. The built-in in-game agent also uses `brain` internally during startup before it launches Claude/Codex.
 
 ---
 

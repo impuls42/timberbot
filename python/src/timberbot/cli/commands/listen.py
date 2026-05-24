@@ -32,7 +32,6 @@ stable.
 """
 from __future__ import annotations
 
-import argparse
 import asyncio
 import datetime as _dt
 import json
@@ -239,49 +238,44 @@ async def subscribe(
         await sleep(delay)
 
 
-def _parse(args: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser(prog="tbot listen",
-                                description="WebSocket event subscriber.")
-    p.add_argument("--pretty", action="store_true",
-                   help="Print one human-friendly line per event instead of raw JSON.")
-    p.add_argument("--forward-to", default=None, metavar="PATH_OR_URL",
-                   help=("Append each event as JSON to a file (file:// or bare path) "
-                         "or POST it as a 1-element batch to a URL (http(s)://)."))
-    p.add_argument("--quiet", action="store_true",
-                   help="Suppress stdout output (only --forward-to receives events).")
-    p.add_argument("--ws-port", type=int, default=None,
-                   help="WebSocket port on the mod (defaults to the resolved HTTP port).")
-    p.add_argument("--host", default=None,
-                   help="Mod host. Overrides TBOT_HOST and config.toml [client].host.")
-    p.add_argument("--auth-token", default=None,
-                   help="Bearer token. Overrides TBOT_AUTH_TOKEN and config.toml [client].auth_token.")
-    return p.parse_args(args)
+def listen(
+    pretty: bool = False,
+    forward_to: str | None = None,
+    quiet: bool = False,
+    ws_port: int | None = None,
+    host: str | None = None,
+    auth_token: str | None = None,
+) -> int:
+    """Subscribe to the mod's WebSocket and stream event frames.
 
-
-def run(args: list[str]) -> int:
-    """Entry point for `tbot listen`.
-
-    Resolves host/port/auth-token via the shared precedence chain (CLI → env
-    → user config.toml → mod settings.json → defaults). `--ws-port` is the
-    one WS-specific knob; when absent `resolve_ws_port` returns the default
-    8086 (the mod runs the WS listener on its own port, not the HTTP one).
+    Args:
+        pretty: Print one human-friendly line per event instead of raw JSON.
+        forward_to: Append each event as JSON to a file (file:// or bare path)
+            or POST it as a 1-element batch to a URL (http(s)://).
+        quiet: Suppress stdout output (only --forward-to receives events).
+        ws_port: WebSocket port on the mod (defaults to the resolved HTTP port).
+        host: Mod host. Overrides TBOT_HOST and config.toml [client].host.
+        auth_token: Bearer token. Overrides TBOT_AUTH_TOKEN and config.toml
+            [client].auth_token.
     """
-    ns = _parse(args)
-    host, _http_port = resolve_endpoint(ns.host, None)
-    ws_port = resolve_ws_port(ns.ws_port)
-    token = resolve_auth_token(ns.auth_token)
+    host_resolved, _http_port = resolve_endpoint(host, None)
+    ws_port_resolved = resolve_ws_port(ws_port)
+    token = resolve_auth_token(auth_token)
 
-    if not ns.quiet:
-        print(f"listen: subscribing to ws://{host}:{ws_port}/api/ws", file=sys.stderr)
+    if not quiet:
+        print(
+            f"listen: subscribing to ws://{host_resolved}:{ws_port_resolved}/api/ws",
+            file=sys.stderr,
+        )
 
     try:
         return asyncio.run(subscribe(
-            host=host,
-            ws_port=ws_port,
+            host=host_resolved,
+            ws_port=ws_port_resolved,
             auth_token=token,
-            pretty=ns.pretty,
-            quiet=ns.quiet,
-            forward_to=ns.forward_to,
+            pretty=pretty,
+            quiet=quiet,
+            forward_to=forward_to,
         ))
     except KeyboardInterrupt:
         return 0

@@ -22,7 +22,8 @@ def is_essential(name: str) -> bool:
     return any(e in name for e in ESSENTIAL)
 
 
-def run(_args: list[str]) -> int:
+def manager() -> int:
+    """Auto-pause low-priority buildings to keep idle haulers in band (1-4)."""
     bot = TimberbotClient(json_mode=True)
     if not bot.ping():
         print(f"  {RED}cannot reach Timberbot on port 8085{RST}")

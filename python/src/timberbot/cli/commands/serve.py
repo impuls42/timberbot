@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import asyncio
 import logging
 import os
@@ -29,30 +28,26 @@ def resolve_telegram_token(explicit: str | None = None) -> str:
     sys.exit(1)
 
 
-def _parse(args: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser(prog="tbot serve", add_help=True)
-    p.add_argument("--backend", default=None, choices=["claude", "opencode"],
-                   help="ACP runtime backend (default: claude).")
-    p.add_argument("--model", default=None, help="Model identifier passed to the backend.")
-    p.add_argument("--acp-binary", dest="acp_binary", default=None,
-                   help="Path or name of the agent CLI to spawn (default: matches backend).")
-    p.add_argument("--telegram-token", dest="telegram_token", default=None,
-                   help="Telegram bot token (also: TBOT_TELEGRAM_TOKEN env).")
-    p.add_argument("--mcp-port", dest="mcp_port", type=int, default=None,
-                   help="Port for the game MCP HTTP/SSE server (default: 8091).")
-    p.add_argument("--mcp-host", dest="mcp_host", default=None,
-                   help="Bind address for the game MCP server (default: 127.0.0.1).")
-    p.add_argument("--ws-port", dest="ws_port", type=int, default=None,
-                   help="WebSocket port on the mod (default: 8086).")
-    p.add_argument("--verbose", "-v", action="count", default=0,
-                   help="Increase log verbosity (-v INFO, -vv DEBUG).")
-    return p.parse_args(args)
+def serve(
+    backend: str | None = None,
+    model: str | None = None,
+    acp_binary: str | None = None,
+    telegram_token: str | None = None,
+    mcp_port: int | None = None,
+    mcp_host: str | None = None,
+    ws_port: int | None = None,
+) -> int:
+    """Run the MCP game server + ACP agent connector + Telegram UI.
 
-
-def run(args: list[str]) -> int:
-    ns = _parse(args)
-    _configure_logging(ns.verbose)
-
+    Args:
+        backend: ACP runtime backend (claude or opencode; default: claude).
+        model: Model identifier passed to the backend.
+        acp_binary: Path or name of the agent CLI to spawn (default: matches backend).
+        telegram_token: Telegram bot token (also: TBOT_TELEGRAM_TOKEN env).
+        mcp_port: Port for the game MCP HTTP/SSE server (default: 8091).
+        mcp_host: Bind address for the game MCP server (default: 127.0.0.1).
+        ws_port: WebSocket port on the mod (default: 8086).
+    """
     try:
         from timberbot.user_api.serve import ServeConfig, run_serve
     except ImportError:
@@ -66,14 +61,14 @@ def run(args: list[str]) -> int:
     tg_data = serve_telegram_config()
     host, port = resolve_endpoint()
     auth_token = resolve_auth_token()
-    ws_port = resolve_ws_port(ns.ws_port)
-    token = resolve_telegram_token(ns.telegram_token)
+    ws_port_resolved = resolve_ws_port(ws_port)
+    token = resolve_telegram_token(telegram_token)
 
-    if ns.acp_binary is not None and ns.acp_binary == "":
+    if acp_binary is not None and acp_binary == "":
         print("error: --acp-binary must not be empty", file=sys.stderr)
         return 1
 
-    backend = ns.backend or cfg_data.get("backend", "claude")
+    backend = backend or cfg_data.get("backend", "claude")
     if backend not in ("claude", "opencode"):
         print(f"error: unknown backend {backend!r}; expected 'claude' or 'opencode'", file=sys.stderr)
         return 1
@@ -103,13 +98,13 @@ def run(args: list[str]) -> int:
     cfg = ServeConfig(
         host=host,
         port=port,
-        ws_port=ws_port,
+        ws_port=ws_port_resolved,
         auth_token=auth_token,
-        mcp_host=ns.mcp_host or cfg_data.get("mcp_host", "127.0.0.1"),
-        mcp_port=ns.mcp_port or int(cfg_data.get("mcp_port", 8091)),
+        mcp_host=mcp_host or cfg_data.get("mcp_host", "127.0.0.1"),
+        mcp_port=mcp_port or int(cfg_data.get("mcp_port", 8091)),
         backend=backend,
-        model=ns.model or cfg_data.get("model", "claude-opus-4-7"),
-        acp_binary=ns.acp_binary or cfg_data.get("acp_binary", backend),
+        model=model or cfg_data.get("model", "claude-opus-4-7"),
+        acp_binary=acp_binary or cfg_data.get("acp_binary", backend),
         telegram_token=token,
         telegram_allowed_users=allowed_users,
         allowed_tools=cfg_data.get("allowed_tools", ["game.*"]),
@@ -199,7 +194,3 @@ def _root_cause(exc: BaseException) -> BaseException:
     return exc
 
 
-def _configure_logging(verbosity: int) -> None:
-    """Back-compat shim; the real impl lives in `cli.logging_setup`."""
-    from timberbot.cli.logging_setup import configure_logging
-    configure_logging(verbosity)

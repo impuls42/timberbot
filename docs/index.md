@@ -64,10 +64,10 @@ Timberbot gives Claude, Codex, ChatGPT, or your own scripts complete access to a
 
 ```bash
 # with Timberborn running + the mod loaded
-tbot summary                              # colony snapshot
-tbot map x1:110 y1:130 x2:130 y2:150      # ASCII map with terrain shading
-tbot place_path x1:110 y1:130 x2:130 y2:150  # A* pathfinding with auto-stairs
-tbot set_speed speed:3                    # fast forward
+tbot summary                                          # colony snapshot
+tbot map --x1=110 --y1=130 --x2=130 --y2=150          # ASCII map with terrain shading
+tbot place_path --x1=110 --y1=130 --x2=130 --y2=150   # A* pathfinding with auto-stairs
+tbot set_speed 3                                      # fast forward
 
 # or raw HTTP, no Python required
 curl http://127.0.0.1:8085/api/summary

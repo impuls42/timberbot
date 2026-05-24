@@ -488,25 +488,36 @@ def test_stop_method_unblocks_run():
 # ---------------------------------------------------------------------------
 
 
-def test_watch_command_registered_in_main():
-    from timberbot.cli.main import _build_registry
+def test_watch_command_registered_on_tbot_class():
+    # `timberbot.cli.__init__` re-exports `main`, shadowing the submodule
+    # attribute. Pull the actual module from sys.modules instead.
+    import importlib
+    cli_main = importlib.import_module("timberbot.cli.main")
 
-    registry = _build_registry()
-    cmd = registry.get("watch")
-    assert cmd is not None
-    assert cmd.handler is watch_mod.run
+    assert hasattr(cli_main.Tbot, "watch")
+    # `staticmethod(_wrap_builtin(watch))` — peel the staticmethod descriptor
+    # then follow `__wrapped__` to the underlying function.
+    bound = cli_main.Tbot.__dict__["watch"]
+    fn = getattr(bound, "__func__", bound)
+    underlying = getattr(fn, "__wrapped__", fn)
+    assert underlying is watch_mod.watch
 
 
-def test_parse_accepts_ws_port_flag():
-    ns = watch_mod._parse(["--ws-port", "9999", "--once"])
-    assert ns.ws_port == 9999
-    assert ns.once is True
+def test_fire_signature_accepts_ws_port_flag():
+    """Fire reflects `watch(...)`'s signature into CLI flags."""
+    import inspect
+
+    params = inspect.signature(watch_mod.watch).parameters
+    assert "ws_port" in params
+    assert "once" in params
 
 
-def test_parse_defaults_have_no_listen_port():
-    """The legacy `--listen-port` flag is gone — confirm the CLI rejects it."""
-    with pytest.raises(SystemExit):
-        watch_mod._parse(["--listen-port", "9001"])
+def test_fire_signature_has_no_legacy_listen_port():
+    """The legacy `--listen-port` flag is gone — confirm it's no longer a parameter."""
+    import inspect
+
+    params = inspect.signature(watch_mod.watch).parameters
+    assert "listen_port" not in params
 
 
 def test_no_webhook_listener_module_state():

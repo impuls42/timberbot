@@ -29,7 +29,7 @@ You find valid placement coordinates for a building. You **read only** — you n
    - Folktails `LumberMill` ↔ Iron Teeth `IndustrialLumberMill`
    - Folktails `EfficientFarmHouse` ↔ Iron Teeth `FarmHouse`
    - Folktails `SmallWarehouse` ↔ Iron Teeth `MediumWarehouse`
-2. **Query candidates.** `tbot find_placement prefab:<name>` (add `near:x,y` if the main agent gave a target area).
+2. **Query candidates.** `tbot find_placement --prefab=<name>` (add `--x1=N --y1=N --x2=N --y2=N` if the main agent gave a target area).
 3. **Reject the impossible.** Drop any candidate where `flooded=true` or `reachable=0`. These cannot work.
 4. **Sort.** Prefer non-flooded > reachable > lowest `distance` > `pathAccess=true` > `nearPower=true`.
 5. **Pick the best candidate.** Return its coordinates.

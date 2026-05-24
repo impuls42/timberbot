@@ -385,58 +385,72 @@ def test_malformed_frame_logged_but_connection_kept(capsys):
 # ---------------------------------------------------------------------------
 
 
-def test_argparse_accepts_new_flags():
-    ns = listen_cmd._parse([
-        "--pretty", "--quiet", "--forward-to", "events.jsonl",
-        "--ws-port", "9999", "--host", "10.0.0.1", "--auth-token", "abc",
-    ])
-    assert ns.pretty is True
-    assert ns.quiet is True
-    assert ns.forward_to == "events.jsonl"
-    assert ns.ws_port == 9999
-    assert ns.host == "10.0.0.1"
-    assert ns.auth_token == "abc"
+def test_fire_signature_accepts_new_flags():
+    """Fire reflects `listen(...)`'s signature into CLI flags. Lock the surface.
+
+    These are the flags users will see; the legacy argparse `_parse` is gone.
+    """
+    import inspect
+
+    params = inspect.signature(listen_cmd.listen).parameters
+    for name in ("pretty", "forward_to", "quiet", "ws_port", "host", "auth_token"):
+        assert name in params, f"missing CLI flag: --{name.replace('_', '-')}"
+    # `--port` (HTTP-inbound legacy) must not be exposed by the listen command.
+    assert "port" not in params
 
 
-def test_argparse_rejects_legacy_port_flag():
-    with pytest.raises(SystemExit):
-        listen_cmd._parse(["--port", "9000"])
+def test_registered_on_tbot_class():
+    """The Fire dispatcher reflects methods declared on the `Tbot` class."""
+    cli_main = _cli_main_module()
+    assert hasattr(cli_main.Tbot, "listen")
 
 
-def test_registered_in_main_registry():
+def _cli_main_module():
+    """`timberbot.cli.__init__` re-exports `main` as a function, shadowing the
+    submodule attribute. Pull the actual module from sys.modules instead."""
     import importlib
-    cli_main = importlib.import_module("timberbot.cli.main")
-    registry = cli_main._build_registry()
-    cmd = registry.get("listen")
-    assert cmd is not None
-    assert cmd.handler is listen_cmd.run
-    assert "listen" in cli_main._BUILTIN_COMMANDS
-    # The usage string should advertise the WS surface, not the old --port.
-    assert "--ws-port" in cmd.usage
-    assert "--port" not in cmd.usage.replace("--ws-port", "")
+    return importlib.import_module("timberbot.cli.main")
 
 
-def test_global_flags_thread_into_listen():
-    """`tbot --host=X --auth-token=Y listen` should reach the listen parser."""
-    from timberbot.cli.args import parse_flags
-    from timberbot.cli.main import _inject_listen_globals
+def test_global_flags_thread_into_listen(monkeypatch):
+    """`tbot --host=X --auth-token=Y listen` reaches the listen function."""
+    cli_main = _cli_main_module()
 
-    flags = parse_flags(["--host=10.0.0.5", "--auth-token=tok", "listen"])
-    injected = _inject_listen_globals([], flags)
-    ns = listen_cmd._parse(injected)
-    assert ns.host == "10.0.0.5"
-    assert ns.auth_token == "tok"
+    captured: dict[str, object] = {}
+
+    def fake_listen(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(cli_main, "listen", fake_listen)
+    monkeypatch.setattr(
+        cli_main, "_CTX",
+        cli_main.GlobalFlags(host="10.0.0.5", auth_token="tok"),
+    )
+
+    # Returns None on success; non-zero rcs propagate via SystemExit.
+    assert cli_main.Tbot().listen() is None
+    assert captured["host"] == "10.0.0.5"
+    assert captured["auth_token"] == "tok"
 
 
-def test_subcommand_local_flag_wins_over_global():
+def test_subcommand_local_flag_wins_over_global(monkeypatch):
     """An explicit `tbot listen --host=local` overrides a globally-set host."""
-    from timberbot.cli.args import parse_flags
-    from timberbot.cli.main import _inject_listen_globals
+    cli_main = _cli_main_module()
 
-    flags = parse_flags(["--host=10.0.0.5", "listen"])
-    injected = _inject_listen_globals(["--host=local"], flags)
-    ns = listen_cmd._parse(injected)
-    assert ns.host == "local"
+    captured: dict[str, object] = {}
+
+    def fake_listen(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(cli_main, "listen", fake_listen)
+    monkeypatch.setattr(
+        cli_main, "_CTX", cli_main.GlobalFlags(host="10.0.0.5"),
+    )
+
+    cli_main.Tbot().listen(host="local")
+    assert captured["host"] == "local"
 
 
 # ---------------------------------------------------------------------------

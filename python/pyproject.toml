@@ -31,6 +31,9 @@ dependencies = [
   "aiohttp>=3.9",
   # `tomllib` is stdlib on 3.11+; `tomli` provides the same API for 3.10.
   "tomli>=2.0; python_version < '3.11'",
+  # The `tbot` dispatcher uses python-fire to reflect TimberbotClient methods
+  # and the built-in subcommands into a single CLI surface.
+  "fire>=0.7",
 ]
 
 [project.optional-dependencies]

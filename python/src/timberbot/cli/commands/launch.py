@@ -1,4 +1,4 @@
-"""`tbot launch settlement:<name>` — pass `--tb-*` args to Steam.
+"""`tbot launch --settlement <name>` — pass `--tb-*` args to Steam.
 
 Per-platform launch strategy:
 
@@ -19,7 +19,6 @@ omitted, the mod auto-picks the most recent save in the settlement.
 """
 from __future__ import annotations
 
-import contextlib
 import os
 import platform
 import shutil
@@ -32,24 +31,6 @@ from timberbot.api.client import TimberbotClient
 from timberbot.formatters.colors import BGRN, BOLD, DIM, RED, RST
 
 TIMBERBORN_APPID = "1062090"
-
-
-def _parse_args(args: list[str]) -> tuple[str | None, str | None, int]:
-    settlement: str | None = None
-    save_name: str | None = None
-    timeout = 120
-    for a in args:
-        if ":" not in a:
-            continue
-        key, val = a.split(":", 1)
-        if key == "settlement":
-            settlement = val
-        elif key == "save":
-            save_name = val
-        elif key == "timeout":
-            with contextlib.suppress(ValueError):
-                timeout = int(val)
-    return settlement, save_name, timeout
 
 
 def _build_extra_args(settlement: str, save_name: str | None) -> list[str]:
@@ -190,13 +171,14 @@ def _linux_proton_kill_and_launch(extra_args: list[str]) -> bool:
     return False
 
 
-def run(args: list[str]) -> int:
-    settlement, save_name, timeout = _parse_args(args)
+def launch(settlement: str, save: str = "", timeout: int = 120) -> int:
+    """Kill any running Timberborn, launch via Steam with --tb-settlement/--tb-save, wait for the API to come up."""
     if not settlement:
-        print(f"  {RED}error: settlement:<name> is required{RST}", file=sys.stderr)
-        print("  usage: tbot launch settlement:<name> [save:<filename>] [timeout:120]", file=sys.stderr)
+        print(f"  {RED}error: --settlement is required{RST}", file=sys.stderr)
+        print("  usage: tbot launch --settlement <name> [--save <filename>] [--timeout 120]", file=sys.stderr)
         return 1
 
+    save_name = save or None
     extra_args = _build_extra_args(settlement, save_name)
     label = f"{settlement} / {save_name}" if save_name else f"{settlement} (most recent save)"
 

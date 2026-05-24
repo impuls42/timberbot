@@ -1,43 +1,38 @@
-"""Unit tests for timberbot.cli.args."""
+"""Unit tests for global-flag parsing + --help promotion in timberbot.cli.main."""
 from __future__ import annotations
 
-from timberbot.cli.args import GlobalFlags, cast_value, parse_flags, parse_kv_args
+from timberbot.cli.main import GlobalFlags, _promote_help, parse_global_flags
 
 
-def test_cast_value_handles_bool_int_float_str():
-    assert cast_value("true") is True
-    assert cast_value("False") is False
-    assert cast_value("42") == 42
-    assert cast_value("3.14") == 3.14
-    assert cast_value("hello") == "hello"
-
-
-def test_parse_flags_picks_up_json_help_host_port():
-    flags = parse_flags(["--json", "--help", "--host=1.2.3.4", "--port=9001", "summary", "x:1"])
+def test_parse_picks_up_json_help_host_port():
+    flags, rest = parse_global_flags(
+        ["--json", "--help", "--host=1.2.3.4", "--port=9001", "summary"]
+    )
     assert isinstance(flags, GlobalFlags)
     assert flags.json_mode is True
     assert flags.help_mode is True
     assert flags.host == "1.2.3.4"
     assert flags.port == 9001
     assert flags.auth_token is None
-    assert flags.positional == ["summary", "x:1"]
+    # `--help` stays in remaining so the Fire pre-processor can promote it;
+    # `--json`/`--host=`/`--port=` are consumed.
+    assert rest == ["--help", "summary"]
 
 
-def test_parse_flags_picks_up_auth_token():
-    flags = parse_flags(["--auth-token=s3cret", "summary"])
+def test_parse_picks_up_auth_token():
+    flags, rest = parse_global_flags(["--auth-token=s3cret", "summary"])
     assert flags.auth_token == "s3cret"
-    # Token value must not leak into positionals.
-    assert flags.positional == ["summary"]
+    assert rest == ["summary"]
 
 
-def test_parse_flags_auth_token_allows_equals_in_value():
+def test_parse_auth_token_allows_equals_in_value():
     """Bearer tokens commonly contain '=' (base64 padding). Only split on the first."""
-    flags = parse_flags(["--auth-token=abc==", "summary"])
+    flags, _ = parse_global_flags(["--auth-token=abc==", "summary"])
     assert flags.auth_token == "abc=="
 
 
-def test_parse_flags_defaults():
-    flags = parse_flags(["summary"])
+def test_parse_defaults():
+    flags, rest = parse_global_flags(["summary"])
     assert flags.json_mode is False
     assert flags.help_mode is False
     assert flags.host is None
@@ -45,58 +40,50 @@ def test_parse_flags_defaults():
     assert flags.auth_token is None
     assert flags.verbosity == 0
     assert flags.debug is False
-    assert flags.positional == ["summary"]
+    assert rest == ["summary"]
 
 
-def test_parse_flags_verbose_short_counts():
+def test_parse_verbose_short_counts():
     """`-v` increments verbosity by 1, repeats stack."""
-    assert parse_flags(["summary"]).verbosity == 0
-    assert parse_flags(["-v", "summary"]).verbosity == 1
-    assert parse_flags(["-v", "-v", "summary"]).verbosity == 2
-    assert parse_flags(["-vv", "summary"]).verbosity == 2
-    assert parse_flags(["-vvv", "summary"]).verbosity == 3
+    assert parse_global_flags(["summary"])[0].verbosity == 0
+    assert parse_global_flags(["-v", "summary"])[0].verbosity == 1
+    assert parse_global_flags(["-v", "-v", "summary"])[0].verbosity == 2
+    assert parse_global_flags(["-vv", "summary"])[0].verbosity == 2
+    assert parse_global_flags(["-vvv", "summary"])[0].verbosity == 3
 
 
-def test_parse_flags_verbose_long_alias():
+def test_parse_verbose_long_alias():
     """`--verbose` is the long form of `-v`."""
-    assert parse_flags(["--verbose", "summary"]).verbosity == 1
-    assert parse_flags(["--verbose", "-v", "summary"]).verbosity == 2
+    assert parse_global_flags(["--verbose", "summary"])[0].verbosity == 1
+    assert parse_global_flags(["--verbose", "-v", "summary"])[0].verbosity == 2
 
 
-def test_parse_flags_debug():
+def test_parse_debug():
     """`--debug` is a separate boolean, not counted into verbosity."""
-    flags = parse_flags(["--debug", "summary"])
+    flags, _ = parse_global_flags(["--debug", "summary"])
     assert flags.debug is True
     assert flags.verbosity == 0
 
 
-def test_parse_flags_strips_verbose_and_debug_from_positional():
-    """Subcommands must see clean argv — global flags don't leak in."""
-    flags = parse_flags(["-v", "--debug", "summary", "x:1"])
-    assert flags.positional == ["summary", "x:1"]
+def test_parse_strips_global_flags_from_remaining():
+    """The subcommand argv must be free of global flags."""
+    _, rest = parse_global_flags(["-v", "--debug", "--json", "--host=h", "summary", "--name=Pump"])
+    assert rest == ["summary", "--name=Pump"]
 
 
-def test_parse_flags_verbose_does_not_collide_with_kv_value():
-    """`somecmd v:1` must not be parsed as `-v`."""
-    flags = parse_flags(["place_building", "prefab:HouseLog"])
-    assert flags.verbosity == 0
-    assert "prefab:HouseLog" in flags.positional
+def test_promote_help_inserts_separator():
+    """`<cmd> --help` -> `<cmd> -- --help` so Fire renders per-command help."""
+    assert _promote_help(["summary", "--help"]) == ["summary", "--", "--help"]
+    assert _promote_help(["agent", "run", "--help"]) == ["agent", "run", "--", "--help"]
+    assert _promote_help(["-h"]) == ["--", "--help"]
 
 
-def test_parse_kv_args_returns_dict_for_valid_input():
-    errors: list[str] = []
-    out = parse_kv_args(["x:1", "y:2.5", "name:Castle"], ["x", "y", "name"], errors.append)
-    assert out == {"x": 1, "y": 2.5, "name": "Castle"}
-    assert errors == []
+def test_promote_help_passthrough_when_absent():
+    """Without --help in argv, _promote_help is a no-op."""
+    argv = ["buildings", "--name=Pump"]
+    assert _promote_help(argv) == argv
 
 
-def test_parse_kv_args_reports_unknown_param():
-    errors: list[str] = []
-    parse_kv_args(["bogus:1"], ["x"], errors.append)
-    assert errors and "unknown" in errors[0].lower()
-
-
-def test_parse_kv_args_reports_malformed_arg():
-    errors: list[str] = []
-    parse_kv_args(["bogus"], ["x"], errors.append)
-    assert errors and "key:value" in errors[0]
+def test_promote_help_does_not_double_insert():
+    """If `--` already precedes `--help`, don't add another one."""
+    assert _promote_help(["summary", "--", "--help"]) == ["summary", "--", "--help"]
