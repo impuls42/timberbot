@@ -80,16 +80,55 @@ def configure_logging(verbosity: int = 0, *, debug: bool = False) -> int:
 # alongside our `HH:MM:SS name LEVEL message` line, which is jarring. Strip
 # their handlers, disable propagation guards, and route them through our
 # handler so every line in `tbot serve` output looks the same.
-_THIRD_PARTY_LOGGERS = ("fastmcp", "uvicorn", "uvicorn.error", "uvicorn.access")
+#
+# python-telegram-bot is the other big source — its `telegram.*` loggers
+# explain the polling/dispatch lifecycle (Application start, getUpdates
+# round-trips, allowlist filtering, message handlers). Without adoption,
+# `tbot serve` is silent about Telegram traffic even at --debug, which
+# makes "I sent a /prompt and nothing happened" impossible to diagnose.
+_THIRD_PARTY_LOGGERS = (
+    "fastmcp", "uvicorn", "uvicorn.error", "uvicorn.access",
+    "telegram", "telegram.ext", "telegram.bot",
+)
+
+
+# Adopted but capped: same formatter + handler unification, but never
+# allowed to drop below the floor regardless of how high the user's
+# verbosity climbs. The transport stack (httpx → httpcore) under
+# python-telegram-bot logs one INFO line per HTTP request and ~10 DEBUG
+# lines per request tracing the raw socket/TLS/H11 state machine. With
+# 10-second long-polling that's a 6/min INFO drip + a 60/min DEBUG flood,
+# drowning the genuinely useful `telegram.ext.*` lifecycle messages.
+#
+# Pin to WARNING so we only hear from the transport on errors. Anyone
+# debugging the wire can still opt back in manually:
+#
+#     import logging; logging.getLogger("httpcore").setLevel(logging.DEBUG)
+_CAPPED_THIRD_PARTY_LOGGERS = {
+    "httpx": logging.WARNING,
+    "httpcore": logging.WARNING,
+}
 
 
 def _adopt_third_party_loggers(level: int) -> None:
     if _HANDLER is None:
         return
     for name in _THIRD_PARTY_LOGGERS:
-        lg = logging.getLogger(name)
-        for h in list(lg.handlers):
-            lg.removeHandler(h)
-        lg.addHandler(_HANDLER)
-        lg.propagate = False
-        lg.setLevel(level)
+        _adopt_logger(name, level)
+    for name, floor in _CAPPED_THIRD_PARTY_LOGGERS.items():
+        _adopt_logger(name, max(level, floor))
+
+
+def _adopt_logger(name: str, level: int) -> None:
+    """Strip the named logger's handlers, attach ours, pin to `level`.
+
+    Internal helper — both the full-adoption and the capped-adoption paths
+    do the same descriptor surgery; only the level differs.
+    """
+    assert _HANDLER is not None
+    lg = logging.getLogger(name)
+    for h in list(lg.handlers):
+        lg.removeHandler(h)
+    lg.addHandler(_HANDLER)
+    lg.propagate = False
+    lg.setLevel(level)
