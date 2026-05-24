@@ -51,10 +51,17 @@ def _build_steam_url(extra_args: list[str]) -> str:
     return f"steam://rungameid/{TIMBERBORN_APPID}//{encoded}/"
 
 
-def _wait_for_api(timeout: int, settlement: str) -> int:
+def _wait_for_api(
+    timeout: int,
+    settlement: str,
+    *,
+    host: str | None = None,
+    port: int | None = None,
+    auth_token: str | None = None,
+) -> int:
     print(f"  {DIM}waiting for game to load (timeout {timeout}s)...{RST}")
     start = time.time()
-    bot = TimberbotClient(json_mode=True)
+    bot = TimberbotClient(host=host, port=port, auth_token=auth_token, json_mode=True)
     while time.time() - start < timeout:
         try:
             s = bot.summary()
@@ -171,8 +178,21 @@ def _linux_proton_kill_and_launch(extra_args: list[str]) -> bool:
     return False
 
 
-def launch(settlement: str, save: str = "", timeout: int = 120) -> int:
-    """Kill any running Timberborn, launch via Steam with --tb-settlement/--tb-save, wait for the API to come up."""
+def launch(
+    settlement: str,
+    save: str = "",
+    timeout: int = 120,
+    *,
+    host: str | None = None,
+    port: int | None = None,
+    auth_token: str | None = None,
+) -> int:
+    """Kill any running Timberborn, launch via Steam with --tb-settlement/--tb-save, wait for the API to come up.
+
+    `host`/`port`/`auth_token` are forwarded from the global `tbot --host=` /
+    `--port=` / `--auth-token=` flags by `Tbot.launch`; the public CLI surface
+    is `tbot launch --settlement=NAME [--save=NAME] [--timeout=120]`.
+    """
     if not settlement:
         print(f"  {RED}error: --settlement is required{RST}", file=sys.stderr)
         print("  usage: tbot launch --settlement <name> [--save <filename>] [--timeout 120]", file=sys.stderr)
@@ -203,4 +223,7 @@ def launch(settlement: str, save: str = "", timeout: int = 120) -> int:
         )
         return 1
 
-    return _wait_for_api(timeout, settlement)
+    return _wait_for_api(
+        timeout, settlement,
+        host=host, port=port, auth_token=auth_token,
+    )

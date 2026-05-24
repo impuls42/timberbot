@@ -19,6 +19,17 @@ def test_parse_picks_up_json_help_host_port():
     assert rest == ["--help", "summary"]
 
 
+def test_parse_rejects_non_integer_port(capsys):
+    """`--port=abc` should error out instead of silently using the default."""
+    import pytest
+    with pytest.raises(SystemExit) as exc:
+        parse_global_flags(["--port=abc", "summary"])
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "not an integer" in err
+    assert "abc" in err
+
+
 def test_parse_picks_up_auth_token():
     flags, rest = parse_global_flags(["--auth-token=s3cret", "summary"])
     assert flags.auth_token == "s3cret"

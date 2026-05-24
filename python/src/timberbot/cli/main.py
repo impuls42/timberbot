@@ -121,8 +121,18 @@ def parse_global_flags(argv: list[str]) -> tuple[GlobalFlags, list[str]]:
             host = tok.split("=", 1)[1]
             continue
         if tok.startswith("--port="):
-            with contextlib.suppress(ValueError):
-                port = int(tok.split("=", 1)[1])
+            raw = tok.split("=", 1)[1]
+            try:
+                port = int(raw)
+            except ValueError:
+                # Surface bad input instead of silently falling through to
+                # the default port. Defer the exit to `main()` after logging
+                # is configured so `-v` still shows the parsed flags first.
+                print(
+                    f"error: --port={raw!r} is not an integer",
+                    file=sys.stderr,
+                )
+                raise SystemExit(2) from None
             continue
         if tok.startswith("--auth-token="):
             auth_token = tok.split("=", 1)[1]
@@ -329,25 +339,110 @@ class Tbot:
                 _wrap_forwarded(method, json_mode=ctx.json_mode, client_url=client.url),
             )
 
-    # Built-in subcommands. Each is a typed method that delegates to the
-    # function/class living in `timberbot.cli.commands.*` — Fire sees them
-    # because they're declared on the class (not dynamically attached).
-    # `_wrap_builtin` keeps the int rc from leaking into Fire's printed output.
-    top = staticmethod(_wrap_builtin(top))
-    manager = staticmethod(_wrap_builtin(manager))
-    launch = staticmethod(_wrap_builtin(launch))
+    # `init` writes prompts to disk and never talks to the mod, so the global
+    # connection flags are irrelevant to it. The other builtins are instance
+    # methods below so they can read `_CTX` and thread the global `--host=` /
+    # `--port=` / `--auth-token=` flags through to the mod-facing client /
+    # resolvers. The wrapper methods only expose the *public* per-command
+    # signature to Fire's `--help` — connection flags are surfaced once at
+    # the top level (`tbot --help`), not duplicated per command.
     init = staticmethod(_wrap_builtin(init))
-    watch = staticmethod(_wrap_builtin(watch))
-    serve = staticmethod(_wrap_builtin(serve))
     agent = _AgentGroup()
 
-    # `listen` is an instance method (not `staticmethod` like the other
-    # builtins) so it can read `_CTX` and fall back to the global `--host=` /
-    # `--auth-token=` flags when its own `host` / `auth_token` kwargs aren't
-    # provided. The other builtins do their own settings resolution inside
-    # their body (`resolve_endpoint`, `resolve_auth_token`); `listen` needs
-    # WS-specific host/port that may diverge from the HTTP client target,
-    # which is easier to express by reading `_CTX` directly here.
+    def top(self, interval: int = 5) -> None:
+        """Live colony dashboard. Tick every `interval` seconds. Press q to quit, 0-3 to set game speed."""
+        ctx = _CTX
+        rc = top(
+            interval=interval,
+            host=ctx.host, port=ctx.port, auth_token=ctx.auth_token,
+        )
+        if rc:
+            raise SystemExit(rc)
+
+    def manager(self) -> None:
+        """Auto-pause low-priority buildings to keep idle haulers in band (1-4)."""
+        ctx = _CTX
+        rc = manager(host=ctx.host, port=ctx.port, auth_token=ctx.auth_token)
+        if rc:
+            raise SystemExit(rc)
+
+    def launch(self, settlement: str, save: str = "", timeout: int = 120) -> None:
+        """Kill any running Timberborn, launch via Steam with --tb-settlement/--tb-save, wait for the API to come up."""
+        ctx = _CTX
+        rc = launch(
+            settlement=settlement, save=save, timeout=timeout,
+            host=ctx.host, port=ctx.port, auth_token=ctx.auth_token,
+        )
+        if rc:
+            raise SystemExit(rc)
+
+    def watch(
+        self,
+        backend: str = "claude",
+        model: str | None = None,
+        effort: str | None = None,
+        prompt: str = "timberbot",
+        ws_port: int | None = None,
+        autonomous_interval: float = 60.0,
+        heartbeat_interval: float = 30.0,
+        once: bool = False,
+    ) -> None:
+        """Long-running connector: subscribe to the mod's WebSocket and dispatch agent runs.
+
+        Args:
+            backend: Agent backend to dispatch (default: claude).
+            model: Model identifier passed to the backend.
+            effort: Reasoning effort passed to the backend.
+            prompt: Name of the base system prompt to load (default: timberbot).
+            ws_port: WebSocket port on the mod. Resolution chain: this flag → TBOT_WS_PORT env
+                → [client].ws_port in config.toml → 8086.
+            autonomous_interval: Seconds between autonomous-mode cycles (default: 60).
+            heartbeat_interval: Seconds between WS heartbeat frames (default: 30).
+            once: Run until a single trigger fires, then exit (useful for debugging).
+        """
+        ctx = _CTX
+        rc = watch(
+            backend=backend, model=model, effort=effort, prompt=prompt,
+            ws_port=ws_port,
+            autonomous_interval=autonomous_interval,
+            heartbeat_interval=heartbeat_interval,
+            once=once,
+            host=ctx.host, port=ctx.port, auth_token=ctx.auth_token,
+        )
+        if rc:
+            raise SystemExit(rc)
+
+    def serve(
+        self,
+        backend: str | None = None,
+        model: str | None = None,
+        acp_binary: str | None = None,
+        telegram_token: str | None = None,
+        mcp_port: int | None = None,
+        mcp_host: str | None = None,
+        ws_port: int | None = None,
+    ) -> None:
+        """Run the MCP game server + ACP agent connector + Telegram UI.
+
+        Args:
+            backend: ACP runtime backend (claude or opencode; default: claude).
+            model: Model identifier passed to the backend.
+            acp_binary: Path or name of the agent CLI to spawn (default: matches backend).
+            telegram_token: Telegram bot token (also: TBOT_TELEGRAM_TOKEN env).
+            mcp_port: Port for the game MCP HTTP/SSE server (default: 8091).
+            mcp_host: Bind address for the game MCP server (default: 127.0.0.1).
+            ws_port: WebSocket port on the mod (default: 8086).
+        """
+        ctx = _CTX
+        rc = serve(
+            backend=backend, model=model, acp_binary=acp_binary,
+            telegram_token=telegram_token,
+            mcp_port=mcp_port, mcp_host=mcp_host, ws_port=ws_port,
+            host=ctx.host, port=ctx.port, auth_token=ctx.auth_token,
+        )
+        if rc:
+            raise SystemExit(rc)
+
     def listen(  # noqa: D401 — Fire reads the docstring verbatim
         self,
         pretty: bool = False,

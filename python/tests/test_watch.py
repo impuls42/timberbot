@@ -488,19 +488,30 @@ def test_stop_method_unblocks_run():
 # ---------------------------------------------------------------------------
 
 
-def test_watch_command_registered_on_tbot_class():
+def test_watch_command_registered_on_tbot_class(monkeypatch):
     # `timberbot.cli.__init__` re-exports `main`, shadowing the submodule
     # attribute. Pull the actual module from sys.modules instead.
     import importlib
     cli_main = importlib.import_module("timberbot.cli.main")
 
     assert hasattr(cli_main.Tbot, "watch")
-    # `staticmethod(_wrap_builtin(watch))` — peel the staticmethod descriptor
-    # then follow `__wrapped__` to the underlying function.
-    bound = cli_main.Tbot.__dict__["watch"]
-    fn = getattr(bound, "__func__", bound)
-    underlying = getattr(fn, "__wrapped__", fn)
-    assert underlying is watch_mod.watch
+
+    # `Tbot.watch` is now an instance method that threads the global flags
+    # from `_CTX` into `watch_mod.watch`. Verify the indirection by patching
+    # the underlying function and checking it gets called.
+    captured: dict[str, object] = {}
+
+    def fake_watch(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(cli_main, "watch", fake_watch)
+    monkeypatch.setattr(cli_main, "_CTX", cli_main.GlobalFlags(host="10.0.0.5", port=9001))
+    cli_main.Tbot().watch(backend="claude", once=True)
+    assert captured["backend"] == "claude"
+    assert captured["once"] is True
+    assert captured["host"] == "10.0.0.5"
+    assert captured["port"] == 9001
 
 
 def test_fire_signature_accepts_ws_port_flag():

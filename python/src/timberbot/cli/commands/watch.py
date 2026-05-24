@@ -544,6 +544,10 @@ def watch(
     autonomous_interval: float = 60.0,
     heartbeat_interval: float = 30.0,
     once: bool = False,
+    *,
+    host: str | None = None,
+    port: int | None = None,
+    auth_token: str | None = None,
 ) -> int:
     """Long-running connector: subscribe to the mod's WebSocket and dispatch agent runs.
 
@@ -557,10 +561,14 @@ def watch(
         autonomous_interval: Seconds between autonomous-mode cycles (default: 60).
         heartbeat_interval: Seconds between WS heartbeat frames (default: 30).
         once: Run until a single trigger fires, then exit (useful for debugging).
+
+    `host`/`port`/`auth_token` are forwarded from the global `tbot --host=` /
+    `--port=` / `--auth-token=` flags by `Tbot.watch`; they aren't part of the
+    public per-command CLI surface.
     """
-    host, _ = resolve_endpoint()
+    host, _ = resolve_endpoint(host, port)
     ws_port_resolved = resolve_ws_port(ws_port)
-    auth_token = resolve_auth_token()
+    auth_token = resolve_auth_token(auth_token)
 
     cfg = WatchConfig(
         backend=backend,

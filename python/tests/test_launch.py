@@ -36,7 +36,9 @@ def fake_subproc(monkeypatch):
     monkeypatch.setattr(launch_mod.subprocess, "Popen", _Proc)
     monkeypatch.setattr(launch_mod.subprocess, "run", _fake_run)
     monkeypatch.setattr(launch_mod.time, "sleep", lambda _s: None)
-    monkeypatch.setattr(launch_mod, "_wait_for_api", lambda _t, _s: 0)
+    # `_wait_for_api` now accepts host/port/auth_token kwargs forwarded from
+    # the global `tbot --host=…` flags; stub accepts them via **_kw.
+    monkeypatch.setattr(launch_mod, "_wait_for_api", lambda _t, _s, **_kw: 0)
     return popen_calls, run_calls
 
 

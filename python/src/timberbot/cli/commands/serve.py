@@ -36,6 +36,10 @@ def serve(
     mcp_port: int | None = None,
     mcp_host: str | None = None,
     ws_port: int | None = None,
+    *,
+    host: str | None = None,
+    port: int | None = None,
+    auth_token: str | None = None,
 ) -> int:
     """Run the MCP game server + ACP agent connector + Telegram UI.
 
@@ -47,6 +51,10 @@ def serve(
         mcp_port: Port for the game MCP HTTP/SSE server (default: 8091).
         mcp_host: Bind address for the game MCP server (default: 127.0.0.1).
         ws_port: WebSocket port on the mod (default: 8086).
+
+    `host`/`port`/`auth_token` are forwarded from the global `tbot --host=` /
+    `--port=` / `--auth-token=` flags by `Tbot.serve`; they aren't part of the
+    public per-command CLI surface.
     """
     try:
         from timberbot.user_api.serve import ServeConfig, run_serve
@@ -59,8 +67,8 @@ def serve(
 
     cfg_data = serve_config()
     tg_data = serve_telegram_config()
-    host, port = resolve_endpoint()
-    auth_token = resolve_auth_token()
+    host, port = resolve_endpoint(host, port)
+    auth_token = resolve_auth_token(auth_token)
     ws_port_resolved = resolve_ws_port(ws_port)
     token = resolve_telegram_token(telegram_token)
 

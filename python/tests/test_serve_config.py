@@ -100,8 +100,10 @@ def _stub_serve(monkeypatch, tg_data: dict) -> None:
     monkeypatch.setattr(serve_mod, "serve_config", lambda: {})
     monkeypatch.setattr(serve_mod, "serve_telegram_config", lambda: tg_data)
     monkeypatch.setattr(serve_mod, "resolve_telegram_token", lambda *_: "fake-token")
-    monkeypatch.setattr(serve_mod, "resolve_endpoint", lambda: ("127.0.0.1", 8085))
-    monkeypatch.setattr(serve_mod, "resolve_auth_token", lambda: None)
+    # `serve()` now passes global --host/--port/--auth-token through to the
+    # resolvers; the stubs swallow whatever it forwards.
+    monkeypatch.setattr(serve_mod, "resolve_endpoint", lambda *_a, **_kw: ("127.0.0.1", 8085))
+    monkeypatch.setattr(serve_mod, "resolve_auth_token", lambda *_a, **_kw: None)
     monkeypatch.setattr(serve_mod, "resolve_ws_port", lambda *_: 8086)
     # Stop short of actually running the orchestrator — patch asyncio.run
     # so we exit cleanly after ServeConfig is built. Close the coroutine

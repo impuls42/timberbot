@@ -150,3 +150,41 @@ def test_connection_failure_prints_helpful_error(monkeypatch, capsys):
     assert "127.0.0.1:1" in err
     # Should not surface a raw Python traceback (no "Traceback" line).
     assert "Traceback" not in err
+
+
+def test_global_flags_thread_into_builtin_commands(monkeypatch):
+    """Regression: `tbot --host=X --port=Y --auth-token=T <builtin>` must
+    reach top/manager/launch/watch/serve. They used to silently fall back
+    to 127.0.0.1:8085 with no auth.
+
+    `timberbot.cli.__init__` re-exports `main` as a function, shadowing the
+    submodule attribute — pull the actual module from sys.modules.
+    """
+    import importlib
+    main_mod = importlib.import_module("timberbot.cli.main")
+
+    captured: dict[str, dict[str, object]] = {}
+
+    for name in ("top", "manager", "launch", "watch", "serve"):
+        def _make_fake(target_name):
+            def fake(**kwargs):
+                captured[target_name] = kwargs
+                return 0
+            return fake
+        monkeypatch.setattr(main_mod, name, _make_fake(name))
+
+    flags = main_mod.GlobalFlags(host="10.0.0.5", port=9001, auth_token="tok")
+    monkeypatch.setattr(main_mod, "_CTX", flags)
+
+    tbot = main_mod.Tbot()
+    tbot.top()
+    tbot.manager()
+    tbot.launch(settlement="Foo")
+    tbot.watch()
+    tbot.serve()
+
+    for name in ("top", "manager", "launch", "watch", "serve"):
+        kw = captured[name]
+        assert kw["host"] == "10.0.0.5", f"{name} didn't get --host"
+        assert kw["port"] == 9001, f"{name} didn't get --port"
+        assert kw["auth_token"] == "tok", f"{name} didn't get --auth-token"
