@@ -30,8 +30,9 @@ import io
 import json
 import logging
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 import fire
 import requests
@@ -340,6 +341,13 @@ class Tbot:
     serve = staticmethod(_wrap_builtin(serve))
     agent = _AgentGroup()
 
+    # `listen` is an instance method (not `staticmethod` like the other
+    # builtins) so it can read `_CTX` and fall back to the global `--host=` /
+    # `--auth-token=` flags when its own `host` / `auth_token` kwargs aren't
+    # provided. The other builtins do their own settings resolution inside
+    # their body (`resolve_endpoint`, `resolve_auth_token`); `listen` needs
+    # WS-specific host/port that may diverge from the HTTP client target,
+    # which is easier to express by reading `_CTX` directly here.
     def listen(  # noqa: D401 — Fire reads the docstring verbatim
         self,
         pretty: bool = False,
