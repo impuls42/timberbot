@@ -41,7 +41,7 @@ from timberbot.cli.dispatcher import (
     public_method_names,
 )
 from timberbot.cli.logging_setup import configure_logging
-from timberbot.settings import resolve_auth_token, resolve_endpoint, source_summary
+from timberbot.settings import source_summary
 
 log = logging.getLogger("timberbot.cli")
 

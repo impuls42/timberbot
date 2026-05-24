@@ -22,20 +22,6 @@ import requests
 
 from timberbot.__about__ import OPENAPI_VERSION
 from timberbot.api.exceptions import AuthenticationError, TimberbotError
-
-log = logging.getLogger("timberbot.api.client")
-
-# Cap how much body we dump at DEBUG. Plenty for spotting field names; not
-# enough to flood the terminal with a 50 kB `/api/buildings` response.
-_DEBUG_BODY_CHARS = 400
-
-
-def _trim(value: Any) -> str:
-    """Stringify and trim large objects so DEBUG output stays scannable."""
-    s = value if isinstance(value, str) else repr(value)
-    if len(s) > _DEBUG_BODY_CHARS:
-        return s[:_DEBUG_BODY_CHARS] + f"...({len(s) - _DEBUG_BODY_CHARS} more chars)"
-    return s
 from timberbot.api.models._generated import (
     AgentRequestAck,
     AgentState,
@@ -67,6 +53,20 @@ from timberbot.api.models._generated import (
 )
 from timberbot.settings import resolve_auth_token, resolve_endpoint
 from timberbot.state import SettlementContext, compact_locations, compact_summary
+
+log = logging.getLogger("timberbot.api.client")
+
+# Cap how much body we dump at DEBUG. Plenty for spotting field names; not
+# enough to flood the terminal with a 50 kB `/api/buildings` response.
+_DEBUG_BODY_CHARS = 400
+
+
+def _trim(value: Any) -> str:
+    """Stringify and trim large objects so DEBUG output stays scannable."""
+    s = value if isinstance(value, str) else repr(value)
+    if len(s) > _DEBUG_BODY_CHARS:
+        return s[:_DEBUG_BODY_CHARS] + f"...({len(s) - _DEBUG_BODY_CHARS} more chars)"
+    return s
 
 
 class TimberbotClient:

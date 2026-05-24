@@ -48,7 +48,6 @@ import contextlib
 import json
 import logging
 import os
-import sys
 import time
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
