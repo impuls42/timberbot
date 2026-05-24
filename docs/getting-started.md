@@ -85,7 +85,6 @@ The first-run flow is:
 
 ```bash
 tbot watch                                       # autonomous + request mode
-tbot watch --attach-url http://127.0.0.1:4096    # talk to a long-running opencode serve
 ```
 
 `tbot watch` opens a single long-lived WebSocket to the mod (`ws://host:wsPort/api/ws`, default port 8086) and stays connected for the life of the session. It reconnects with exponential backoff (1 s → 30 s cap), so you can start it before the game or restart the game without restarting the connector. While disconnected it logs every retry; once connected it receives `state` and `event` frames push-style and sends a 30 s `heartbeat`. There is no `--listen-port` — the connector has no inbound HTTP server.
@@ -335,10 +334,12 @@ curl -X POST -H "Authorization: Bearer $TBOT_AUTH_TOKEN" \
 `tbot agent run` exists for one-shot dispatches without a long-running connector — handy for scripted tests or a single AI nudge:
 
 ```bash
-tbot agent run --backend opencode --prompt "place 3 farms near the river"
-tbot agent run --backend claude --goal "reach 50 beavers"      # autonomous-shaped prompt
-tbot agent run --backend opencode --attach-url http://127.0.0.1:4096
+tbot agent run --backend opencode --goal "place 3 farms near the river"
+tbot agent run --backend claude --goal "reach 50 beavers"              # autonomous-shaped prompt
+tbot agent run --backend opencode --goal "..." --attach-url http://127.0.0.1:4096
 ```
+
+`--goal` is the user instruction. `--prompt NAME` (a separate, optional flag) selects which packaged system prompt to merge in; the default is `timberbot`.
 
 `tbot agent run` builds the merged instructions file, talks to the running mod over HTTP to gather colony state, and spawns the agent CLI (or attaches to a long-running `opencode serve` via `--attach-url`). It does **not** open the ready gate — you still need to have pressed Launch in the widget, or `/api/*` reads will return `409 game_not_ready`.
 

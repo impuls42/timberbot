@@ -71,6 +71,7 @@ nav:
   - Performance: performance.md
   - macOS Testing: macos-testing.md
   - Developing: developing.md
+  - Dev Environment: devenv.md
   - Changelog: unreleased.md
 
 copyright: Timberbot API &mdash; Play Timberborn with an AI &middot; Modified fork of <a href="https://github.com/abix-/TimberbornMods">abix-/TimberbornMods</a>

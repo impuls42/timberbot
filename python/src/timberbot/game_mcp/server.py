@@ -501,7 +501,7 @@ def create_mcp_server(client: TimberbotClient, bus: EventBus) -> fastmcp.FastMCP
         import_option: str = "",
         export_threshold: int = -1,
     ) -> dict[str, Any]:
-        """Set import/export for a good in a district. import_option: Forced, Auto, None."""
+        """Set import/export for a good in a district. import_option: Auto or Forced (empty = leave unchanged)."""
         loop = loop_getter()
         result = await loop.run_in_executor(
             None, lambda: client.set_distribution(

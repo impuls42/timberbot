@@ -1,6 +1,6 @@
 # Architecture
 
-How Timberbot works internally. For migration history, see [`fresh-on-request-snapshots.md`](fresh-on-request-snapshots.md).
+How Timberbot works internally. For migration history, see [`design/fresh-on-request-snapshots.md`](https://github.com/impuls42/timberbot/blob/main/design/fresh-on-request-snapshots.md) in the repo.
 
 ## The mod ↔ connector split
 
@@ -462,7 +462,7 @@ The connector and event receiver (`tbot watch`, `tbot listen`) are unit-tested a
 
 - [`websocket-protocol.md`](websocket-protocol.md). authoritative WS wire contract (envelope, auth, reconnect)
 - [`events.md`](events.md). user-facing guide to consuming the WS event stream
-- [`fresh-on-request-snapshots.md`](fresh-on-request-snapshots.md). migration rationale and validation history
-- [`thread-safe-surfaces.md`](thread-safe-surfaces.md). Timberborn thread-safety guidance
+- [`design/fresh-on-request-snapshots.md`](https://github.com/impuls42/timberbot/blob/main/design/fresh-on-request-snapshots.md). migration rationale and validation history (in repo, not on docs site)
+- [`design/thread-safe-surfaces.md`](https://github.com/impuls42/timberbot/blob/main/design/thread-safe-surfaces.md). Timberborn thread-safety guidance (in repo, not on docs site)
 - [`developing.md`](developing.md). build, test, file structure
 - [`performance.md`](performance.md). allocation audit, benchmarks, open issues

@@ -402,7 +402,7 @@ class TimberbotClient:
     def set_distribution(
         self, district: str, good: str, import_option: str = "", export_threshold: int = -1,
     ) -> dict[str, Any]:
-        """Set import/export for a good in a district. import_option: Forced, Auto, None."""
+        """Set import/export for a good in a district. import_option: Auto or Forced (empty = leave unchanged)."""
         return self._post("/api/distribution", {
             "district": district, "good": good,
             "import": import_option, "exportThreshold": export_threshold,

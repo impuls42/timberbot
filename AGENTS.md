@@ -65,8 +65,11 @@ timberbot/
 │   ├── timberbot.md             # AI agent boot guide
 │   ├── features.md              # Feature matrix
 │   ├── getting-started.md       # Install & setup
-│   ├── architecture.md          # Internal design
-│   └── automation-plan.md       # Plan for automation wiring extension
+│   └── architecture.md          # Internal design
+├── design/                      # Design proposals + historical investigations
+│   ├── automation-plan.md       # Plan for automation wiring extension
+│   ├── automation-states.md     # Disambiguation reference for agents
+│   └── …                        # Other design docs and implementation notes
 ├── agents/
 │   └── beaver-developer.md      # Dev-agent prompt for working on this codebase
 ├── timberbot/
@@ -173,7 +176,7 @@ The mod currently does **not** support:
 - Reading automation wiring connections (which sensor is connected to which building input) — only the `inputName` of the connected transmitter is shown in building state
 - Configuring automation components that lack a public setter (e.g., some sensor thresholds that are read-only at runtime)
 
-See `docs/automation-plan.md` for the full implementation plan with decompiled API surface from `Timberborn.Automation.dll` and `Timberborn.AutomationBuildings.dll`.
+See `design/automation-plan.md` for the full implementation plan with decompiled API surface from `Timberborn.Automation.dll` and `Timberborn.AutomationBuildings.dll`.
 
 ## External References
 

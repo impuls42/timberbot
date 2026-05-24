@@ -15,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = ROOT / "openapi.yaml"
-OUT_DIR = ROOT / "python" / "src" / "tbot" / "api" / "models"
+OUT_DIR = ROOT / "python" / "src" / "timberbot" / "api" / "models"
 OUT_FILE = OUT_DIR / "_generated.py"
 INIT_FILE = OUT_DIR / "__init__.py"
 

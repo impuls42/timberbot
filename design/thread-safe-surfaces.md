@@ -1,5 +1,7 @@
 # Thread-Safe Surfaces
 
+> **Status:** implementation notes — current.
+
 Concrete Timberborn thread-safety guidance for Timberbot development.
 
 This document is based on live inspection through Timberbot's `/api/debug` endpoint on a running game, plus the current Timberbot architecture. It distinguishes between:

@@ -1,5 +1,7 @@
 # Extending Timberbot: Automation Wiring & Configuration
 
+> **Status:** design + decompiled API surface — partial implementation. See [`../docs/api-reference.md`](../docs/api-reference.md) `/api/automation/*` for what is shipped today.
+
 Add full support for Timberborn 1.0's automation system — wiring sensors to relays to buildings, and configuring thresholds/modes on every automation component.
 
 > **Note:** The mod already has no external modding framework dependencies (no BepInEx, no Harmony). It references only vanilla game DLLs via `Publicize="true"`. We continue this pattern for the automation DLLs.

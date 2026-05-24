@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Draft for review |
+| Status | Design proposal — partial implementation in `tbot serve` MCP envelope (see [`../docs/getting-started.md`](../docs/getting-started.md) §"Talk to the agent over Telegram"). Source of truth for live behavior: `python/src/timberbot/game_mcp/`. |
 | Version | 0.1 |
 | Scope | Event delivery mechanism between game runtime and gaming agent |
 | Out of scope | ACP transport, MCP server bootstrap, agent runtime selection, game-side event generation |

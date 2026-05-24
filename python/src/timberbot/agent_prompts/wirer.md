@@ -24,7 +24,7 @@ You apply automation graph changes for the Timberborn colony. You receive a targ
 
 ## Vocabulary (do not mix systems)
 
-Automation signals are strictly **`On`** / **`Off`**. The words "High" and "Low" do NOT exist in this system — they belong to priorities (`VeryLow`..`VeryHigh`), which are out of scope for you. Floodgate heights and sensor thresholds are floats (`0.5`, `1.0`), also out of scope. See `docs/automation-states.md` if uncertain.
+Automation signals are strictly **`On`** / **`Off`**. The words "High" and "Low" do NOT exist in this system — they belong to priorities (`VeryLow`..`VeryHigh`), which are out of scope for you. Floodgate heights and sensor thresholds are floats (`0.5`, `1.0`), also out of scope. See `design/automation-states.md` if uncertain.
 
 You only operate on automation signals. If a target table mentions "High", "Low", or any priority/height, refuse and ask the main agent to clarify whether it means an automation signal, a priority, or a physical value.
 

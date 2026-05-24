@@ -195,79 +195,122 @@ Flat key-value pairs including `settlement`, `faction`, `day`, `dayProgress`, `s
 
 ## Agent
 
-Built-in interactive agent control. The in-game widget is the primary surface for these actions, but the same shared agent is also available over HTTP.
+The mod no longer spawns the agent. The in-game widget owns mode + goal +
+ready, and an out-of-process connector (`tbot watch`) reads / writes that
+state over the WebSocket and dispatches agent runs. The HTTP endpoints below
+exist for the widget itself and for HTTP-only clients; the same fields are
+pushed live as a `state` frame on the WebSocket (see
+[websocket-protocol.md](websocket-protocol.md)).
 
-### GET /api/agent/status
+All four routes are **gate-exempt** — they keep working when `ready=false`.
 
-Current built-in agent status.
+### GET /api/agent/state
+
+Full widget/connector state snapshot. The push-style equivalent is the WS
+`state` frame; polling this endpoint is the slow-path fallback for HTTP-only
+clients.
 
 #### Response
 
 | Field | Type | Description |
 |-------|------|-------------|
-| status | string | `idle`, `gatheringstate`, `interactive`, `done`, or `error` |
-| binary | string | Current agent binary, usually `claude`, `codex`, or a custom command |
-| model | string | Current model name, or `""` if default |
-| goal | string | Current goal text |
-| currentCmd | string | Internal progress text while gathering state, otherwise `""` |
-| lastError | string | Last launch/runtime error, if any |
+| mode | string | `autonomous` or `request`. Default `request`. |
+| goal | string | Free-form objective text persisted across sessions. |
+| ready | boolean | Ready gate. `false` until the player presses Launch in the widget. Not persisted — resets on every save load. |
+| pendingRequest | object \| null | Single-slot prompt waiting to be picked up by the connector. `{id, prompt}` or `null` if the slot is empty. |
+| agentStatus | string | Connector-reported status string (free-form, e.g. `"idle"`, `"running"`). |
+| lastError | string \| null | Most recent fatal error reported by the connector. `null` if no error has been reported in this session. |
 
 ```json
 {
-  "status": "interactive",
-  "binary": "codex",
-  "model": "gpt-5.4",
-  "goal": "reach 50 beavers with 77 well-being",
-  "currentCmd": "",
-  "lastError": ""
+  "mode": "autonomous",
+  "goal": "reach 50 beavers with 77 wellbeing",
+  "ready": true,
+  "pendingRequest": null,
+  "agentStatus": "idle",
+  "lastError": null
 }
 ```
 
-### POST /api/agent/start
+### POST /api/agent/config
 
-Start the built-in interactive agent. The C# launcher shells out to `tbot agent run`, which fetches fresh colony state via `TimberbotClient.brain`, merges `tbot.agent_prompts.timberbot` (or the user's edited copy under `~/.config/timberbot/agent_prompts/`) with that state into a per-launch instructions file, and dispatches to the chosen backend (`claude`, `codex`, `opencode`, or `custom`).
+Update persisted agent configuration (mode and/or goal). Either or both
+fields may be omitted to leave the corresponding value untouched. Triggers
+a `state` frame on the WebSocket.
 
 #### Body
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| binary | string | no | `claude` | CLI binary to launch |
-| model | string | no | binary default | Model name passed via `--model` |
-| effort | string | no | binary default | Reasoning effort passed via `--effort` |
-| timeout | int | no | `120` | Timeout in seconds for the `brain` gather step |
-| goal | string | no | built-in default | Goal text appended to the startup message |
-| command | string | no | `null` | Custom launch template when `binary` is `custom` |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| mode | string | no | `autonomous` or `request`. |
+| goal | string | no | New goal text. |
 
 ```json
-{
-  "binary": "codex",
-  "model": "gpt-5.4",
-  "effort": "medium",
-  "goal": "reach 50 beavers with 77 well-being"
-}
+{"mode": "autonomous", "goal": "reach 50 beavers with 77 wellbeing"}
+```
+
+#### Response
+
+The full `AgentState` (same shape as `GET /api/agent/state`).
+
+Possible errors:
+- `invalid_mode: must be 'autonomous' or 'request'`
+
+### POST /api/agent/request
+
+Submit a new prompt to the single pending-request slot. The connected
+`tbot watch` clients see the new `pendingRequest` immediately via a `state`
+frame on the WebSocket. The widget's Launch button uses this endpoint when
+`mode=request`.
+
+#### Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| prompt | string | yes | Non-empty prompt text. |
+
+```json
+{"prompt": "place 3 farms near the river"}
 ```
 
 #### Response
 
 ```json
-{"status": "started", "binary": "codex"}
+{"pendingRequest": {"id": 17, "prompt": "place 3 farms near the river"}}
 ```
 
+`id` is a monotonic request identifier. Connectors ack with
+`acked_request_id >= id` in their next `heartbeat` frame to clear the slot.
+
 Possible errors:
-- `agent_busy` if the agent is already gathering state or running interactively
+- `invalid_prompt: prompt is required` if `prompt` is missing or empty
 
-### POST /api/agent/stop
+### POST /api/ready
 
-Stop the current built-in agent session.
+Toggle the ready gate (Launch / Stop). `ready=false` causes every
+non-whitelisted `/api/*` route (reads AND writes) to return `409 game_not_ready`
+until the player re-Launches. `ready` is intentionally not persisted —
+the gate is closed on every game load. The WebSocket channel on port 8086
+is **not** gated; clients stay connected across Launch / Stop toggles.
+
+#### Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| ready | boolean | yes | New ready state. |
+
+```json
+{"ready": true}
+```
 
 #### Response
 
 ```json
-{"status": "stopping"}
+{"ready": true}
 ```
 
 Possible errors:
-- `agent_not_running` if there is no active session to stop
+- `invalid_ready: 'ready' boolean is required`
 
 ---
 
@@ -593,7 +636,7 @@ Import/export settings per good per district.
 | district | string | District name |
 | goods | array | Per-good settings |
 | goods[].good | string | Good name |
-| goods[].importOption | string | `"None"`, `"Allowed"`, or `"Forced"` |
+| goods[].importOption | string | `"Auto"` or `"Forced"` (the game's `ImportOption` enum) |
 | goods[].exportThreshold | float | Export when stock exceeds this |
 
 ```json
@@ -601,8 +644,8 @@ Import/export settings per good per district.
   {
     "district": "District 1",
     "goods": [
-      {"good": "Water", "importOption": "Allowed", "exportThreshold": 50.0},
-      {"good": "Log", "importOption": "None", "exportThreshold": 0.0}
+      {"good": "Water", "importOption": "Auto", "exportThreshold": 50.0},
+      {"good": "Log", "importOption": "Forced", "exportThreshold": 0.0}
     ]
   }
 ]
@@ -622,7 +665,7 @@ Set import/export for a specific good in a district.
 |-------|------|----------|-------------|
 | district | string | yes | District name |
 | good | string | yes | Good name (e.g. `"Log"`) |
-| import | string | no | `"None"`, `"Allowed"`, or `"Forced"` |
+| import | string | no | `"Auto"` or `"Forced"`. Omit or pass `""` to leave unchanged. |
 | exportThreshold | int | no | Export threshold (-1 to skip) |
 
 #### Response (success)
@@ -1949,7 +1992,7 @@ Game events ship as server-push frames on the mod's WebSocket channel rather tha
 ```
 
 - Frame envelope, auth (`Authorization: Bearer <token>` or `?token=…`), reconnect semantics, and the full message-type catalog are in [websocket-protocol.md](websocket-protocol.md).
-- The event catalog (≈70 events) and consumer examples (`tbot listen`, custom WS clients) are in [events.md](events.md).
+- The event catalog (68 events) and consumer examples (`tbot listen`, custom WS clients) are in [events.md](events.md).
 - The pre-v0.9 outbound HTTP webhook endpoints (`POST /api/webhooks`, `GET /api/webhooks`, `POST /api/webhooks/delete`) and the `webhooksEnabled` / `webhookBatchMs` / `webhookCircuitBreaker` / `webhookMaxPendingEvents` / `webhookValidateUrls` settings have been removed. Old `settings.json` files emit a one-line deprecation warning at load.
 
 ---

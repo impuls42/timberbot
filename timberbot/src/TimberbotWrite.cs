@@ -732,8 +732,9 @@ namespace Timberbot
 
         // Set import/export settings for a good in a district.
         // Timberborn's distribution system controls how goods flow between districts:
-        //   ImportOption: None, Normal, Forced (Forced = always import even if local stock is ok)
+        //   ImportOption: Auto, Forced (Forced = always import even if local stock is ok)
         //   ExportThreshold: export excess above this amount to other districts
+        // Pass "" (or omit) for importOption to leave it unchanged.
         // -1 for exportThreshold means "don't change" (only update import option).
         public object SetDistribution(string districtName, string goodId, string importOption, int exportThreshold)
         {
