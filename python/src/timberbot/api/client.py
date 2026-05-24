@@ -13,6 +13,8 @@ locations, tasks). Those methods delegate to a lazily-constructed
 """
 from __future__ import annotations
 
+import logging
+import time
 import warnings
 from typing import Any
 
@@ -20,6 +22,20 @@ import requests
 
 from timberbot.__about__ import OPENAPI_VERSION
 from timberbot.api.exceptions import AuthenticationError, TimberbotError
+
+log = logging.getLogger("timberbot.api.client")
+
+# Cap how much body we dump at DEBUG. Plenty for spotting field names; not
+# enough to flood the terminal with a 50 kB `/api/buildings` response.
+_DEBUG_BODY_CHARS = 400
+
+
+def _trim(value: Any) -> str:
+    """Stringify and trim large objects so DEBUG output stays scannable."""
+    s = value if isinstance(value, str) else repr(value)
+    if len(s) > _DEBUG_BODY_CHARS:
+        return s[:_DEBUG_BODY_CHARS] + f"...({len(s) - _DEBUG_BODY_CHARS} more chars)"
+    return s
 from timberbot.api.models._generated import (
     AgentRequestAck,
     AgentState,
@@ -120,17 +136,77 @@ class TimberbotClient:
         p: dict[str, int | str] = {"format": "json"}
         if params:
             p.update(params)
-        r = self.s.get(f"{self.url}{path}", params=p, timeout=5)
+        url = f"{self.url}{path}"
+        log.info("-> GET %s", path)
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug("  params=%s", {k: v for k, v in p.items() if k != "format"})
+        t0 = time.monotonic()
+        try:
+            r = self.s.get(url, params=p, timeout=5)
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            log.error(
+                "<- GET %s connection failed: %s "
+                "(is the mod running on %s? launch Timberborn + load a save)",
+                path, exc, self.url,
+            )
+            raise
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        self._log_response(r, "GET", path, elapsed_ms)
         self._check_auth(r)
         r.raise_for_status()
         return self._check(r.json())
 
     def _post(self, path: str, data: dict[str, Any]) -> dict[str, Any]:
         data["format"] = "json"
-        r = self.s.post(f"{self.url}{path}", json=data, timeout=self._write_timeout)
+        url = f"{self.url}{path}"
+        log.info("-> POST %s", path)
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug("  body=%s", _trim(data))
+        t0 = time.monotonic()
+        try:
+            r = self.s.post(url, json=data, timeout=self._write_timeout)
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            log.error(
+                "<- POST %s connection failed: %s "
+                "(is the mod running on %s? launch Timberborn + load a save)",
+                path, exc, self.url,
+            )
+            raise
+        elapsed_ms = int((time.monotonic() - t0) * 1000)
+        self._log_response(r, "POST", path, elapsed_ms)
         self._check_auth(r)
         r.raise_for_status()
         return self._check(r.json())
+
+    def _log_response(self, r: requests.Response, method: str, path: str, elapsed_ms: int) -> None:
+        """Log HTTP response status + size, with helpful hints on common failures.
+
+        The hints (409 game_not_ready, 401 unauthorized, ...) make this
+        useful even at the default WARNING level — they go through `log.warning`
+        so users see them without `-v`.
+        """
+        size = len(r.content) if r.content is not None else 0
+        if r.status_code == 200:
+            log.info("<- %s %s 200 (%d B in %d ms)", method, path, size, elapsed_ms)
+        elif r.status_code == 409:
+            log.warning(
+                "<- %s %s 409 game_not_ready in %d ms "
+                "(player hasn't pressed Launch in the in-game widget)",
+                method, path, elapsed_ms,
+            )
+        elif r.status_code == 401:
+            log.warning(
+                "<- %s %s 401 unauthorized in %d ms "
+                "(check TBOT_AUTH_TOKEN or [client].auth_token vs the mod's settings.json)",
+                method, path, elapsed_ms,
+            )
+        else:
+            log.warning("<- %s %s %d in %d ms", method, path, r.status_code, elapsed_ms)
+        if log.isEnabledFor(logging.DEBUG):
+            try:
+                log.debug("  resp=%s", _trim(r.text))
+            except Exception:
+                log.debug("  resp=<unreadable>")
 
     # Back-compat aliases: kept so external callers (integration tests, etc.)
     # keep working. New code should call `_get` / `_post` directly.

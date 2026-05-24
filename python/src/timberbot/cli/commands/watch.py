@@ -593,21 +593,6 @@ def run(args: list[str]) -> int:
 
 
 def _configure_logging(verbosity: int) -> None:
-    """Wire up a minimal stderr logger for `timberbot.*` loggers.
-
-    Applies the verbosity-derived level to the whole `timberbot` package so
-    that sub-loggers used by `run_agent` (`timberbot.agent.*`) inherit it too.
-    Idempotent — won't double-attach the handler if already configured (e.g.
-    by a test harness).
-    """
-    level = logging.WARNING
-    if verbosity >= 2:
-        level = logging.DEBUG
-    elif verbosity == 1:
-        level = logging.INFO
-    handler = logging.StreamHandler(stream=sys.stderr)
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-    pkg = logging.getLogger("timberbot")
-    if not pkg.handlers:
-        pkg.addHandler(handler)
-    pkg.setLevel(level)
+    """Back-compat shim; the real impl lives in `cli.logging_setup`."""
+    from timberbot.cli.logging_setup import configure_logging
+    configure_logging(verbosity)

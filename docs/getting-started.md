@@ -347,6 +347,27 @@ tbot agent run --backend opencode --goal "..." --attach-url http://127.0.0.1:409
 
 Point Codex (or any other LLM with shell + HTTP) at the mod folder or repo root and at port 8085. After the player presses Launch, the agent has full read/write access. Paste `docs/timberbot.md` as the system prompt for non-Codex LLMs.
 
+## Verbose and debug output
+
+When you can't tell *what* the client is doing or *where* it's pointed, turn on logging:
+
+```bash
+tbot -v summary                                    # INFO: resolved endpoint + each HTTP request
+tbot -vv summary                                   # DEBUG: also request/response bodies
+tbot --debug summary                               # alias for -vv
+TBOT_DEBUG=1 tbot summary                          # env-driven DEBUG (useful when an agent shells out to tbot)
+```
+
+A typical `-v` run prints lines like:
+
+```
+12:04:18 timberbot.cli INFO dispatch method=summary -> http://127.0.0.1:8085 (host=default port=default auth=none)
+12:04:18 timberbot.api.client INFO -> GET /api/summary
+12:04:18 timberbot.api.client INFO <- GET /api/summary 200 (3142 B in 41 ms)
+```
+
+The `(host=… port=… auth=…)` tag tells you *where each setting came from* — `cli` / `env` / `config` / `default` / `none`. Use it to debug "why is my client hitting the wrong server" or "why is no auth being sent". Common failure modes (`409 game_not_ready`, `401 unauthorized`, connection refused) print a one-line actionable hint to stderr at the default WARNING level — you don't need `-v` to see them.
+
 ## Remote connections
 
 By default the Python client connects to `127.0.0.1:8085`. Several ways to override:

@@ -86,3 +86,40 @@ def test_map_command_prints_rendered_string(monkeypatch, capsys, httpserver):
     # The CLI should print the rendered map directly, not a {"rendered": True} marker dict.
     assert "rendered" not in out
     assert "~" in out  # water glyph from render_map
+
+
+def test_verbose_logs_dispatch_and_request(monkeypatch, capsys, httpserver):
+    """`-v` should surface the resolved endpoint and the HTTP round-trip."""
+    # Match the stub used by test_summary_dispatch above — Summary has
+    # required fields beyond `settlement`.
+    stub = {
+        "settlement": "X", "faction": "Folktails", "science": 0,
+        "districts": [], "time": {}, "weather": {},
+    }
+    httpserver.expect_request("/api/summary").respond_with_json(stub)
+    full = [
+        f"--host={httpserver.host}", f"--port={httpserver.port}",
+        "--json", "-v", "summary",
+    ]
+    monkeypatch.setattr("sys.argv", ["tbot", *full])
+    rc = cli_main(full)
+    captured = capsys.readouterr()
+    assert rc == 0
+    # The two key things that were missing before: "which host am I hitting"
+    # + "what HTTP call did I make". Both land on stderr via logging.
+    assert "dispatch method=summary" in captured.err
+    assert "GET /api/summary" in captured.err
+    assert "200" in captured.err
+
+
+def test_connection_failure_prints_helpful_error(monkeypatch, capsys):
+    """Unreachable host -> rc 2 + actionable stderr message, not a traceback."""
+    full = ["--host=127.0.0.1", "--port=1", "--json", "summary"]
+    monkeypatch.setattr("sys.argv", ["tbot", *full])
+    rc = cli_main(full)
+    err = capsys.readouterr().err
+    assert rc == 2
+    assert "cannot reach mod" in err
+    assert "127.0.0.1:1" in err
+    # Should not surface a raw Python traceback (no "Traceback" line).
+    assert "Traceback" not in err
