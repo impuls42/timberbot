@@ -294,7 +294,12 @@ async def run_serve(cfg: ServeConfig) -> None:
     async with asyncio.TaskGroup() as tg:
         tg.create_task(ingestor.run(), name="ingestor")
         tg.create_task(
-            mcp.run_http_async(transport="sse", host=cfg.mcp_host, port=cfg.mcp_port),
+            mcp.run_http_async(
+                transport="sse",
+                host=cfg.mcp_host,
+                port=cfg.mcp_port,
+                show_banner=False,
+            ),
             name="mcp",
         )
         tg.create_task(user_adapter.start(), name="telegram")

@@ -71,4 +71,25 @@ def configure_logging(verbosity: int = 0, *, debug: bool = False) -> int:
         _HANDLER.stream = sys.stderr
 
     pkg.setLevel(level)
+    _adopt_third_party_loggers(level)
     return level
+
+
+# `tbot serve` pulls in fastmcp (RichHandler with timestamp + file:line) and
+# uvicorn (`INFO:    ` prefix). Left alone they print in two extra formats
+# alongside our `HH:MM:SS name LEVEL message` line, which is jarring. Strip
+# their handlers, disable propagation guards, and route them through our
+# handler so every line in `tbot serve` output looks the same.
+_THIRD_PARTY_LOGGERS = ("fastmcp", "uvicorn", "uvicorn.error", "uvicorn.access")
+
+
+def _adopt_third_party_loggers(level: int) -> None:
+    if _HANDLER is None:
+        return
+    for name in _THIRD_PARTY_LOGGERS:
+        lg = logging.getLogger(name)
+        for h in list(lg.handlers):
+            lg.removeHandler(h)
+        lg.addHandler(_HANDLER)
+        lg.propagate = False
+        lg.setLevel(level)
