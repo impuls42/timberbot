@@ -17,6 +17,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -251,7 +252,8 @@ namespace Timberbot
             {
                 try
                 {
-                    using var resp = await _http.GetAsync(_baseUrl + "/api/agent/state").ConfigureAwait(false);
+                    using var req = NewRequest(HttpMethod.Get, "/api/agent/state");
+                    using var resp = await _http.SendAsync(req).ConfigureAwait(false);
                     var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                     if (!resp.IsSuccessStatusCode)
                     {
@@ -1137,7 +1139,9 @@ namespace Timberbot
                 try
                 {
                     using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-                    using var resp = await _http.PostAsync(_baseUrl + path, content).ConfigureAwait(false);
+                    using var req = NewRequest(HttpMethod.Post, path);
+                    req.Content = content;
+                    using var resp = await _http.SendAsync(req).ConfigureAwait(false);
                     if (!resp.IsSuccessStatusCode)
                     {
                         var bodyText = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -1149,6 +1153,22 @@ namespace Timberbot
                     TimberbotLog.Info($"panel.post {path} failed: {ex.GetType().Name}: {ex.Message}");
                 }
             });
+        }
+
+        // Build an HttpRequestMessage with the mod's bearer token attached when
+        // settings.json sets `authToken`. The widget is a regular HTTP client of
+        // its own server, so the auth middleware applies to it too — without
+        // this header the panel gets 401'd on every /api/agent/state poll and
+        // every /api/ready POST, breaking the Launch button entirely.
+        private HttpRequestMessage NewRequest(HttpMethod method, string path)
+        {
+            var req = new HttpRequestMessage(method, _baseUrl + path);
+            var token = _service.AuthToken;
+            if (!string.IsNullOrEmpty(token))
+            {
+                req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            return req;
         }
 
         private static VisualElement MakeSeparator()
