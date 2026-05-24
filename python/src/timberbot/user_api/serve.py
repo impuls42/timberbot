@@ -202,6 +202,12 @@ async def run_serve(cfg: ServeConfig) -> None:
     # `client.ping()` returns False on connection error (it's designed for
     # polling), so we do the raw GET to get the actual exception with the
     # actionable error class.
+    #
+    # Blocking: this is a synchronous `requests` call inside an async
+    # function. Intentional — it runs once at startup before the TaskGroup
+    # spawns, so blocking the event loop for the 5-second timeout window
+    # is fine; the alternative (an aiohttp probe) would just duplicate the
+    # ping plumbing for a fail-fast path that doesn't need concurrency.
     import requests  # noqa: PLC0415
     try:
         client._get_json("/api/ping")  # noqa: SLF001

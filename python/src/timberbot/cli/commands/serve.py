@@ -182,6 +182,13 @@ def _find_in_chain(exc: BaseException, target_cls: type) -> BaseException | None
 def _root_cause(exc: BaseException) -> BaseException:
     """Drill through ExceptionGroup / __cause__ / __context__ to the leaf.
     Falls back when no typed friendly error is found in the chain.
+
+    When an ExceptionGroup carries multiple sibling failures (e.g. several
+    tasks in a TaskGroup all blew up at once), we only follow `inner[0]`
+    — the resulting one-line CLI summary will be the first task's leaf
+    cause, not a digest of all of them. That's a deliberate choice for
+    the default WARNING-level output: users running `-vv` still get the
+    full ExceptionGroup printed via `log.exception` so no signal is lost.
     """
     inner = getattr(exc, "exceptions", None)
     if isinstance(inner, (list, tuple)) and inner:
