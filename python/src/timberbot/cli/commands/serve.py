@@ -120,6 +120,83 @@ def run(args: list[str]) -> int:
     except KeyboardInterrupt:
         log.info("serve: interrupted")
         return 0
+    except Exception as exc:
+        # Friendly handling for the common "user started serve before the
+        # mod" path. Anything bubbling out of `run_serve` lands here; we
+        # walk the cause chain (and TaskGroup ExceptionGroup branches) so
+        # the user sees a clear one-line message instead of a 100-line
+        # traceback.
+        from timberbot.user_api.serve import ModUnreachableError  # noqa: PLC0415
+
+        # Prefer the most specific known error class anywhere in the chain.
+        # ModUnreachableError wraps a ConnectionRefusedError, so a naive
+        # "unwrap to leaf" walk would skip past the friendly message.
+        known = _find_in_chain(exc, ModUnreachableError)
+        if known is not None:
+            print(f"error: {known}", file=sys.stderr)
+            return 2
+
+        root = _root_cause(exc)
+        # Unknown failure — keep the traceback at -vv so we don't lose
+        # debug signal, but show a one-line summary by default.
+        if log.isEnabledFor(logging.DEBUG):
+            log.exception("serve: unexpected failure")
+        else:
+            print(
+                f"error: tbot serve failed: {type(root).__name__}: {root}. "
+                "Re-run with -vv for the full traceback.",
+                file=sys.stderr,
+            )
+        return 1
+
+
+def _walk_chain(exc: BaseException):
+    """Yield every exception reachable through ExceptionGroup / __cause__ /
+    __context__. Used to find typed errors (e.g. ModUnreachableError) that
+    may be buried inside an asyncio.TaskGroup ExceptionGroup wrapping.
+    """
+    seen: set[int] = set()
+    stack: list[BaseException] = [exc]
+    while stack:
+        cur = stack.pop()
+        if id(cur) in seen:
+            continue
+        seen.add(id(cur))
+        yield cur
+        inner = getattr(cur, "exceptions", None)
+        if isinstance(inner, (list, tuple)):
+            stack.extend(inner)
+        for nxt in (cur.__cause__, cur.__context__):
+            if nxt is not None:
+                stack.append(nxt)
+
+
+def _find_in_chain(exc: BaseException, target_cls: type) -> BaseException | None:
+    """First exception of type `target_cls` reachable from `exc`, or None."""
+    for e in _walk_chain(exc):
+        if isinstance(e, target_cls):
+            return e
+    return None
+
+
+def _root_cause(exc: BaseException) -> BaseException:
+    """Drill through ExceptionGroup / __cause__ / __context__ to the leaf.
+    Falls back when no typed friendly error is found in the chain.
+
+    When an ExceptionGroup carries multiple sibling failures (e.g. several
+    tasks in a TaskGroup all blew up at once), we only follow `inner[0]`
+    — the resulting one-line CLI summary will be the first task's leaf
+    cause, not a digest of all of them. That's a deliberate choice for
+    the default WARNING-level output: users running `-vv` still get the
+    full ExceptionGroup printed via `log.exception` so no signal is lost.
+    """
+    inner = getattr(exc, "exceptions", None)
+    if isinstance(inner, (list, tuple)) and inner:
+        return _root_cause(inner[0])
+    cause = exc.__cause__ or exc.__context__
+    if cause is not None and cause is not exc:
+        return _root_cause(cause)
+    return exc
 
 
 def _configure_logging(verbosity: int) -> None:
