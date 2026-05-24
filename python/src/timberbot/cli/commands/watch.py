@@ -566,7 +566,7 @@ def watch(
     `--port=` / `--auth-token=` flags by `Tbot.watch`; they aren't part of the
     public per-command CLI surface.
     """
-    host, _ = resolve_endpoint(host, port)
+    host, port = resolve_endpoint(host, port)
     ws_port_resolved = resolve_ws_port(ws_port)
     auth_token = resolve_auth_token(auth_token)
 
@@ -583,7 +583,7 @@ def watch(
         auth_token=auth_token,
     )
 
-    client = TimberbotClient(host=host, auth_token=auth_token, json_mode=True)
+    client = TimberbotClient(host=host, port=port, auth_token=auth_token, json_mode=True)
     ws_client = _default_ws_client(host, ws_port_resolved, auth_token=auth_token)
     loop = WatchLoop(client, cfg, ws_client)
 

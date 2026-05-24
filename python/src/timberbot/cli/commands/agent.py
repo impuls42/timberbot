@@ -9,6 +9,7 @@ import sys
 
 from timberbot.agent.prompts import list_packaged_prompts
 from timberbot.agent.runner import run_agent
+from timberbot.api.client import TimberbotClient
 from timberbot.config import config_dir
 
 
@@ -26,6 +27,10 @@ class AgentCommands:
         terminal_prefix: str | None = None,
         attach_url: str | None = None,
         prompt: str = "timberbot",
+        *,
+        host: str | None = None,
+        port: int | None = None,
+        auth_token: str | None = None,
     ) -> int:
         """Run an AI agent against the live game.
 
@@ -47,7 +52,18 @@ class AgentCommands:
 
         Returns the agent process exit code (kept as the return value so unit
         tests can assert it; the Fire dispatcher discards it via main.py).
+
+        `host`/`port`/`auth_token` are forwarded from the global `tbot --host=` /
+        `--port=` / `--auth-token=` flags by `_AgentGroup.run`; they aren't part
+        of the public per-command CLI surface. Without them, `run_agent` would
+        build a default `TimberbotClient(json_mode=True)` pointing at
+        `127.0.0.1:8085` with no auth — silently dropping the global flags.
         """
+        client: TimberbotClient | None = None
+        if host is not None or port is not None or auth_token is not None:
+            client = TimberbotClient(
+                host=host, port=port, auth_token=auth_token, json_mode=True,
+            )
         try:
             return run_agent(
                 backend=backend,
@@ -59,6 +75,7 @@ class AgentCommands:
                 terminal_prefix=terminal_prefix,
                 attach_url=attach_url,
                 prompt_name=prompt,
+                client=client,
             )
         except ValueError as e:
             print(f"error: {e}", file=sys.stderr)

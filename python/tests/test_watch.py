@@ -514,6 +514,45 @@ def test_watch_command_registered_on_tbot_class(monkeypatch):
     assert captured["port"] == 9001
 
 
+def test_watch_threads_global_port_into_client(monkeypatch):
+    """Regression for Bug A: `watch()` was dropping the port from
+    `resolve_endpoint(host, port)` and constructing `TimberbotClient(host=…,
+    auth_token=…, json_mode=True)` without `port`. The HTTP client used by
+    the connector would silently target port 8085 even when the user passed
+    `tbot --port=9090 watch`."""
+    constructed: dict[str, object] = {}
+
+    class _StubClient:
+        def __init__(self, **kwargs):
+            constructed.update(kwargs)
+
+    class _StubLoop:
+        def __init__(self, *_a, **_kw):
+            pass
+
+        async def run(self):
+            return 0
+
+    monkeypatch.setattr(watch_mod, "TimberbotClient", _StubClient)
+    monkeypatch.setattr(watch_mod, "WatchLoop", _StubLoop)
+    monkeypatch.setattr(
+        watch_mod, "resolve_endpoint",
+        lambda h, p: (h or "127.0.0.1", p or 8085),
+    )
+    monkeypatch.setattr(watch_mod, "resolve_ws_port", lambda *_a, **_kw: 8086)
+    monkeypatch.setattr(watch_mod, "resolve_auth_token", lambda t=None: t)
+    monkeypatch.setattr(
+        watch_mod, "_default_ws_client",
+        lambda *_a, **_kw: object(),
+    )
+
+    rc = watch_mod.watch(host="10.0.0.5", port=9090, auth_token="tok")
+    assert rc == 0
+    assert constructed["host"] == "10.0.0.5"
+    assert constructed["port"] == 9090, "watch() must forward port to TimberbotClient"
+    assert constructed["auth_token"] == "tok"
+
+
 def test_fire_signature_accepts_ws_port_flag():
     """Fire reflects `watch(...)`'s signature into CLI flags."""
     import inspect

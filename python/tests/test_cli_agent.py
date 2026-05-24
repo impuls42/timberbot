@@ -56,6 +56,32 @@ def test_run_catches_value_error_from_runner(capsys):
     assert "unknown backend" in err
 
 
+def test_run_threads_global_connection_flags_into_client():
+    """Regression for Bug B: `tbot --host=X agent run …` must build a
+    `TimberbotClient(host=X, …)` and pass it to `run_agent`; otherwise the
+    runner falls back to the default 127.0.0.1:8085 client and silently
+    drops the global flags."""
+    with patch("timberbot.cli.commands.agent.run_agent", return_value=0) as ra:
+        AgentCommands().run(
+            goal="x", backend="claude",
+            host="10.0.0.5", port=9090, auth_token="tok",
+        )
+    client = ra.call_args.kwargs["client"]
+    assert client is not None
+    assert client.host == "10.0.0.5"
+    assert client.port == 9090
+    assert client.s.headers["Authorization"] == "Bearer tok"
+
+
+def test_run_omits_client_when_no_global_flags():
+    """When the global flags are unset, leave `client=None` so `run_agent`
+    keeps building its default client (preserves backward-compat for
+    library callers and tests)."""
+    with patch("timberbot.cli.commands.agent.run_agent", return_value=0) as ra:
+        AgentCommands().run(goal="x", backend="claude")
+    assert ra.call_args.kwargs["client"] is None
+
+
 def test_list_backends_subcommand(capsys):
     # Returns None — Fire prints whatever the method returns, so we keep it
     # implicit so the CLI doesn't echo a trailing "0" after the listing.

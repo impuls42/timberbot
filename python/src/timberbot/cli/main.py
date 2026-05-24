@@ -290,6 +290,14 @@ class _AgentGroup:
 
     @functools.wraps(AgentCommands.run)
     def run(self, *args: Any, **kwargs: Any) -> None:
+        # Thread global --host/--port/--auth-token through to the
+        # `TimberbotClient` that `run_agent` uses for state reads. Without
+        # this, `tbot --host=X agent run …` would silently fall back to
+        # 127.0.0.1:8085. An explicit per-call kwarg still wins.
+        ctx = _CTX
+        kwargs.setdefault("host", ctx.host)
+        kwargs.setdefault("port", ctx.port)
+        kwargs.setdefault("auth_token", ctx.auth_token)
         rc = self._inner.run(*args, **kwargs)
         if rc:
             raise SystemExit(rc)
