@@ -126,6 +126,32 @@ All settings persist to `settings.json`, including:
 
 `Publicize="true"` makes internal types accessible. `<Private>false</Private>` prevents copying the DLL to output (the game already has it).
 
+## CI artifacts (testing a PR locally)
+
+Every PR that touches the relevant code paths uploads downloadable artifacts to its workflow runs. Open the PR's **Checks** tab → click the relevant workflow run → scroll to **Artifacts** at the bottom.
+
+| Workflow | Artifact name | Contains | Trigger |
+|---|---|---|---|
+| Python tests | `timberbot-py-<pr-number>` | Wheel + sdist for the proposed CLI | Any change under `python/` |
+| docs | `docs-site-<pr-number>` | Fully-built MkDocs site (open `index.html` locally) | Any change under `docs/` or `mkdocs.yml` |
+
+To test the proposed Python CLI from a PR:
+
+```bash
+# download `timberbot-py-<pr>.zip` from the PR's Checks tab, then:
+unzip timberbot-py-<pr>.zip -d /tmp/tb
+pipx install --force /tmp/tb/timberbot-*.whl
+tbot --help
+```
+
+**C# mod DLL is not in CI.** The mod links against ~80 proprietary `Timberborn.*.dll` files from your Steam install, so GitHub Actions cannot produce a runnable `Timberbot.dll`. To test a proposed mod-side change locally, check out the PR branch and rebuild — the post-build target auto-deploys to your Timberborn Mods folder:
+
+```bash
+gh pr checkout <pr-number>          # or: git fetch origin pull/<pr>/head:pr-<pr> && git checkout pr-<pr>
+cd timberbot/src
+dotnet build                         # also auto-deploys to ~/Documents/Timberborn/Mods/Timberbot
+```
+
 ## Testing
 
 ### Unit tests
