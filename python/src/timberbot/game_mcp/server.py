@@ -804,8 +804,8 @@ def create_mcp_server(
         try:
             label = f"[feedback/{category}/{severity}] {message}"
             await loop.run_in_executor(None, lambda: client.agent_message(label))
-        except Exception:
-            log.debug("agent_message failed (game not ready?), skipping")
+        except Exception as exc:
+            log.info("agent_message failed (game not ready?): %s — feedback still stored", exc)
         if on_complaint is not None:
             await on_complaint(message, category, severity)
         return _make_envelope(bus, cursor, result)
