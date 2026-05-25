@@ -159,9 +159,9 @@ Environment variables sit between CLI flags and `config.toml` in the [precedence
 | `TBOT_TELEGRAM_TOKEN` | `tbot serve` bot token | `[serve.telegram].token` / `--telegram-token` |
 | `TBOT_CONFIG_DIR` | Overrides the [config directory](#client-config-directory) location | — |
 | `TBOT_DATA_DIR` | Overrides the [data directory](#client-data-directory) location | — |
-| `TBOT_DEBUG` | When truthy, raises logging to DEBUG | `-vv` / `--debug` |
+| `TBOT_DEBUG` | When set to `1`, `true`, `True`, or `yes`, raises logging to DEBUG | `-vv` / `--debug` |
 
-`TBOT_PORT` / `TBOT_WS_PORT` are parsed as integers; a malformed value emits a `UserWarning` and is ignored (the chain falls through). `TBOT_DOCUMENTS_DIR` is a build-time variable for `scripts/deploy.sh` only, not a client setting.
+`TBOT_PORT` / `TBOT_WS_PORT` are parsed as integers; a malformed value emits a `UserWarning` and is ignored (the chain falls through). `TBOT_DOCUMENTS_DIR` and `TBOT_MOD_DIR` are build-time variables for `scripts/deploy.sh` only (overriding the Timberborn Documents directory and the mod folder respectively when deploying a source build), not client settings.
 
 ## `settings.json` (mod)
 
@@ -195,7 +195,7 @@ Every recognized key:
 | `writeBudgetMs` | double | `1.0` | Per-frame main-thread budget (ms) for draining queued writes. Values `<= 0` fall back to `1.0`. |
 | `corsOrigin` | string | `""` | Value echoed in `Access-Control-Allow-Origin`. Empty disables CORS headers. |
 | `actionLoggingEnabled` | bool | `true` | Toggles the in-widget action log. |
-| `widgetLeft`, `widgetTop` | int | — | Widget on-screen position; written by the widget as you drag it. |
+| `widgetLeft`, `widgetTop` | string | — | Widget on-screen position; written by the widget as you drag it, stored as JSON strings (e.g. `"widgetLeft": "100"`). |
 
 Some runtime settings are applied on load, so changing them may require reloading the save (or the mod) to fully take effect.
 
