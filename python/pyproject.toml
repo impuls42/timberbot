@@ -43,6 +43,7 @@ serve = [
   "python-telegram-bot[asyncio]>=21.0",
 ]
 dev = [
+  "agent-client-protocol>=0.10",  # connector tests import `acp`
   "pytest>=8",
   "pytest-asyncio>=0.23",
   "pytest-httpserver>=1.0",
