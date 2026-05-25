@@ -255,7 +255,7 @@ To test changes end-to-end:
 
 ### Settings
 
-The mod reads `settings.json` at startup:
+The mod reads `settings.json` at startup (full key-by-key schema in the [Configuration Reference](configuration.md)):
 
 ```json
 {
