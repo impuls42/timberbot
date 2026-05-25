@@ -78,8 +78,6 @@ def test_make_subagent_id_exhausts_retries():
     """If every nonce attempted is already taken, raise. Realistically
     impossible at 65k IDs/slug, but the safeguard is contractually required."""
     # Monkeypatch `secrets.token_hex` for this test so collisions are forced.
-    import secrets as _secrets
-
     from timberbot.connector import subagent as _sa
     orig = _sa.secrets
 

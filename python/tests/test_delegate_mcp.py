@@ -17,7 +17,6 @@ import asyncio
 import fastmcp
 import pytest
 
-from timberbot.connector.agent_spec import SCOUT_SPEC
 from timberbot.connector.subagent import SubagentRegistry
 from timberbot.game_mcp.delegation import (
     SubagentBroker,

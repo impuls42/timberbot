@@ -5,7 +5,6 @@ import logging
 from dataclasses import dataclass, field
 
 from timberbot.connector.agent_spec import TIMBERBOT_SPEC, render_bootstrap_prompt
-
 from timberbot.user_api.protocol import (
     AgentFeedback,
     GameElicitation,
