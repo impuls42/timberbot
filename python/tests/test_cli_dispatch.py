@@ -37,6 +37,45 @@ def test_summary_dispatch(monkeypatch, capsys, httpserver):
     assert parsed["science"] == 7
 
 
+def test_agent_state_dispatch_renders_enum(monkeypatch, capsys, httpserver):
+    """`tbot agent_state` returns an `AgentState` whose `mode` is the
+    `AgentMode` enum. Both --json (json.dumps) and TOON (toons.dumps) need
+    the enum coerced to its `.value`; otherwise json.dumps raises
+    `TypeError: Object of type AgentMode is not JSON serializable` and
+    toons silently renders it as `null`.
+    """
+    stub = {
+        "mode": "request", "goal": "", "ready": True,
+        "pendingRequest": None, "agentStatus": "idle", "lastError": None,
+    }
+    httpserver.expect_request("/api/agent/state").respond_with_json(stub)
+    rc = _run(monkeypatch, ["agent_state"], httpserver.host, httpserver.port)
+    out = capsys.readouterr().out
+    assert rc == 0
+    parsed = json.loads(out)
+    assert parsed["mode"] == "request"
+    assert parsed["ready"] is True
+
+
+def test_agent_state_dispatch_toon_renders_enum(monkeypatch, capsys, httpserver):
+    """Same regression as above, but for the default TOON formatter — the
+    pre-fix `agent_state` printed `mode: null` because toons couldn't
+    serialize `AgentMode`."""
+    stub = {
+        "mode": "autonomous", "goal": "explore", "ready": False,
+        "pendingRequest": None, "agentStatus": "idle", "lastError": None,
+    }
+    httpserver.expect_request("/api/agent/state").respond_with_json(stub)
+    # Bypass `--json` to exercise the TOON branch.
+    full = [f"--host={httpserver.host}", f"--port={httpserver.port}", "agent_state"]
+    monkeypatch.setattr("sys.argv", ["tbot", *full])
+    rc = cli_main(full)
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "mode: autonomous" in out
+    assert "mode: null" not in out
+
+
 def test_help_lists_commands(monkeypatch, capsys, httpserver):
     rc = _run(monkeypatch, ["--help"], httpserver.host, httpserver.port)
     out = capsys.readouterr().out

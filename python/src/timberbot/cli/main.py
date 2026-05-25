@@ -195,7 +195,10 @@ def _format_output(result: Any, json_mode: bool) -> None:
         print(result)
         return
     if isinstance(result, BaseModel):
-        result = result.model_dump()
+        # mode="json" coerces Enum → value, datetime → ISO string, etc., so
+        # the downstream json.dumps / toons.dumps don't blow up on types they
+        # can't serialize natively (e.g. AgentMode on `tbot agent_state`).
+        result = result.model_dump(mode="json")
     if json_mode:
         print(json.dumps(result, indent=2))
         return
