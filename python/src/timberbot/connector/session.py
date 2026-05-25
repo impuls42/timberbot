@@ -219,6 +219,9 @@ class SessionHandle:
         else:
             # No usable option offered — decline by reporting cancellation.
             outcome = {"outcome": "cancelled"}
+        # The nesting is intentional, not a typo: the response `result` holds a
+        # `RequestPermissionOutcome`, which is itself a discriminated union keyed
+        # on its own `outcome` field — hence `result.outcome.outcome`.
         await self._transport.send(
             {"jsonrpc": "2.0", "id": req_id, "result": {"outcome": outcome}}
         )
