@@ -4,7 +4,13 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler, filters
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    MessageHandler,
+    filters,
+)
 
 from timberbot.user_api.protocol import (
     AgentFeedback,
@@ -12,6 +18,7 @@ from timberbot.user_api.protocol import (
     GameElicitation,
     SessionStateChange,
     TextChunk,
+    ToolAction,
     UserMessage,
 )
 from timberbot.user_api.telegram.handlers import make_handlers
@@ -27,6 +34,10 @@ class TelegramAdapter:
         self._queue: asyncio.Queue[UserMessage] = asyncio.Queue()
         self._buffers: dict[str, StreamBuffer] = {}  # keyed by session_id
         self._chat_ids: dict[str, int] = {}  # session_id -> chat_id
+        # Fallback routing: the user's most recent chat, captured from every
+        # inbound message. Lets us reply to /status, /cancel, /state, etc.
+        # before any ACP session exists (i.e. before register_chat has fired).
+        self._chat_by_user: dict[str, int] = {}
         self._allowed_users: set[int] = set(allowed_users or [])
         if not self._allowed_users:
             log.warning(
@@ -44,11 +55,28 @@ class TelegramAdapter:
             await self._handle_state_change(msg)
         elif isinstance(msg, AgentFeedback):
             await self._handle_feedback(msg)
+        elif isinstance(msg, ToolAction):
+            await self._handle_tool_action(msg)
+
+    def _resolve_chat(self, session_id: str, user_id: str | None) -> int | None:
+        """Resolve an outgoing message's target chat.
+
+        Priority: explicit session-id binding (set when an ACP session goes
+        active), then the originating user's most recent chat (set on every
+        inbound message). The second branch is what lets us reply to /status
+        or /state before any agent session exists.
+        """
+        chat_id = self._chat_ids.get(session_id)
+        if chat_id is not None:
+            return chat_id
+        if user_id is not None:
+            return self._chat_by_user.get(user_id)
+        return None
 
     async def _handle_text_chunk(self, msg: TextChunk) -> None:
         buf = self._buffers.get(msg.session_id)
         if buf is None:
-            chat_id = self._chat_ids.get(msg.session_id)
+            chat_id = self._resolve_chat(msg.session_id, msg.user_id)
             if chat_id is None:
                 log.warning("No chat_id for session %s; dropping chunk", msg.session_id)
                 return
@@ -59,7 +87,7 @@ class TelegramAdapter:
         buf.feed(msg.text)
 
     async def _handle_elicitation(self, msg: GameElicitation) -> None:
-        chat_id = self._chat_ids.get(msg.session_id)
+        chat_id = self._resolve_chat(msg.session_id, msg.user_id)
         if chat_id is None:
             log.warning("No chat_id for session %s; dropping elicitation", msg.session_id)
             return
@@ -71,12 +99,17 @@ class TelegramAdapter:
         )
 
     async def _handle_state_change(self, msg: SessionStateChange) -> None:
-        chat_id = self._chat_ids.get(msg.session_id)
+        chat_id = self._resolve_chat(msg.session_id, msg.user_id)
         if chat_id is None:
             log.warning("No chat_id for session %s; dropping state change", msg.session_id)
             return
-        detail = f": {msg.detail}" if msg.detail else ""
-        text = f"Session {msg.state}{detail}"
+        # "info" carries a free-form body (e.g. /state output); render the
+        # detail directly. Everything else gets the "Session X: detail" shell.
+        if msg.state == "info" and msg.detail:
+            text = msg.detail
+        else:
+            detail = f": {msg.detail}" if msg.detail else ""
+            text = f"Session {msg.state}{detail}"
         await self._app.bot.send_message(chat_id=chat_id, text=text)
 
         if msg.state == "ended":
@@ -92,18 +125,56 @@ class TelegramAdapter:
             except Exception:
                 log.warning("Failed to deliver feedback notification to chat_id %s", chat_id)
 
+    async def _handle_tool_action(self, msg: ToolAction) -> None:
+        """Render a tool-action notification as a fresh chat message.
+
+        Distinct from `_handle_text_chunk` because these aren't part of the
+        agent's streaming reply — they're standalone "the bot did X" events
+        that should land as their own message between turns, not be edited
+        into the running stream buffer.
+        """
+        chat_id = self._resolve_chat(msg.session_id, msg.user_id)
+        if chat_id is None:
+            log.warning("No chat_id for session %s; dropping tool action", msg.session_id)
+            return
+        await self._app.bot.send_message(chat_id=chat_id, text=msg.summary)
+
+    def reset_stream(self, session_id: str) -> None:
+        """Drop the streaming buffer for a session so the next chunk starts
+        fresh.
+
+        Called between user turns: continuing to edit the placeholder from
+        the previous turn (which now sits above the user's newest message in
+        the chat) is confusing. After reset, the next `TextChunk` opens a new
+        placeholder below the user's most recent message.
+        """
+        buf = self._buffers.pop(session_id, None)
+        if buf is not None:
+            asyncio.create_task(buf.stop())
+
     def register_chat(self, session_id: str, chat_id: int) -> None:
         self._chat_ids[session_id] = chat_id
 
     async def messages(self) -> AsyncIterator[UserMessage]:  # type: ignore[override]
         while True:
-            yield await self._queue.get()
+            m = await self._queue.get()
+            if m.chat_id is not None:
+                self._chat_by_user[m.user_id] = m.chat_id
+            yield m
 
     async def start(self) -> None:
         handlers = make_handlers(self._queue, self._allowed_users)
         cmd_filter = filters.User(user_id=list(self._allowed_users)) if self._allowed_users else None
-        for name in ("prompt", "cancel", "halt", "status"):
+        for name in ("prompt", "cancel", "halt", "status", "state"):
             self._app.add_handler(CommandHandler(name, handlers[name], filters=cmd_filter))
+        # Plain text (anything not starting with `/`) is forwarded as a prompt.
+        # Same allowlist filter so non-listed users can't slip past via plain
+        # text. Registered after command handlers so /prompt /state etc. still
+        # take priority for slash messages.
+        text_filter = filters.TEXT & ~filters.COMMAND
+        if cmd_filter is not None:
+            text_filter = text_filter & cmd_filter
+        self._app.add_handler(MessageHandler(text_filter, handlers["text"]))
         self._app.add_handler(CallbackQueryHandler(handlers["choice_callback"]))
 
         await self._app.initialize()

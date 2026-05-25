@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | Design proposal — not yet implemented. Supersedes the materialized `.claude/agents/` approach that was reverted on 2026-05-25. |
-| Version | 0.1 |
+| Status | Phase 1 implemented on 2026-05-25 — `AgentConnection`/`Session` split, `SubagentRegistry`, 7 delegate-family MCP tools, user_id header routing, eviction wiring. Phase 2 and 3 outstanding. Supersedes the materialized `.claude/agents/` approach that was reverted on 2026-05-25. |
+| Version | 0.2 |
 | Scope | A code-defined fleet of specialized subagents driven by the main `tbot serve` agent through MCP tools. Multi-session ACP connection management. |
 | Out of scope | Cross-user subagent sharing; warm-pool of pre-spawned agent runtimes; per-subagent model selection (all subagents inherit the main session's model). |
 | Companion documents | *Game Connector — ACP Integration & User Interaction*; *Game Agent Event Delivery — Tool Result Augmentation* |

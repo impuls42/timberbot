@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 
 from telegram import Update
@@ -9,6 +10,30 @@ from telegram.ext import ContextTypes
 from timberbot.user_api.protocol import UserMessage
 
 log = logging.getLogger("timberbot.user_api")
+
+# Emoji used to signal "the bot is working on this; reply is pending" — only
+# fires when a message gets forwarded to the agent (where the user has to
+# wait). Commands that reply synchronously (/status, /cancel, /state) don't
+# need a reaction: the reply itself is the ack.
+ACK_REACTION = "👀"
+
+
+async def _ack(update: Update) -> None:
+    """React to a user message that is about to be handled asynchronously.
+
+    Only call this when there's actual work ahead of the reply (i.e. the
+    message will be queued to the agent). Synchronous-reply handlers should
+    not ack: the reply text lands immediately and a reaction would be
+    redundant.
+
+    Some chat configurations (older clients, channels) refuse bot reactions
+    with BadRequest; treat that as soft-fail.
+    """
+    msg = update.message
+    if msg is None:
+        return
+    with contextlib.suppress(Exception):
+        await msg.set_reaction(reaction=ACK_REACTION)
 
 
 def make_handlers(
@@ -23,12 +48,8 @@ def make_handlers(
             return True
         return uid is not None and uid in allowed
 
-    async def prompt_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.effective_user is None or update.message is None or update.effective_chat is None:
-            return
-        text = " ".join(context.args or [])  # type: ignore[arg-type]
-        if not text:
-            await update.message.reply_text("Usage: /prompt <your message>")
+    async def _enqueue(update: Update, text: str) -> None:
+        if update.effective_user is None or update.effective_chat is None:
             return
         await queue.put(UserMessage(
             user_id=str(update.effective_user.id),
@@ -36,32 +57,51 @@ def make_handlers(
             chat_id=update.effective_chat.id,
         ))
 
+    async def prompt_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if update.effective_user is None or update.message is None or update.effective_chat is None:
+            return
+        text = " ".join(context.args or [])  # type: ignore[arg-type]
+        if not text:
+            await update.message.reply_text(
+                "Usage: /prompt <your message>\n"
+                "Tip: you can also just type your message directly — any non-slash "
+                "text is sent to the agent."
+            )
+            return
+        await _ack(update)
+        await _enqueue(update, text)
+
     async def cancel_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.effective_user is None or update.message is None or update.effective_chat is None:
             return
-        await queue.put(UserMessage(
-            user_id=str(update.effective_user.id),
-            text="/cancel",
-            chat_id=update.effective_chat.id,
-        ))
+        # No reaction: the loop replies synchronously with "halting" or
+        # "no session" — the reply itself is the ack.
+        await _enqueue(update, "/cancel")
 
     async def halt_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.effective_user is None or update.message is None or update.effective_chat is None:
             return
-        await queue.put(UserMessage(
-            user_id=str(update.effective_user.id),
-            text="/halt",
-            chat_id=update.effective_chat.id,
-        ))
+        await _enqueue(update, "/halt")
 
     async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.effective_user is None or update.message is None or update.effective_chat is None:
             return
-        await queue.put(UserMessage(
-            user_id=str(update.effective_user.id),
-            text="/status",
-            chat_id=update.effective_chat.id,
-        ))
+        await _enqueue(update, "/status")
+
+    async def state_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if update.effective_user is None or update.message is None or update.effective_chat is None:
+            return
+        await _enqueue(update, "/state")
+
+    async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Plain (non-slash) text is forwarded to the agent as a prompt."""
+        if update.effective_user is None or update.message is None or update.effective_chat is None:
+            return
+        text = (update.message.text or "").strip()
+        if not text:
+            return
+        await _ack(update)
+        await _enqueue(update, text)
 
     async def choice_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
@@ -89,5 +129,7 @@ def make_handlers(
         "cancel": cancel_handler,
         "halt": halt_handler,
         "status": status_handler,
+        "state": state_handler,
+        "text": text_handler,
         "choice_callback": choice_callback_handler,
     }
