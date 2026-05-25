@@ -48,6 +48,12 @@
   --md-footer-fg-color--lighter: #788860;
 }
 
+/*. layout: fluid full-width (drop the fixed content column). */
+
+.md-grid {
+  max-width: initial;
+}
+
 /*. header: deep canopy beam. */
 
 [data-md-color-scheme="slate"] .md-header {
