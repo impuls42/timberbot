@@ -413,6 +413,8 @@ For a multi-machine setup where the *mod itself* needs to accept non-localhost c
 
 ## Configuration sources
 
+For the full file-by-file schema of every config file (`config.toml`, `settings.json`, `state.json`, `brain.toon`) and their on-disk locations, see the [Configuration Reference](configuration.md).
+
 Timberbot reads client settings from four places, in this order (first match wins):
 
 | Tier | Where | Owns |

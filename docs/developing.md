@@ -92,7 +92,7 @@ For full architecture details see [architecture.md](architecture.md).
 
 ## Settings model
 
-The in-game `Settings` modal is the primary configuration surface for Timberbot.
+The in-game `Settings` modal is the primary configuration surface for Timberbot. For the full key-by-key schema of every config file, see the [Configuration Reference](configuration.md).
 
 All settings persist to `settings.json`, including:
 

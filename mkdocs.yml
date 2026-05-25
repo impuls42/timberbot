@@ -62,6 +62,7 @@ extra:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Configuration: configuration.md
   - API Reference: api-reference.md
   - Timberbot Guide: timberbot.md
   - Features: features.md
