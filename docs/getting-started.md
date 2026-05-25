@@ -110,14 +110,25 @@ The widget doesn't let you pick a model or effort — those live in `~/.config/t
 
 ```bash
 pip install 'timberbot[serve]'              # pulls fastmcp + python-telegram-bot
+npm i -g @agentclientprotocol/claude-agent-acp   # ACP bridge for the claude backend
 export TBOT_TELEGRAM_TOKEN=123456:AA…       # from @BotFather
 tbot serve                                   # foreground; Ctrl-C to stop
 ```
 
+The claude backend no longer drives `claude` directly — Claude Code 2.1.x removed
+the `--acp` flag. Instead `tbot serve` spawns Zed's standalone ACP bridge
+`claude-agent-acp`, which speaks the Agent Client Protocol and drives the Claude
+Agent SDK underneath. Install it globally with `npm i -g
+@agentclientprotocol/claude-agent-acp` (or rely on `npx -y
+@agentclientprotocol/claude-agent-acp`, at the cost of a cold-start download on
+the first run). The bridge inherits Anthropic auth from the Claude Agent SDK
+(keychain/OAuth or `ANTHROPIC_API_KEY`); set that up the same way you would for
+`claude`. The `opencode` backend is unchanged — it still exposes `opencode acp`.
+
 What it starts (one process, three concurrent tasks via `asyncio.TaskGroup`):
 
-1. **Game MCP server** — `fastmcp` HTTP/SSE on `127.0.0.1:8091` by default. Wraps `TimberbotClient` as 60 tools. Every tool response carries an *event envelope* (`meta.cursor`, `meta.events`, `meta.advisory`, `meta.hint`) so the agent sees game-side changes (droughts, building collapses, beaver deaths) without polling. The connector spawns the agent runtime (`claude` or `opencode`) in ACP mode and points it at this URL.
-2. **ACP connector** — speaks JSON-RPC 2.0 over the agent subprocess's stdin/stdout. Tool permission requests are auto-resolved against `[serve] allowed_tools` (glob patterns, default `["game.*"]`) — the user is **never** prompted to approve MCP tool calls. Only explicit in-game player choices (`game/elicitation`) surface to Telegram.
+1. **Game MCP server** — `fastmcp` HTTP/SSE on `127.0.0.1:8091` by default. Wraps `TimberbotClient` as 60 tools. Every tool response carries an *event envelope* (`meta.cursor`, `meta.events`, `meta.advisory`, `meta.hint`) so the agent sees game-side changes (droughts, building collapses, beaver deaths) without polling. The connector spawns the ACP agent (`claude-agent-acp` for the claude backend, `opencode acp` for opencode) and points it at this URL via an `sse`-transport MCP server entry.
+2. **ACP connector** — speaks standard Agent Client Protocol (JSON-RPC 2.0, `protocolVersion: 1`) over the agent subprocess's stdin/stdout. Tool permission requests are auto-resolved against `[serve] allowed_tools` (glob patterns, default `["game.*"]`) — the user is **never** prompted to approve MCP tool calls. The bridge titles MCP tools `mcp__<server>__<tool>`, which the connector normalizes to `<server>.<tool>` so `game.*` keeps matching the game tools.
 3. **Telegram adapter** — long-polls Telegram's Bot API for `/prompt`, `/cancel`, `/halt`, `/status` commands. Streaming agent output edits a single Telegram message (500-char or 500ms flush window) to stay under Telegram's edit-rate limits. Game elicitation choices render as inline-keyboard buttons.
 
 ### First-run Telegram setup
@@ -150,11 +161,14 @@ What you'll see come back:
 
 | Source | Telegram rendering |
 |---|---|
-| Agent reasoning + tool-call narration (`session/update` notifications, streaming) | A single Telegram message that gets edited in place as the agent talks — flush throttled to 500 chars or 500 ms so Telegram doesn't rate-limit. |
+| Agent replies and reasoning (`session/update` `agent_message_chunk` / `agent_thought_chunk`, streaming) | A single Telegram message that gets edited in place as the agent talks — flush throttled to 500 chars or 500 ms so Telegram doesn't rate-limit. |
 | Game elicitation (`game/elicitation`) — the game has asked a player-only question | A new message with an inline keyboard, one button per choice. |
 | Session lifecycle (`active`, `halting`, `ended`) | A short plain-text status line. |
 
 Tool permission requests for MCP tools never reach Telegram — they are auto-approved against `[serve] allowed_tools` (default `["game.*"]`) or auto-rejected, so the player only sees game-relevant prompts.
+
+!!! note "Game elicitation is inactive under `claude-agent-acp`"
+    `game/elicitation` was a Timberbot-specific notification the old `claude --acp` emitted by forwarding MCP server-initiated elicitations. Standard ACP has no elicitation primitive and the bridge consumes those events internally, so the inline-keyboard prompts above **don't currently fire** with the claude backend. The connector keeps the handler in place; restoring the surface is tracked as a follow-up.
 
 ### `tbot serve` flags
 
@@ -168,7 +182,7 @@ tbot serve [--backend {claude,opencode}] [--model MODEL] [--acp-binary PATH]
 |---|---|---|---|---|
 | `--backend` | — | `[serve] backend` | `claude` | Which ACP runtime to spawn. Only `claude` or `opencode` are accepted. |
 | `--model` | — | `[serve] model` | `claude-opus-4-7` | Model identifier passed to the agent CLI. Set this when switching backends (e.g. `glm-4.6` for opencode). |
-| `--acp-binary` | — | `[serve] acp_binary` | matches `backend` | Path or name of the agent CLI. Use this if `claude` or `opencode` isn't on `$PATH`. |
+| `--acp-binary` | — | `[serve] acp_binary` | `claude-agent-acp` (claude) / `opencode` (opencode) | Path or name of the ACP agent CLI. Use this if the bridge or `opencode` isn't on `$PATH` (e.g. `npx -y @agentclientprotocol/claude-agent-acp`). |
 | `--telegram-token` | `TBOT_TELEGRAM_TOKEN` | `[serve.telegram] token` | — *(required)* | Bot token from BotFather. `tbot serve` exits with an error if missing. |
 | `--mcp-host` | — | `[serve] mcp_host` | `127.0.0.1` | Bind address for the game MCP HTTP/SSE server. |
 | `--mcp-port` | — | `[serve] mcp_port` | `8091` | Port for the game MCP HTTP/SSE server. |
@@ -435,7 +449,7 @@ command = "aider --system-prompt-file {skill} {prompt}"   # template
 [serve]                   # used by `tbot serve` only
 backend = "claude"        # or "opencode"
 model = "claude-opus-4-7"
-acp_binary = "claude"     # path/name of the agent CLI; default matches `backend`
+acp_binary = "claude-agent-acp"   # ACP agent CLI; default: claude-agent-acp (claude) / opencode (opencode)
 mcp_host = "127.0.0.1"
 mcp_port = 8091
 allowed_tools = ["game.*"]
@@ -502,8 +516,11 @@ Some runtime settings are applied on load, so changing them may require reloadin
 !!! warning "`tbot serve` errors: 'no Telegram token found'"
     Set `TBOT_TELEGRAM_TOKEN`, pass `--telegram-token`, or add `[serve.telegram] token = "..."` to `config.toml`. The token comes from `@BotFather` on Telegram.
 
-!!! warning "`tbot serve` agent never starts: 'claude: command not found' in logs"
-    The connector spawns the agent CLI via `acp_binary` (default: the backend name). If `claude` or `opencode` isn't on `$PATH`, pass `--acp-binary /full/path/to/binary` or set `[serve] acp_binary = "/full/path/to/binary"`.
+!!! warning "`tbot serve` agent never starts: 'claude-agent-acp: command not found' in logs"
+    The connector spawns the ACP agent via `acp_binary` (default: `claude-agent-acp` for the claude backend, `opencode` for opencode). Install the bridge with `npm i -g @agentclientprotocol/claude-agent-acp`, or point `--acp-binary` at an explicit launcher such as `npx -y @agentclientprotocol/claude-agent-acp` or `/full/path/to/binary` (also settable as `[serve] acp_binary = "…"`).
+
+!!! warning "`tbot serve` agent stderr: `error: unknown option '--acp'`"
+    Your `--acp-binary` is still pointing at `claude`. Claude Code 2.1.x removed the `--acp` flag; the claude backend now uses the standalone bridge. Install it (`npm i -g @agentclientprotocol/claude-agent-acp`) and either drop the `[serve] acp_binary` override or set it to `claude-agent-acp`, then re-run.
 
 !!! warning "`tbot serve` logs 'no allowed_users configured' at startup"
     The Telegram bot is currently open to anyone who guesses its username. Find your numeric Telegram user ID (DM `@userinfobot`, or look at any of your messages via the Telegram API), then add it to `~/.config/timberbot/config.toml`:

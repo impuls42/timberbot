@@ -436,7 +436,8 @@ class Tbot:
         Args:
             backend: ACP runtime backend (claude or opencode; default: claude).
             model: Model identifier passed to the backend.
-            acp_binary: Path or name of the agent CLI to spawn (default: matches backend).
+            acp_binary: Path or name of the agent CLI to spawn (default:
+                claude-agent-acp for the claude backend, opencode for opencode).
             telegram_token: Telegram bot token (also: TBOT_TELEGRAM_TOKEN env).
             mcp_port: Port for the game MCP HTTP/SSE server (default: 8091).
             mcp_host: Bind address for the game MCP server (default: 127.0.0.1).
