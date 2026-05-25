@@ -13,6 +13,7 @@ branch of `delegate`, `subagent_reply`, `subagent_status`, `subagent_wait`,
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 import fastmcp
 import pytest
@@ -198,6 +199,43 @@ async def test_subagent_reply_when_busy_rejects(harness):
     await run.turn_task
 
 
+@pytest.mark.asyncio
+async def test_subagent_reply_rejects_before_background_turn_starts(harness):
+    """Regression: between `delegate(wait=False)` scheduling `_drive_turn`
+    and that coroutine actually executing, `session.is_busy` is still False
+    (the wrapped `prompt_awaitable` hasn't run). A rapid `subagent_reply`
+    must still be rejected — the busy check has to look at `run.turn_task`
+    too, not only `session.is_busy`.
+
+    Driven via a stub task on a freshly-registered run rather than racing
+    real timing, so the test is deterministic.
+    """
+    mcp, _, _, registry = harness
+    opened = await _call(mcp, "delegate", agent="scout", task="t", wait=True)
+    sid = opened["subagent_id"]
+    run = registry.get(sid)
+    assert run is not None
+    # Drop the completed turn_task and attach a never-resolving one to
+    # simulate "scheduled but not yet running" — exactly the state where
+    # session.is_busy is False but a follow-up reply must still bounce.
+    parked: asyncio.Future[str] = asyncio.get_running_loop().create_future()
+    run.turn_task = asyncio.ensure_future(parked)
+    run.status = "running"
+    assert run.session.is_busy is False  # the new guard's whole point
+    assert run.turn_task is not None and not run.turn_task.done()
+
+    res = await _call(mcp, "subagent_reply", subagent_id=sid, message="follow-up")
+    assert res.get("error") == "busy"
+    # Status must not have been polluted to "errored" by a stray
+    # prompt_awaitable busy raise inside _drive_turn.
+    assert run.status == "running"
+
+    # Cleanup so the never-resolving task doesn't leak across tests.
+    run.turn_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await run.turn_task
+
+
 # --- subagent_status / subagent_list ------------------------------------
 
 
@@ -279,13 +317,38 @@ async def test_subagent_wait_on_already_done_returns_immediately(harness):
 @pytest.mark.asyncio
 async def test_subagent_cancel_keeps_session_alive(harness):
     mcp, _, _, registry = harness
-    opened = await _call(mcp, "delegate", agent="scout", task="t", wait=True)
+    # Open the run and hold the first turn parked so cancel observes a
+    # non-terminal state. Cancelling an already-`completed` run is a no-op
+    # by design (see test below).
+    opened = await _call(mcp, "delegate", agent="scout", task="t")
     sid = opened["subagent_id"]
+    run = registry.get(sid)
+    assert run is not None
+    run.session._block.clear()  # park _drive_turn inside prompt_awaitable
+
     res = await _call(mcp, "subagent_cancel", subagent_id=sid)
     assert res["status"] == "cancelled"
-    # Still listed.
+    # Still listed — cancel keeps the session open for follow-ups.
     listing = await _call(mcp, "subagent_list")
     assert sid in {s["subagent_id"] for s in listing["subagents"]}
+
+
+@pytest.mark.asyncio
+async def test_subagent_cancel_on_completed_run_does_not_clobber_status(harness):
+    """If the background turn happened to finish successfully between when
+    cancel was requested and when it lands, the registry must not overwrite
+    `completed` with `cancelled` — the transcript already records the
+    truthful outcome."""
+    mcp, _, _, registry = harness
+    opened = await _call(mcp, "delegate", agent="scout", task="t", wait=True)
+    sid = opened["subagent_id"]
+    run = registry.get(sid)
+    assert run is not None and run.status == "completed"
+
+    res = await _call(mcp, "subagent_cancel", subagent_id=sid)
+    # Status stays "completed"; the run keeps its terminal state.
+    assert res["status"] == "completed"
+    assert run.status == "completed"
 
 
 @pytest.mark.asyncio

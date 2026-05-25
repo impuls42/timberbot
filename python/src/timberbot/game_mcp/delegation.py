@@ -279,7 +279,20 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         run = state.registry.get(subagent_id)
         if run is None:
             return {"error": f"unknown subagent_id: {subagent_id!r}"}
-        if run.session.is_busy:
+        # Busy check has to cover *both* the case where the wrapped
+        # coroutine is currently mid-prompt (`session.is_busy`) AND the case
+        # where `_drive_turn` was just scheduled by `delegate(wait=False)` /
+        # `subagent_reply(wait=False)` and hasn't started executing yet.
+        # In that second window `session._current_turn` is still None — only
+        # `run.turn_task` is set synchronously by `create_task`. Without the
+        # turn_task check, a rapid follow-up `subagent_reply` would slip past
+        # the guard, hit `prompt_awaitable`'s own busy assertion inside the
+        # second `_drive_turn`, and pollute `run.status` with "errored"
+        # while the first turn is still alive.
+        if (
+            (run.turn_task is not None and not run.turn_task.done())
+            or run.session.is_busy
+        ):
             return {
                 "subagent_id": subagent_id,
                 "error": "busy",

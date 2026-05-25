@@ -168,7 +168,13 @@ class SubagentRegistry:
             await run.session.cancel()
         except Exception:  # noqa: BLE001 - cancel is best-effort
             log.exception("error cancelling subagent %s session", subagent_id)
-        run.status = "cancelled"
+        # Don't clobber a terminal state — if the turn happened to finish
+        # successfully or error out before our cancel landed, that outcome
+        # is the truth: the transcript already records the reply (or
+        # last_error), and re-stamping "cancelled" would be a lie. Only
+        # mark cancelled when the run was still in motion.
+        if run.status not in ("completed", "errored"):
+            run.status = "cancelled"
         run.touch()
         return run
 

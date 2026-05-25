@@ -93,17 +93,25 @@ _READ_TOOLS: tuple[str, ...] = (
     "building_range", "brain", "observe", "list_locations",
 )
 
-# Game-state mutations.
-_WRITE_TOOLS: tuple[str, ...] = (
+# Game-state mutations. Anything that changes the world.
+_MUTATION_TOOLS: tuple[str, ...] = (
     "place_building", "place_path", "demolish_building", "demolish_crop",
     "pause_building", "unpause_building", "set_priority", "set_recipe",
     "set_workers", "set_storage", "set_speed", "set_workhours",
     "set_floodgate", "set_clutch", "set_farmhouse_action",
     "set_haul_priority", "set_plantable_priority", "set_location",
     "set_distribution", "mark_trees", "clear_trees", "plant_crop",
-    "clear_planting", "find_placement", "find_planting", "migrate",
-    "unlock_building", "link", "unlink", "configure_automation",
-    "rename_automation", "remove_location", "add_task", "update_task",
+    "clear_planting", "migrate", "unlock_building",
+    "link", "unlink", "configure_automation", "rename_automation",
+    "remove_location", "add_task", "update_task",
+)
+
+# Side-effect-free search/probe tools that *propose* world actions
+# (placements, plantings) without applying them. The main agent and
+# `scout` need these; the read-only auditor must not, so they live in
+# their own category rather than being folded into `_READ_TOOLS`.
+_SEARCH_TOOLS: tuple[str, ...] = (
+    "find_placement", "find_planting",
 )
 
 # Built-in tools `claude-agent-acp` exposes outside ACP's permission flow.
@@ -244,7 +252,7 @@ TIMBERBOT_SPEC = AgentSpec(
         "are NOT a general-purpose coding assistant, a shell, or a search "
         "tool — those modes do not apply here."
     ),
-    allowed_mcp_tools=_READ_TOOLS + _WRITE_TOOLS,
+    allowed_mcp_tools=_READ_TOOLS + _MUTATION_TOOLS + _SEARCH_TOOLS,
     # `Task` is forbidden: subagents are NOT invoked via Claude Code's
     # native delegation tool. The pending Option B design will expose an
     # explicit `mcp__game__delegate(...)` MCP tool that runs subagents in

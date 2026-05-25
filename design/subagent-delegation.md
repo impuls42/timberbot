@@ -315,7 +315,7 @@ Heavier payload than the other tools — instructions discourage routine use.
 
 | Trigger | Behavior |
 |---|---|
-| Main user `/cancel` or `/halt` | Cancel every in-flight subagent turn for that user via `Session.cancel()`. Sessions stay **open** so the agent can revive them on its next message. |
+| Main user `/cancel` or `/halt` | **Phase 1:** treated as full eviction — cancel the main turn, then cancel + close every subagent for that user and tear down the `AgentConnection`. Next user message reconnects from scratch. **Phase 2 (planned):** cancel turns only; keep sessions open so the agent can revive them on its next message. The softer semantic was the original §1.3 goal but is deferred because the current `_user_message_loop` always evicts on cancel — splitting that out is a separate change. |
 | Main session evicted (handle dies, ENDED state) | Cancel **and** close every subagent for that user. Next user message opens a fresh main session with an empty registry. |
 | Subagent stop_reason ≠ `end_turn` | Status moves to `completed` (with the actual stop reason recorded) for `max_tokens` / `refusal`, or `cancelled` for `cancelled`. The reply text is still buffered for retrieval. |
 | Subagent process or session crashes mid-turn | `status="errored"`, `last_error` populated. Session retained until explicit `subagent_close` so the agent can inspect what happened. |
@@ -426,7 +426,7 @@ End of Phase 1: the main agent can `delegate`, peek, reply, wait, cancel, close.
 | Subagent `on_tool_action` → Telegram with `[<subagent_id>]` prefix | The user sees `[scout-a8f3] 🔧 find_placement(...)` in chat. |
 | Per-call timeout for `delegate` and `subagent_reply` | Default 60 s; configurable. Surfaces as `status: "errored", last_error: "timeout"`. |
 | Subagent status changes surface to Telegram | One concise line per state transition (`scout-a8f3 completed`, `wirer-d4e1 errored: ...`). |
-| Main-turn `/cancel` propagation | Cancels all in-flight subagent turns *for that user* via their `Session.cancel()`. |
+| Soft `/cancel` semantics | `/cancel` cancels every in-flight turn (main + subagents) via `Session.cancel()` without evicting the `AgentConnection` or closing subagent sessions. Required for the §1.3 "persistent across multiple main-agent turns" promise. Today's behavior tears the connection down — see §6 table row. |
 
 ### 9.3 Phase 3 — deferred
 
