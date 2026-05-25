@@ -152,6 +152,59 @@ class SettlementContext:
         self.save_brain(brain)
         return {"cleared": before - len(brain["tasks"]), "remaining": len(brain["tasks"])}
 
+    # ------------------------------------------------------------------
+    # Feedback (agent-reported bugs, inconsistencies, missing features)
+    # ------------------------------------------------------------------
+
+    @property
+    def feedback_path(self) -> Path:
+        return self.memory_dir / "feedback.toon"
+
+    def _load_feedback(self) -> list[dict[str, Any]]:
+        if not self.feedback_path.exists():
+            return []
+        try:
+            import toons  # type: ignore[import-not-found]
+            with open(self.feedback_path) as f:
+                return toons.load(f) or []
+        except Exception:
+            return []
+
+    def add_feedback(
+        self, message: str, category: str = "bug", severity: str = "medium",
+    ) -> dict[str, Any]:
+        self.ensure_dir()
+        import toons  # type: ignore[import-not-found]
+        items = self._load_feedback()
+        next_id = max((f["id"] for f in items), default=0) + 1
+        item: dict[str, Any] = {
+            "id": next_id,
+            "timestamp": datetime.now().isoformat(),
+            "category": category,
+            "severity": severity,
+            "message": message,
+            "resolved": False,
+        }
+        items.append(item)
+        with open(self.feedback_path, "w") as f:
+            toons.dump(items, f)
+        return item
+
+    def list_feedback(self, resolved: bool = False) -> list[dict[str, Any]]:
+        return [f for f in self._load_feedback() if f.get("resolved", False) == resolved]
+
+    def resolve_feedback(self, id: int) -> dict[str, Any]:
+        self.ensure_dir()
+        import toons  # type: ignore[import-not-found]
+        items = self._load_feedback()
+        for item in items:
+            if item["id"] == id:
+                item["resolved"] = True
+                with open(self.feedback_path, "w") as f:
+                    toons.dump(items, f)
+                return item
+        return {"error": f"feedback {id} not found"}
+
     def clear(self) -> dict[str, Any]:
         if self.memory_dir.is_dir() and self.memory_dir != self.base:
             shutil.rmtree(self.memory_dir)

@@ -27,7 +27,14 @@ class GameElicitation:
     correlation_id: str  # echo back with user's answer
 
 
-ConnectorMessage = TextChunk | SessionStateChange | GameElicitation
+@dataclass
+class AgentFeedback:
+    category: str
+    severity: str
+    message: str
+
+
+ConnectorMessage = TextChunk | SessionStateChange | GameElicitation | AgentFeedback
 
 
 @dataclass

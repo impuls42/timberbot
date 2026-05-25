@@ -827,6 +827,12 @@ components:
       properties:
         ready: { type: boolean }
       additionalProperties: true
+    AgentMessageRequest:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string, description: 'Text to display in the agent log console.' }
+      additionalProperties: false
     GameNotReady:
       description: |
         Returned with HTTP 409 from any non-whitelisted `/api/*` route while
@@ -989,6 +995,32 @@ paths:
         '200':
           description: Acknowledged.
           content: { application/json: { schema: { $ref: '#/components/schemas/ReadyAck' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/agent/message:
+    post:
+      operationId: agent_message
+      summary: Post a message to the in-game agent log console.
+      description: |
+        Displays a timestamped line in the agent log widget (the same console
+        panel that shows write/placement action logs). Gate-exempt — works
+        regardless of the `ready` flag.
+      tags: [agent]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AgentMessageRequest' }
+      responses:
+        '200':
+          description: Message posted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                additionalProperties: false
         '400': { $ref: '#/components/responses/BadRequest' }
 
   # /api/tbot/register and /api/tbot/heartbeat were deleted in the WS rework

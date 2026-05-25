@@ -223,6 +223,7 @@ namespace Timberbot
                 _service.Write.OnActionLog += HandleActionLog;
             if (_service.Placement != null)
                 _service.Placement.OnActionLog += HandleActionLog;
+            _service.OnAgentFeedback += HandleActionLog;
 
             TimberbotLog.Info("panel: attached to game UI");
         }

@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, filters
 
 from timberbot.user_api.protocol import (
+    AgentFeedback,
     ConnectorMessage,
     GameElicitation,
     SessionStateChange,
@@ -41,6 +42,8 @@ class TelegramAdapter:
             await self._handle_elicitation(msg)
         elif isinstance(msg, SessionStateChange):
             await self._handle_state_change(msg)
+        elif isinstance(msg, AgentFeedback):
+            await self._handle_feedback(msg)
 
     async def _handle_text_chunk(self, msg: TextChunk) -> None:
         buf = self._buffers.get(msg.session_id)
@@ -80,6 +83,14 @@ class TelegramAdapter:
             buf = self._buffers.pop(msg.session_id, None)
             if buf is not None:
                 await buf.stop()
+
+    async def _handle_feedback(self, msg: AgentFeedback) -> None:
+        text = f"[feedback/{msg.category}/{msg.severity}] {msg.message}"
+        for chat_id in set(self._chat_ids.values()):
+            try:
+                await self._app.bot.send_message(chat_id=chat_id, text=text)
+            except Exception:
+                log.warning("Failed to deliver feedback notification to chat_id %s", chat_id)
 
     def register_chat(self, session_id: str, chat_id: int) -> None:
         self._chat_ids[session_id] = chat_id

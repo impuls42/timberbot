@@ -496,7 +496,8 @@ namespace Timberbot
                 "/api/cutting/area", "/api/building/storage",
                 "/api/science/unlock", "/api/distribution", "/api/workhours",
                 "/api/district/migrate",
-                "/api/automation/link", "/api/automation/unlink", "/api/automation/configure", "/api/automation/rename"
+                "/api/automation/link", "/api/automation/unlink", "/api/automation/configure", "/api/automation/rename",
+                "/api/agent/config", "/api/agent/request", "/api/agent/message", "/api/ready"
             }));
         }
 
@@ -571,6 +572,7 @@ namespace Timberbot
                 // socket.
                 Queued("/api/agent/config", req => new LambdaWriteJob(req.Route, () => HandleAgentConfig(req))),
                 Queued("/api/agent/request", req => new LambdaWriteJob(req.Route, () => HandleAgentRequest(req))),
+                Queued("/api/agent/message", req => new LambdaWriteJob(req.Route, () => HandleAgentMessage(req))),
                 Queued("/api/ready", req => new LambdaWriteJob(req.Route, () => HandleReady(req))),
             };
 
@@ -621,6 +623,15 @@ namespace Timberbot
             return _jw.Reset().OpenObj()
                 .Key("pendingRequest").OpenObj().Prop("id", id).Prop("prompt", prompt).CloseObj()
                 .CloseObj().ToString();
+        }
+
+        private object HandleAgentMessage(PendingRequest req)
+        {
+            var message = req.Body?.Value<string>("message") ?? "";
+            if (string.IsNullOrEmpty(message))
+                return _jw.Error("invalid_message: 'message' is required");
+            _service.PostAgentFeedback(message);
+            return _jw.Reset().OpenObj().Prop("ok", true).CloseObj().ToString();
         }
 
         private object HandleReady(PendingRequest req)
