@@ -1,0 +1,1796 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Full read/write HTTP API for controlling Timberborn with AI (modified fork of abix-/TimberbornMods)">
+      
+      
+      
+        <link rel="canonical" href="https://impuls42.github.io/timberbot/configuration/">
+      
+      
+        <link rel="prev" href="../getting-started/">
+      
+      
+        <link rel="next" href="../api-reference/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Configuration - Timberbot API</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#configuration-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Timberbot API" class="md-header__button md-logo" aria-label="Timberbot API" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Timberbot API
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Configuration
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/impuls42/timberbot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    impuls42/timberbot
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Timberbot API" class="md-nav__button md-logo" aria-label="Timberbot API" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Timberbot API
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/impuls42/timberbot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    impuls42/timberbot
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#files-at-a-glance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files at a glance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-locations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File locations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="File locations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#client-config-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client config directory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#client-data-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client data directory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mod-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mod directory
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configtoml-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config.toml (client)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="config.toml (client)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [client]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backendsname" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [backends.&lt;name&gt;]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#serve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [serve]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#servetelegram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [serve.telegram]
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settingsjson-mod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        settings.json (mod)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#statejson-mod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        state.json (mod)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#braintoon-per-settlement-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        brain.toon (per-settlement memory)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolution-and-precedence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolution and precedence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agent-prompts-tbot-init" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent prompts (tbot init)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timberbot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timberbot Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websocket-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../macos-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    macOS Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devenv/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dev Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unreleased/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#files-at-a-glance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Files at a glance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#file-locations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File locations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="File locations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#client-config-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client config directory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#client-data-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client data directory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mod-directory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mod directory
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configtoml-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        config.toml (client)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="config.toml (client)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [client]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backendsname" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [backends.&lt;name&gt;]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#serve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [serve]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#servetelegram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        [serve.telegram]
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settingsjson-mod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        settings.json (mod)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#statejson-mod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        state.json (mod)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#braintoon-per-settlement-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        brain.toon (per-settlement memory)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resolution-and-precedence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resolution and precedence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agent-prompts-tbot-init" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent prompts (tbot init)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="configuration-reference">Configuration Reference<a class="headerlink" href="#configuration-reference" title="Permanent link">&para;</a></h1>
+<p>This page is the file-by-file reference for everything Timberbot reads and writes on disk. For the step-by-step setup walkthrough, see <a href="../getting-started/">Getting Started</a>; this page is the lookup table behind it.</p>
+<p>Timberbot has two configuration <em>sides</em>:</p>
+<ul>
+<li>the <strong>mod</strong> (the C# server running inside Timberborn) owns server-side runtime and security settings — its files live next to the mod under <code>Documents/Timberborn/Mods/Timberbot/</code>.</li>
+<li>the <strong>client</strong> (the <code>tbot</code> CLI and the <code>timberbot</code> Python package) owns the connection target, per-backend defaults, and <code>tbot serve</code> settings — its files live under your OS user-config and user-data directories.</li>
+</ul>
+<p>The mod's <code>settings.json</code> is <strong>not</strong> consulted for client endpoint resolution, and the client never reads <code>settings.json</code>. The two sides communicate only over HTTP/WebSocket.</p>
+<h2 id="files-at-a-glance">Files at a glance<a class="headerlink" href="#files-at-a-glance" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Owner</th>
+<th>Format</th>
+<th>Lives in</th>
+<th>You edit it?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#configtoml-client"><code>config.toml</code></a></td>
+<td>client (<code>tbot</code>)</td>
+<td>TOML</td>
+<td><a href="#client-config-directory">config dir</a></td>
+<td>Yes — primary client config</td>
+</tr>
+<tr>
+<td><a href="#settingsjson-mod"><code>settings.json</code></a></td>
+<td>mod (C# server)</td>
+<td>JSON</td>
+<td><a href="#mod-directory">mod dir</a></td>
+<td>Yes — but the in-game Settings modal is the primary surface</td>
+</tr>
+<tr>
+<td><a href="#statejson-mod"><code>state.json</code></a></td>
+<td>mod (C# server)</td>
+<td>JSON</td>
+<td><a href="#mod-directory">mod dir</a></td>
+<td>Rarely — the widget writes it via <code>POST /api/agent/config</code></td>
+</tr>
+<tr>
+<td><a href="#braintoon-per-settlement-memory"><code>brain.toon</code></a></td>
+<td>client (<code>tbot</code>)</td>
+<td>TOON</td>
+<td><a href="#client-data-directory">data dir</a></td>
+<td>Rarely — managed by <code>tbot brain</code> and location/task commands</td>
+</tr>
+<tr>
+<td><a href="#agent-prompts-tbot-init"><code>agent_prompts/*.md</code></a></td>
+<td>client (<code>tbot</code>)</td>
+<td>Markdown</td>
+<td><a href="#client-config-directory">config dir</a></td>
+<td>Yes — editable copies materialized by <code>tbot init</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>config.toml</code> and <code>settings.json</code> are the two you configure by hand. <code>state.json</code> and <code>brain.toon</code> are machine-managed state — documented here so you know what they are, not because you normally edit them.</p>
+<h2 id="file-locations">File locations<a class="headerlink" href="#file-locations" title="Permanent link">&para;</a></h2>
+<p>All three roots follow OS conventions and each has an environment-variable override.</p>
+<h3 id="client-config-directory">Client config directory<a class="headerlink" href="#client-config-directory" title="Permanent link">&para;</a></h3>
+<p>Holds <code>config.toml</code> and the materialized <code>agent_prompts/</code>. Resolved by <code>timberbot.config.config_dir()</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linux</td>
+<td><code>$XDG_CONFIG_HOME/timberbot</code>, falling back to <code>~/.config/timberbot</code></td>
+</tr>
+<tr>
+<td>macOS</td>
+<td><code>~/Library/Application Support/timberbot</code></td>
+</tr>
+<tr>
+<td>Windows</td>
+<td><code>%APPDATA%\timberbot</code>, falling back to <code>~/AppData/Roaming/timberbot</code></td>
+</tr>
+</tbody>
+</table>
+<p>Override the whole directory with the <code>TBOT_CONFIG_DIR</code> environment variable (useful for tests or unusual setups).</p>
+<h3 id="client-data-directory">Client data directory<a class="headerlink" href="#client-data-directory" title="Permanent link">&para;</a></h3>
+<p>Holds per-settlement <code>memory/&lt;settlement&gt;/brain.toon</code>. Resolved by <code>timberbot.config.data_dir()</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linux</td>
+<td><code>$XDG_DATA_HOME/timberbot</code>, falling back to <code>~/.local/share/timberbot</code></td>
+</tr>
+<tr>
+<td>macOS</td>
+<td><code>~/Library/Application Support/timberbot</code> (no separate data convention)</td>
+</tr>
+<tr>
+<td>Windows</td>
+<td><code>%LOCALAPPDATA%\timberbot</code>, falling back to <code>~/AppData/Local/timberbot</code></td>
+</tr>
+</tbody>
+</table>
+<p>Override with the <code>TBOT_DATA_DIR</code> environment variable.</p>
+<h3 id="mod-directory">Mod directory<a class="headerlink" href="#mod-directory" title="Permanent link">&para;</a></h3>
+<p>Holds <code>settings.json</code> and <code>state.json</code>, alongside the mod's <code>Timberbot.dll</code> and <code>manifest.json</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows</td>
+<td><code>C:\Users\&lt;you&gt;\Documents\Timberborn\Mods\Timberbot\</code></td>
+</tr>
+<tr>
+<td>macOS, native Linux</td>
+<td><code>~/Documents/Timberborn/Mods/Timberbot/</code></td>
+</tr>
+<tr>
+<td>Linux + Proton</td>
+<td><code>~/.steam/steam/steamapps/compatdata/1062090/pfx/drive_c/users/steamuser/Documents/Timberborn/Mods/Timberbot/</code></td>
+</tr>
+</tbody>
+</table>
+<p>The build-time <code>scripts/deploy.sh</code> honors <code>TBOT_DOCUMENTS_DIR</code> when autodiscovering this folder on Proton/Wine setups with a non-<code>steamuser</code> username.</p>
+<h2 id="configtoml-client"><code>config.toml</code> (client)<a class="headerlink" href="#configtoml-client" title="Permanent link">&para;</a></h2>
+<p>The <code>tbot</code> CLI looks for a TOML file at <code>&lt;config dir&gt;/config.toml</code>. A <strong>missing or unparseable file is non-fatal</strong> — the loader returns an empty mapping, the rest of the <a href="#resolution-and-precedence">resolution chain</a> fills in defaults, and at most one <code>UserWarning</code> is emitted per process per error.</p>
+<p>Full annotated example with every recognized section:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># &lt;config dir&gt;/config.toml</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1">#   Linux/macOS: ~/.config/timberbot/config.toml</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1">#   Windows:     %APPDATA%\timberbot\config.toml</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">[client]</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">host</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;127.0.0.1&quot;</span><span class="w">        </span><span class="c1"># default target host for the CLI / Python client</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8085</span><span class="w">               </span><span class="c1"># default target port (mod HTTP API)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">ws_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8086</span><span class="w">            </span><span class="c1"># default target port (mod WebSocket)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">auth_token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w">           </span><span class="c1"># bearer token; required when the mod sets authToken</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">[backends.claude]</span><span class="w">         </span><span class="c1"># used by `tbot watch` and `tbot agent run`</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;claude-opus-4-7&quot;</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">effort</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;high&quot;</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="k">[backends.opencode]</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;glm-4.6&quot;</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">attach_url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;http://127.0.0.1:4096&quot;</span><span class="w">   </span><span class="c1"># attach to a long-running `opencode serve`</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="k">[backends.custom]</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">command</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;aider --system-prompt-file {skill} {prompt}&quot;</span><span class="w">   </span><span class="c1"># argv template</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="k">[serve]</span><span class="w">                   </span><span class="c1"># used by `tbot serve` only</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="n">backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;claude&quot;</span><span class="w">        </span><span class="c1"># or &quot;opencode&quot;</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">model</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;claude-opus-4-7&quot;</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">acp_binary</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;claude-agent-acp&quot;</span><span class="w">   </span><span class="c1"># ACP agent CLI</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="n">mcp_host</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;127.0.0.1&quot;</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">mcp_port</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8091</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="n">allowed_tools</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;game.*&quot;</span><span class="p">]</span>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="k">[serve.telegram]</span>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="n">token</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;7912345678:AAH...&quot;</span><span class="w">   </span><span class="c1"># also: TBOT_TELEGRAM_TOKEN env, --telegram-token flag</span>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="n">allowed_users</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">12345678</span><span class="p">]</span><span class="w">    </span><span class="c1"># Telegram user IDs allowed to talk to the bot</span>
+</span></code></pre></div>
+<h3 id="client"><code>[client]</code><a class="headerlink" href="#client" title="Permanent link">&para;</a></h3>
+<p>The connection target shared by every <code>tbot</code> command and <code>TimberbotClient</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>host</code></td>
+<td>string</td>
+<td><code>127.0.0.1</code></td>
+<td>Target host for the mod's HTTP API.</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>int</td>
+<td><code>8085</code></td>
+<td>Target port for the mod's HTTP API.</td>
+</tr>
+<tr>
+<td><code>ws_port</code></td>
+<td>int</td>
+<td><code>8086</code></td>
+<td>Target port for the mod's WebSocket (<code>tbot watch</code> / <code>listen</code> / <code>serve</code>).</td>
+</tr>
+<tr>
+<td><code>auth_token</code></td>
+<td>string</td>
+<td><em>(none)</em></td>
+<td>Bearer token sent as <code>Authorization: Bearer &lt;token&gt;</code>. Required when the mod sets a non-empty <code>authToken</code> (mandatory for a non-localhost <code>listenAddress</code>).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="backendsname"><code>[backends.&lt;name&gt;]</code><a class="headerlink" href="#backendsname" title="Permanent link">&para;</a></h3>
+<p>Per-backend defaults fed into <code>tbot agent run</code> / <code>tbot watch</code>. <code>&lt;name&gt;</code> is one of <code>claude</code>, <code>codex</code>, <code>opencode</code>, or <code>custom</code>. Explicit CLI flags always win over these defaults.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model</code></td>
+<td>string</td>
+<td>Model identifier passed to the backend.</td>
+</tr>
+<tr>
+<td><code>effort</code></td>
+<td>string</td>
+<td>Reasoning effort passed to the backend.</td>
+</tr>
+<tr>
+<td><code>binary</code></td>
+<td>string</td>
+<td>Override the backend's CLI binary path.</td>
+</tr>
+<tr>
+<td><code>command</code></td>
+<td>string</td>
+<td>argv template (required for <code>custom</code>); placeholders: <code>{skill}</code>, <code>{instructions_file}</code>, <code>{prompt}</code>, <code>{prompt_file}</code>, <code>{model}</code>, <code>{effort}</code>.</td>
+</tr>
+<tr>
+<td><code>terminal_prefix</code></td>
+<td>string</td>
+<td>Command prefix wrapping the agent invocation; supports <code>{cwd}</code> (e.g. <code>"wt -d {cwd} --"</code>).</td>
+</tr>
+<tr>
+<td><code>attach_url</code></td>
+<td>string</td>
+<td>URL of a long-running backend server to attach to (opencode only). Set <code>attach_url = ""</code> and pass <code>--attach-url ""</code> to clear it.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="serve"><code>[serve]</code><a class="headerlink" href="#serve" title="Permanent link">&para;</a></h3>
+<p>Read <strong>only</strong> by <code>tbot serve</code>. It intentionally does <em>not</em> fall back to <code>[backends.*]</code>, so the interactive and one-shot stacks can pick models and binaries independently. The full flag/env/config matrix is in <a href="../getting-started/#tbot-serve-flags">Getting Started → <code>tbot serve</code> flags</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend</code></td>
+<td>string</td>
+<td><code>claude</code></td>
+<td>ACP runtime to spawn (<code>claude</code> or <code>opencode</code>).</td>
+</tr>
+<tr>
+<td><code>model</code></td>
+<td>string</td>
+<td><code>claude-opus-4-7</code></td>
+<td>Model identifier passed to the agent CLI.</td>
+</tr>
+<tr>
+<td><code>acp_binary</code></td>
+<td>string</td>
+<td><code>claude-agent-acp</code> (claude) / <code>opencode</code> (opencode)</td>
+<td>Path or name of the ACP agent CLI.</td>
+</tr>
+<tr>
+<td><code>mcp_host</code></td>
+<td>string</td>
+<td><code>127.0.0.1</code></td>
+<td>Bind address for the game MCP HTTP/SSE server.</td>
+</tr>
+<tr>
+<td><code>mcp_port</code></td>
+<td>int</td>
+<td><code>8091</code></td>
+<td>Port for the game MCP HTTP/SSE server.</td>
+</tr>
+<tr>
+<td><code>allowed_tools</code></td>
+<td>list[string]</td>
+<td><code>["game.*"]</code></td>
+<td>Glob list of MCP tool names the connector auto-approves; everything else is auto-rejected.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="servetelegram"><code>[serve.telegram]</code><a class="headerlink" href="#servetelegram" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>token</code></td>
+<td>string</td>
+<td><em>(required)</em></td>
+<td>Bot token from <code>@BotFather</code>. Also settable via <code>TBOT_TELEGRAM_TOKEN</code> or <code>--telegram-token</code>.</td>
+</tr>
+<tr>
+<td><code>allowed_users</code></td>
+<td>list[int]</td>
+<td><code>[]</code></td>
+<td>Telegram user IDs allowed to talk to the bot. <strong>Empty/unset means any user who finds the bot can drive it</strong> — <code>tbot serve</code> logs a warning at startup. Must be a list of integers or the server refuses to start.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
+<p>Environment variables sit between CLI flags and <code>config.toml</code> in the <a href="#resolution-and-precedence">precedence chain</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Affects</th>
+<th><code>config.toml</code> / flag equivalent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TBOT_HOST</code></td>
+<td>Client target host</td>
+<td><code>[client].host</code> / <code>--host</code></td>
+</tr>
+<tr>
+<td><code>TBOT_PORT</code></td>
+<td>Client target HTTP port</td>
+<td><code>[client].port</code> / <code>--port</code></td>
+</tr>
+<tr>
+<td><code>TBOT_WS_PORT</code></td>
+<td>Client target WebSocket port</td>
+<td><code>[client].ws_port</code> / <code>--ws-port</code></td>
+</tr>
+<tr>
+<td><code>TBOT_AUTH_TOKEN</code></td>
+<td>Bearer token</td>
+<td><code>[client].auth_token</code> / <code>--auth-token</code></td>
+</tr>
+<tr>
+<td><code>TBOT_TELEGRAM_TOKEN</code></td>
+<td><code>tbot serve</code> bot token</td>
+<td><code>[serve.telegram].token</code> / <code>--telegram-token</code></td>
+</tr>
+<tr>
+<td><code>TBOT_CONFIG_DIR</code></td>
+<td>Overrides the <a href="#client-config-directory">config directory</a> location</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>TBOT_DATA_DIR</code></td>
+<td>Overrides the <a href="#client-data-directory">data directory</a> location</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>TBOT_DEBUG</code></td>
+<td>When set to <code>1</code>, <code>true</code>, <code>True</code>, or <code>yes</code>, raises logging to DEBUG</td>
+<td><code>-vv</code> / <code>--debug</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>TBOT_PORT</code> / <code>TBOT_WS_PORT</code> are parsed as integers; a malformed value emits a <code>UserWarning</code> and is ignored (the chain falls through). <code>TBOT_DOCUMENTS_DIR</code> and <code>TBOT_MOD_DIR</code> are build-time variables for <code>scripts/deploy.sh</code> only (overriding the Timberborn Documents directory and the mod folder respectively when deploying a source build), not client settings.</p>
+<h2 id="settingsjson-mod"><code>settings.json</code> (mod)<a class="headerlink" href="#settingsjson-mod" title="Permanent link">&para;</a></h2>
+<p>The mod reads <code>settings.json</code> from its <a href="#mod-directory">mod directory</a> at startup. The in-game <strong>Settings</strong> modal is the primary way to change these — <code>TimberbotService</code> keeps the values in memory and debounces writes back to disk. Editing the file directly is supported as the advanced/manual path.</p>
+<p>The file shipped with the mod sets only the common keys:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;debugEndpointEnabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">&quot;httpPort&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8085</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&quot;wsPort&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8086</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">&quot;wsEnabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">&quot;listenAddress&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">&quot;authToken&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">&quot;maxBodyBytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1048576</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Every recognized key:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>httpPort</code></td>
+<td>int</td>
+<td><code>8085</code></td>
+<td>HTTP <code>/api/*</code> listener port. Values <code>&lt;= 0</code> fall back to the default.</td>
+</tr>
+<tr>
+<td><code>wsPort</code></td>
+<td>int</td>
+<td><code>8086</code></td>
+<td>WebSocket <code>/api/ws</code> listener port. Values <code>&lt;= 0</code> fall back to the default.</td>
+</tr>
+<tr>
+<td><code>wsEnabled</code></td>
+<td>bool</td>
+<td><code>true</code></td>
+<td>When <code>false</code>, the WS listener isn't opened; clients fall back to HTTP polling of <code>/api/agent/state</code>.</td>
+</tr>
+<tr>
+<td><code>listenAddress</code></td>
+<td>string</td>
+<td><code>127.0.0.1</code></td>
+<td>Bind address for <strong>both</strong> listeners. <code>+</code> / <code>0.0.0.0</code> binds all interfaces and requires a non-empty <code>authToken</code>.</td>
+</tr>
+<tr>
+<td><code>authToken</code></td>
+<td>string</td>
+<td><code>""</code></td>
+<td>Bearer secret. When set, every <code>/api/*</code> route except <code>/api/ping</code> (and every WS upgrade) requires <code>Authorization: Bearer &lt;token&gt;</code>. Mandatory when <code>listenAddress</code> is non-loopback — the mod refuses to start otherwise.</td>
+</tr>
+<tr>
+<td><code>maxBodyBytes</code></td>
+<td>int</td>
+<td><code>1048576</code></td>
+<td>Max POST body size in bytes. Negative values fall back to the default.</td>
+</tr>
+<tr>
+<td><code>debugEndpointEnabled</code></td>
+<td>bool</td>
+<td><code>false</code></td>
+<td>Enables debug-only endpoints such as <code>POST /api/benchmark</code>.</td>
+</tr>
+<tr>
+<td><code>writeBudgetMs</code></td>
+<td>double</td>
+<td><code>1.0</code></td>
+<td>Per-frame main-thread budget (ms) for draining queued writes. Values <code>&lt;= 0</code> fall back to <code>1.0</code>.</td>
+</tr>
+<tr>
+<td><code>corsOrigin</code></td>
+<td>string</td>
+<td><code>""</code></td>
+<td>Value echoed in <code>Access-Control-Allow-Origin</code>. Empty disables CORS headers.</td>
+</tr>
+<tr>
+<td><code>actionLoggingEnabled</code></td>
+<td>bool</td>
+<td><code>true</code></td>
+<td>Toggles the in-widget action log.</td>
+</tr>
+<tr>
+<td><code>widgetLeft</code>, <code>widgetTop</code></td>
+<td>string</td>
+<td>—</td>
+<td>Widget on-screen position; written by the widget as you drag it, stored as JSON strings (e.g. <code>"widgetLeft": "100"</code>).</td>
+</tr>
+</tbody>
+</table>
+<p>Some runtime settings are applied on load, so changing them may require reloading the save (or the mod) to fully take effect.</p>
+<div class="admonition note">
+<p class="admonition-title">127.0.0.1 vs localhost</p>
+<p>Under Mono's <code>HttpListener</code> the prefix matches the <code>Host:</code> header exactly — a server bound to <code>127.0.0.1</code> rejects <code>Host: localhost</code> with HTTP 400. Either use <code>http://127.0.0.1:...</code> everywhere or set <code>listenAddress</code> to <code>localhost</code>.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Deprecated keys</p>
+<p>These keys are read by older mod versions but are now ignored, logging a one-line deprecation notice on load: <code>terminal</code>, <code>pythonCommand</code>, <code>agentModel</code>, <code>agentEffort</code>, <code>agentCommandTemplate</code>, <code>agentAllowlistEnabled</code>, <code>agentAllowedBinaries</code>, <code>webhooksEnabled</code>, <code>webhookBatchMs</code>, <code>webhookCircuitBreaker</code>, <code>webhookMaxPendingEvents</code>, <code>webhookValidateUrls</code>.</p>
+<p>Backend choice and per-backend model/effort/command defaults now live in <a href="#configtoml-client"><code>config.toml</code></a> — the connector runs <code>tbot</code>, not the mod. Any other unrecognized key (including legacy <code>agentBinary</code>, <code>agentGoal</code>, <code>tbotCommand</code>) is simply ignored without a warning.</p>
+</div>
+<h2 id="statejson-mod"><code>state.json</code> (mod)<a class="headerlink" href="#statejson-mod" title="Permanent link">&para;</a></h2>
+<p>Agent-shaped state, written next to <code>settings.json</code> in the <a href="#mod-directory">mod directory</a>. The widget mutates it through <code>POST /api/agent/config</code>; you rarely touch it by hand.</p>
+<p>Only three fields are persisted:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;request&quot;</span><span class="p">,</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;reach 50 beavers with 77 wellbeing&quot;</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">&quot;lastError&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">}</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mode</code></td>
+<td>string</td>
+<td><code>"request"</code> (one dispatch per Launch) or <code>"autonomous"</code> (keep dispatching until Stop).</td>
+</tr>
+<tr>
+<td><code>goal</code></td>
+<td>string</td>
+<td>Persistent objective for autonomous mode / the last request prompt.</td>
+</tr>
+<tr>
+<td><code>lastError</code></td>
+<td>string | null</td>
+<td>Last agent error surfaced to the widget.</td>
+</tr>
+</tbody>
+</table>
+<p>Ephemeral fields — <code>ready</code>, <code>pendingRequest</code>, <code>agentStatus</code>, and the request-id counters — are <strong>in-memory only</strong> and reset to startup defaults on every save load. They appear in the <code>GET /api/agent/state</code> response but are never written to disk.</p>
+<h2 id="braintoon-per-settlement-memory"><code>brain.toon</code> (per-settlement memory)<a class="headerlink" href="#braintoon-per-settlement-memory" title="Permanent link">&para;</a></h2>
+<p>Persistent colony knowledge, one file per settlement, stored in TOON format at <code>&lt;data dir&gt;/memory/&lt;settlement&gt;/brain.toon</code>. Managed by <code>tbot brain</code> (and the in-game agent during startup); you rarely edit it directly. The settlement name is sanitized for the filesystem. Live summary data is never persisted here — only the goal, tasks, and locations survive between sessions.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>tbot<span class="w"> </span>brain<span class="w">                                              </span><span class="c1"># live summary + saved goal/tasks/locations</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>tbot<span class="w"> </span>brain<span class="w"> </span>--goal<span class="o">=</span><span class="s2">&quot;reach 50 beavers with 77 wellbeing&quot;</span><span class="w">  </span><span class="c1"># set a persistent goal</span>
+</span></code></pre></div>
+<p>Logical shape of the stored data (on disk it is serialized via the <code>toons</code> library):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>timestamp : &quot;2026-05-25T12:04:18.123456&quot;   # ISO timestamp of the last refresh
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>goal      : &quot;reach 50 beavers with 77 wellbeing&quot;
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>tasks     :
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  - id: 1, status: &quot;pending&quot;, action: &quot;build a plank chain&quot;   # status: pending | done | failed
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>locations :
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>  dc      : { x: 120, y: 140, z: 2 }
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>  forest  : { x: 95,  y: 130, z: 0, species: [Pine, Birch] }
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>  berries : { x: 110, y: 150, z: 0, note: &quot;near the dam&quot; }
+</span></code></pre></div>
+<p>On first run, <code>locations</code> is auto-seeded from live data (district center, up to three tree clusters, up to three food clusters).</p>
+<div class="admonition note">
+<p class="admonition-title">Legacy location</p>
+<p>Pre-#43 <code>brain.toon</code> files lived under the game's <code>Documents/Timberborn/Mods/Timberbot/memory/</code> tree and are migrated to the data directory on first run. If you skipped that upgrade window, copy them across manually: <code>cp -r &lt;old-mods&gt;/Timberbot/memory/ &lt;data-dir&gt;/memory/</code>.</p>
+</div>
+<h2 id="resolution-and-precedence">Resolution and precedence<a class="headerlink" href="#resolution-and-precedence" title="Permanent link">&para;</a></h2>
+<p>For client settings (<code>host</code>, <code>port</code>, <code>auth_token</code>, …), the first match wins:</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Where</th>
+<th>Owns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. CLI flags</td>
+<td><code>tbot --host=X --port=Y --auth-token=T</code></td>
+<td>per-invocation overrides</td>
+</tr>
+<tr>
+<td>2. Environment</td>
+<td><a href="#environment-variables"><code>TBOT_*</code> variables</a></td>
+<td>per-shell overrides</td>
+</tr>
+<tr>
+<td>3. User config</td>
+<td><a href="#configtoml-client"><code>config.toml</code></a></td>
+<td>per-user defaults</td>
+</tr>
+<tr>
+<td>4. Built-in</td>
+<td>hard-coded</td>
+<td><code>127.0.0.1:8085</code>, etc.</td>
+</tr>
+</tbody>
+</table>
+<p>Run any command with <code>-v</code> to see a <code>(host=… port=… auth=…)</code> tag reporting which tier each setting came from (<code>cli</code> / <code>env</code> / <code>config</code> / <code>default</code> / <code>none</code>) — handy for debugging "why is the client hitting the wrong server" or "why is no auth being sent".</p>
+<h2 id="agent-prompts-tbot-init">Agent prompts (<code>tbot init</code>)<a class="headerlink" href="#agent-prompts-tbot-init" title="Permanent link">&para;</a></h2>
+<p><code>tbot init</code> materializes editable copies of the packaged system prompts into <code>&lt;config dir&gt;/agent_prompts/</code>. It is idempotent: without <code>--force</code> it leaves your edits alone and only fills in missing files; <code>--force</code> overwrites all of them. List the packaged and user-override prompts with <code>tbot agent prompts</code>.</p>
+<p>Packaged prompts: <code>auditor</code>, <code>connector-mode</code>, <code>scout</code>, <code>timberbot</code>, <code>wirer</code>. The <code>timberbot</code> prompt is the default loaded by <code>tbot agent run</code>; the full operating guide behind it is the <a href="../timberbot/">Timberbot Guide</a>.</p>
+<hr />
+<ul>
+<li><a href="../getting-started/">Getting Started</a> — install and first-run walkthrough</li>
+<li><a href="../api-reference/">API Reference</a> — every endpoint, including auth behavior</li>
+<li><a href="../events/">Events</a> — WebSocket event stream consumed by <code>tbot watch</code> / <code>listen</code></li>
+<li><a href="../developing/">Developing</a> — build from source and the mod's settings model</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../getting-started/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Getting Started">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Getting Started
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../api-reference/" class="md-footer__link md-footer__link--next" aria-label="Next: API Reference">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                API Reference
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Timberbot API &mdash; Play Timberborn with an AI &middot; Modified fork of <a href="https://github.com/abix-/TimberbornMods">abix-/TimberbornMods</a>
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/impuls42/timberbot" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://github.com/abix-/TimberbornMods" target="_blank" rel="noopener" title="Upstream (abix-/TimberbornMods)" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "content.code.annotate", "content.tabs.link", "navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.expand", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

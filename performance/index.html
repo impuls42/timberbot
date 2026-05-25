@@ -1,0 +1,2146 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Full read/write HTTP API for controlling Timberborn with AI (modified fork of abix-/TimberbornMods)">
+      
+      
+      
+        <link rel="canonical" href="https://impuls42.github.io/timberbot/performance/">
+      
+      
+        <link rel="prev" href="../architecture/">
+      
+      
+        <link rel="next" href="../macos-testing/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Performance - Timberbot API</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#performance" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Timberbot API" class="md-header__button md-logo" aria-label="Timberbot API" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Timberbot API
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Performance
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/impuls42/timberbot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    impuls42/timberbot
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Timberbot API" class="md-nav__button md-logo" aria-label="Timberbot API" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Timberbot API
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/impuls42/timberbot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    impuls42/timberbot
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timberbot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timberbot Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websocket-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#open-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open issues
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gc-pressure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GC pressure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GC pressure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#allocation-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allocation architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#snapshot-capture-main-thread-on-demand" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Snapshot capture (main thread, on demand)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#http-response-per-request-background-thread" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP response (per request, background thread)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#websocket-event-broadcast-main-thread-per-game-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WebSocket event broadcast (main thread, per game event)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#entity-lifecycle-per-addremove" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity lifecycle (per add/remove)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmarks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Benchmarks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#serialization-ab-test-trees-2985-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Serialization A/B test (trees, 2985 items)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#micro-benchmarks-10k-iterations-apibenchmark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Micro-benchmarks (10K iterations, /api/benchmark)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#endpoint-performance-measured-522-buildings-2986-trees-65-beavers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Endpoint performance (measured, 522 buildings / 2986 trees / 65 beavers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#late-game-projections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Late-game projections
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#late-game-risk-factors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Late-game risk factors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#allocation-grades" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allocation grades
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optimization-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optimization history
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#closed-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Closed issues
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../macos-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    macOS Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devenv/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dev Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unreleased/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#open-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Open issues
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gc-pressure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GC pressure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="GC pressure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#allocation-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allocation architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#snapshot-capture-main-thread-on-demand" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Snapshot capture (main thread, on demand)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#http-response-per-request-background-thread" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP response (per request, background thread)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#websocket-event-broadcast-main-thread-per-game-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WebSocket event broadcast (main thread, per game event)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#entity-lifecycle-per-addremove" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity lifecycle (per add/remove)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#benchmarks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benchmarks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Benchmarks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#serialization-ab-test-trees-2985-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Serialization A/B test (trees, 2985 items)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#micro-benchmarks-10k-iterations-apibenchmark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Micro-benchmarks (10K iterations, /api/benchmark)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#endpoint-performance-measured-522-buildings-2986-trees-65-beavers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Endpoint performance (measured, 522 buildings / 2986 trees / 65 beavers)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#late-game-projections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Late-game projections
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#late-game-risk-factors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Late-game risk factors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#allocation-grades" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Allocation grades
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optimization-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optimization history
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#closed-issues" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Closed issues
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="performance">Performance<a class="headerlink" href="#performance" title="Permanent link">&para;</a></h1>
+<p>Single source of truth for Timberbot API performance. All optimization decisions reference here.</p>
+<h2 id="open-issues">Open issues<a class="headerlink" href="#open-issues" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Severity</th>
+<th>Issue</th>
+<th>Cost</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>39</td>
+<td>High</td>
+<td>HTTP <code>_pending</code> / <code>_writeQueue</code> POST queues are unbounded</td>
+<td>unbounded memory + rising latency under write flood</td>
+<td><code>TimberbotHttpServer.cs</code></td>
+</tr>
+<tr>
+<td>40</td>
+<td>Medium</td>
+<td><code>TimberbotLog.Info/Error</code> does synchronous <code>Debug.Log</code> + <code>File.AppendAllText</code> in hot paths</td>
+<td>lock contention, disk I/O, string churn on requests + game events</td>
+<td><code>TimberbotLog.cs</code>, <code>TimberbotHttpServer.cs</code>, <code>TimberbotEvents.cs</code></td>
+</tr>
+<tr>
+<td>41</td>
+<td>Medium</td>
+<td><code>Process</code> objects in agent paths are never disposed</td>
+<td>OS handle leak across repeated start/stop sessions</td>
+<td><code>TimberbotAgent.cs</code></td>
+</tr>
+<tr>
+<td>14</td>
+<td>Low</td>
+<td><code>CollectBuildings</code> basic: <code>$"{a}/{b}"</code> per building with workers</td>
+<td>N strings</td>
+<td><code>TimberbotReadV2.cs</code></td>
+</tr>
+<tr>
+<td>13</td>
+<td>Low</td>
+<td><code>CollectAlerts</code>: <code>$"{a}/{b}"</code> per unstaffed building</td>
+<td>N strings</td>
+<td><code>TimberbotReadV2.cs</code></td>
+</tr>
+<tr>
+<td>15</td>
+<td>Low</td>
+<td><code>CollectBeavers</code> basic: string concat <code>critical + "+" + n.Id</code></td>
+<td>N strings</td>
+<td><code>TimberbotReadV2.cs</code></td>
+</tr>
+<tr>
+<td>16</td>
+<td>Low</td>
+<td><code>CollectPowerNetworks</code>: inner <code>List&lt;PowerBuildingItem&gt;</code> + <code>.ToArray()</code> per network</td>
+<td>~N networks</td>
+<td><code>TimberbotReadV2.cs</code></td>
+</tr>
+<tr>
+<td>18</td>
+<td>Low</td>
+<td><code>CollectNotifications</code>: <code>.ToString()</code> per notification field</td>
+<td>2N strings</td>
+<td><code>TimberbotReadV2.cs</code></td>
+</tr>
+<tr>
+<td>12</td>
+<td>Low</td>
+<td><code>CollectSummary</code> toon: <code>$"..."</code> interpolations for beds/workers/alerts + <code>string.Join</code></td>
+<td>~7 strings</td>
+<td><code>TimberbotReadV2.cs</code></td>
+</tr>
+<tr>
+<td>34</td>
+<td>Low</td>
+<td><code>_alertCounts</code> dictionary keys grow unbounded across alert types</td>
+<td>capacity never shrinks</td>
+<td><code>TimberbotReadV2.cs</code></td>
+</tr>
+<tr>
+<td>33</td>
+<td>Low</td>
+<td><code>InvalidPrefabError</code> iterates all buildings with <code>ToLowerInvariant()</code> + <code>new List</code></td>
+<td>error path only</td>
+<td><code>TimberbotPlacement.cs</code></td>
+</tr>
+<tr>
+<td>35</td>
+<td>Low</td>
+<td><code>ShowPresetMenu</code> recreates buttons on every dropdown open</td>
+<td>GC'd VisualElements</td>
+<td><code>TimberbotPanel.cs</code></td>
+</tr>
+<tr>
+<td>36</td>
+<td>Low</td>
+<td><code>QueueTooltip</code> closure + scheduled callback per hover</td>
+<td>lambda capture per hover</td>
+<td><code>TimberbotPanel.cs</code></td>
+</tr>
+<tr>
+<td>37</td>
+<td>None</td>
+<td><code>RegisterTooltipHandlers</code> creates 3 lambda closures per settings row</td>
+<td>33 closures at build time</td>
+<td><code>TimberbotPanel.cs</code></td>
+</tr>
+<tr>
+<td>21</td>
+<td>None</td>
+<td>Unity GC spikes freeze all threads</td>
+<td>0.5-2s</td>
+<td>unavoidable</td>
+</tr>
+<tr>
+<td>22</td>
+<td>None</td>
+<td><code>sb.ToString()</code> alloc per HTTP response</td>
+<td>100-500KB</td>
+<td>unavoidable</td>
+</tr>
+</tbody>
+</table>
+<p>Highest-priority remaining work is queue/backlog bounding and hot-path logging reduction. Benchmark with <code>/api/benchmark</code> after fixing those to re-measure the lower-level alloc issues.</p>
+<p>For thread model, snapshot pipeline, serialization, and reusable collections see <a href="../architecture/">architecture.md</a>.</p>
+<h2 id="gc-pressure">GC pressure<a class="headerlink" href="#gc-pressure" title="Permanent link">&para;</a></h2>
+<p>Every heap allocation in a Unity mod contributes to GC pressure. Unity uses a stop-the-world garbage collector. when enough garbage accumulates, ALL threads pause (0.5-50ms). Our mod runs inside someone else's game. Every allocation we make adds to the pile that triggers the game's GC stutter.</p>
+<p>Goal: allocate once at game load, reuse forever. The only per-request allocation should be the final <code>ToString()</code> to produce the HTTP response.</p>
+<h3 id="allocation-architecture">Allocation architecture<a class="headerlink" href="#allocation-architecture" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Game loads
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  -&gt; allocate TimberbotJw, Dictionaries, Lists, projection buffers
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  -&gt; done allocating
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>Every frame (main thread, on demand)
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  -&gt; ReadV2.ProcessPendingRefresh(): capture live state into DTO buffers (bounded budget)
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  -&gt; background finalize: publish immutable snapshots from captured data
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>Every HTTP GET (background thread)
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>  -&gt; read from published snapshots (zero alloc)
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>  -&gt; write into existing StringBuilder via TimberbotJw (zero alloc)
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>  -&gt; ToString() to create response string (1 alloc, unavoidable)
+</span></code></pre></div>
+<h3 id="snapshot-capture-main-thread-on-demand">Snapshot capture (main thread, on demand)<a class="headerlink" href="#snapshot-capture-main-thread-on-demand" title="Permanent link">&para;</a></h3>
+<p>Total measured cost: ~0.4ms/sec (0.04% of frame budget at 60fps).</p>
+<p><strong>Zero-alloc (confirmed):</strong></p>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Count/sec</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Building property reads</td>
+<td>500</td>
+<td>Direct field reads from cached component refs</td>
+</tr>
+<tr>
+<td>Natural resource reads</td>
+<td>3000</td>
+<td>Direct field reads</td>
+</tr>
+<tr>
+<td>Beaver reads + needs</td>
+<td>80</td>
+<td>Direct field reads</td>
+</tr>
+<tr>
+<td><code>CleanName()</code> for workplace/district</td>
+<td>80</td>
+<td>RefChanged skips unless ref changes (99% pointer compare)</td>
+</tr>
+<tr>
+<td><code>Inventory.Clear()</code> + repopulate</td>
+<td>500</td>
+<td>Dict allocated once, reused via Clear()</td>
+</tr>
+<tr>
+<td><code>NutrientStock.Clear()</code> + repopulate</td>
+<td>5</td>
+<td>Same pattern, only breeding pods</td>
+</tr>
+<tr>
+<td><code>Needs.Clear()</code> + repopulate</td>
+<td>80</td>
+<td>List allocated once, reused via Clear()</td>
+</tr>
+<tr>
+<td><code>new CachedNeed{...}</code> struct</td>
+<td>2400</td>
+<td>Struct = stack alloc, not heap</td>
+</tr>
+<tr>
+<td>Inventory for-loop (indexed)</td>
+<td>500</td>
+<td><code>for (int ii = 0; ...)</code>. no enumerator boxing</td>
+</tr>
+<tr>
+<td>District refresh</td>
+<td>1-3</td>
+<td>Reuses existing CachedDistrict objects, clears Dict</td>
+</tr>
+<tr>
+<td>Snapshot publish</td>
+<td>on demand</td>
+<td>Immutable DTO snapshot replaces previous via ref swap</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Known allocations (accepted):</strong></p>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Count/sec</th>
+<th>Severity</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Math.Round(need.Points, 2)</code></td>
+<td>2400</td>
+<td>None</td>
+<td>0 GC0 across 11.4M calls (benchmarked)</td>
+</tr>
+<tr>
+<td><code>foreach GetNeeds()</code> enumerator</td>
+<td>80</td>
+<td>None</td>
+<td>0 GC0 (10K benchmark)</td>
+</tr>
+<tr>
+<td><code>GetNeed(id)</code> / <code>GetNeedWellbeing(id)</code></td>
+<td>2400</td>
+<td>None</td>
+<td>Returns cached, zero-alloc</td>
+</tr>
+<tr>
+<td><code>foreach BreedingPod.Nutrients</code></td>
+<td>5</td>
+<td>None</td>
+<td>0 GC0 (10K benchmark)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="http-response-per-request-background-thread">HTTP response (per request, background thread)<a class="headerlink" href="#http-response-per-request-background-thread" title="Permanent link">&para;</a></h3>
+<p><strong>Zero-alloc:</strong> <code>_jw.Reset()</code>, <code>Key/Int/Str/Bool/Float</code>, <code>OpenObj/CloseObj</code>, auto-separator commas.</p>
+<p><strong>Accepted allocations:</strong></p>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Count</th>
+<th>Why accepted</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>jw.ToString()</code></td>
+<td>1 per request, 100-500KB</td>
+<td>Unavoidable. HTTP needs the string</td>
+</tr>
+<tr>
+<td><code>StreamWriter</code> internal buffer</td>
+<td>1 per request, ~1KB</td>
+<td>.NET runtime</td>
+</tr>
+<tr>
+<td><code>$"{interpolation}"</code> in toon endpoints</td>
+<td>~5 per summary</td>
+<td>Negligible (low issues #12-14)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="websocket-event-broadcast-main-thread-per-game-event">WebSocket event broadcast (main thread, per game event)<a class="headerlink" href="#websocket-event-broadcast-main-thread-per-game-event" title="Permanent link">&para;</a></h3>
+<p><code>TimberbotEvents</code> handlers call <code>TimberbotWebSocketServer.BroadcastEvent()</code>. With no connected subscribers the call returns immediately after the queue check — zero allocations. With subscribers, one <code>TimberbotJw</code> payload string is built per event and pushed to each subscriber's send channel; the channel is bounded so slow consumers are dropped rather than blocking the main thread.</p>
+<h3 id="entity-lifecycle-per-addremove">Entity lifecycle (per add/remove)<a class="headerlink" href="#entity-lifecycle-per-addremove" title="Permanent link">&para;</a></h3>
+<p>Entity registration in <code>TimberbotEntityRegistry</code> + projection buffer slot allocation. Once per entity lifetime.</p>
+<h2 id="benchmarks">Benchmarks<a class="headerlink" href="#benchmarks" title="Permanent link">&para;</a></h2>
+<h3 id="serialization-ab-test-trees-2985-items">Serialization A/B test (trees, 2985 items)<a class="headerlink" href="#serialization-ab-test-trees-2985-items" title="Permanent link">&para;</a></h3>
+<p>Dictionary 4.7ms, Anonymous objects 13.8ms (worst. Newtonsoft reflection), StringBuilder <strong>2.0ms</strong> (winner).</p>
+<h3 id="micro-benchmarks-10k-iterations-apibenchmark">Micro-benchmarks (10K iterations, /api/benchmark)<a class="headerlink" href="#micro-benchmarks-10k-iterations-apibenchmark" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>GC0</th>
+<th>ms/call</th>
+<th>Total calls</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NeedMgr.GetNeeds.foreach</code></td>
+<td><strong>0</strong></td>
+<td>0.110</td>
+<td>760,000</td>
+<td>Zero-alloc</td>
+</tr>
+<tr>
+<td><code>NeedMgr.FullNeedLoop</code></td>
+<td><strong>0</strong></td>
+<td>0.319</td>
+<td>760,000</td>
+<td>All three calls zero-alloc</td>
+</tr>
+<tr>
+<td><code>BreedingPod.Nutrients</code> foreach</td>
+<td><strong>0</strong></td>
+<td>0.006</td>
+<td>60,000</td>
+<td>Zero-alloc</td>
+</tr>
+<tr>
+<td><code>Inventories.foreach</code></td>
+<td><strong>0</strong></td>
+<td>0.056</td>
+<td>522,000</td>
+<td>Zero-alloc</td>
+</tr>
+<tr>
+<td><code>Inventories.forLoop</code></td>
+<td><strong>0</strong></td>
+<td>0.045</td>
+<td>522,000</td>
+<td>24% faster than foreach</td>
+</tr>
+<tr>
+<td><code>Inventories.AllInventories.only</code></td>
+<td><strong>0</strong></td>
+<td>0.020</td>
+<td>522,000</td>
+<td>Just accessing inventories</td>
+</tr>
+<tr>
+<td><code>Inventories.FullRefreshSim</code></td>
+<td><strong>0</strong></td>
+<td>0.058</td>
+<td>522,000</td>
+<td>Full production loop</td>
+</tr>
+<tr>
+<td><code>MathRound.vs.Manual</code></td>
+<td><strong>0/0</strong></td>
+<td>0.010/0.005</td>
+<td>11,400,000</td>
+<td>1.8x slower, no alloc</td>
+</tr>
+<tr>
+<td><code>StringInterpolation</code></td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>#12-14: pending benchmark run</td>
+</tr>
+<tr>
+<td><code>StringConcat.Needs</code></td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>#15: pending benchmark run</td>
+</tr>
+<tr>
+<td><code>GetBeaverNeeds</code></td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>#20: pending benchmark run</td>
+</tr>
+</tbody>
+</table>
+<h3 id="endpoint-performance-measured-522-buildings-2986-trees-65-beavers">Endpoint performance (measured, 522 buildings / 2986 trees / 65 beavers)<a class="headerlink" href="#endpoint-performance-measured-522-buildings-2986-trees-65-beavers" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Items</th>
+<th>Min (ms)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ping</code></td>
+<td>1</td>
+<td><strong>0.7</strong></td>
+<td>Listener thread</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>3500+</td>
+<td><strong>0.9</strong></td>
+<td>TimberbotJw, cached primitives</td>
+</tr>
+<tr>
+<td><code>buildings</code></td>
+<td>522</td>
+<td><strong>2.1</strong></td>
+<td>TimberbotJw</td>
+</tr>
+<tr>
+<td><code>buildings detail:full</code></td>
+<td>522</td>
+<td><strong>3.4</strong></td>
+<td>TimberbotJw, all fields</td>
+</tr>
+<tr>
+<td><code>trees</code></td>
+<td>2983</td>
+<td><strong>8.6</strong></td>
+<td>TimberbotJw</td>
+</tr>
+<tr>
+<td><code>gatherables</code></td>
+<td>1504</td>
+<td><strong>6.7</strong></td>
+<td>TimberbotJw</td>
+</tr>
+<tr>
+<td><code>beavers</code></td>
+<td>65</td>
+<td><strong>1.1</strong></td>
+<td>TimberbotJw</td>
+</tr>
+<tr>
+<td><code>beavers detail:full</code></td>
+<td>65</td>
+<td>~1.5</td>
+<td>all 38 needs</td>
+</tr>
+<tr>
+<td><code>alerts</code></td>
+<td>19</td>
+<td><strong>0.8</strong></td>
+<td>TimberbotJw</td>
+</tr>
+<tr>
+<td><code>resources</code></td>
+<td>13</td>
+<td><strong>0.8</strong></td>
+<td>district registries</td>
+</tr>
+<tr>
+<td><code>power</code></td>
+<td>cached</td>
+<td><strong>0.8</strong></td>
+<td>groups by PowerNetworkId</td>
+</tr>
+<tr>
+<td><code>weather</code></td>
+<td>1</td>
+<td><strong>0.8</strong></td>
+<td>service fields</td>
+</tr>
+<tr>
+<td><code>time</code></td>
+<td>1</td>
+<td><strong>0.8</strong></td>
+<td>service fields</td>
+</tr>
+<tr>
+<td><code>prefabs</code></td>
+<td>157</td>
+<td><strong>2.9</strong></td>
+<td>building templates</td>
+</tr>
+<tr>
+<td><code>wellbeing</code></td>
+<td>1</td>
+<td><strong>0.9</strong></td>
+<td>cached beaver needs</td>
+</tr>
+<tr>
+<td><code>tree_clusters</code></td>
+<td>5</td>
+<td><strong>0.9</strong></td>
+<td>cached natural resources</td>
+</tr>
+<tr>
+<td><code>map</code> (stacking)</td>
+<td>varies</td>
+<td>~10</td>
+<td>cached tile footprints</td>
+</tr>
+<tr>
+<td><strong>burst (7 calls)</strong></td>
+<td>-</td>
+<td><strong>17</strong></td>
+<td>2ms avg per call</td>
+</tr>
+</tbody>
+</table>
+<h3 id="late-game-projections">Late-game projections<a class="headerlink" href="#late-game-projections" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Current items</th>
+<th>Per-item</th>
+<th>Late-game items</th>
+<th>Projected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>buildings</code></td>
+<td>522</td>
+<td>4.0us</td>
+<td>1500</td>
+<td>~6ms</td>
+</tr>
+<tr>
+<td><code>buildings full</code></td>
+<td>522</td>
+<td>6.5us</td>
+<td>1500</td>
+<td>~10ms</td>
+</tr>
+<tr>
+<td><code>trees</code></td>
+<td>2983</td>
+<td>2.9us</td>
+<td>5000</td>
+<td>~14ms</td>
+</tr>
+<tr>
+<td><code>gatherables</code></td>
+<td>1504</td>
+<td>4.5us</td>
+<td>3000</td>
+<td>~13ms</td>
+</tr>
+<tr>
+<td><code>beavers</code></td>
+<td>65</td>
+<td>16.9us</td>
+<td>250</td>
+<td>~4ms</td>
+</tr>
+<tr>
+<td><code>summary</code></td>
+<td>3500+</td>
+<td>0.26us</td>
+<td>10000</td>
+<td>~3ms</td>
+</tr>
+<tr>
+<td><code>map</code> (region)</td>
+<td>varies</td>
+<td>region-bounded</td>
+<td>larger builds</td>
+<td>~20ms</td>
+</tr>
+<tr>
+<td><strong>Burst (7 calls)</strong></td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td><strong>~30ms</strong></td>
+</tr>
+</tbody>
+</table>
+<p>All scaling is linear with item count. Bot polling at 1/min cadence. even 30ms burst is imperceptible.</p>
+<h3 id="late-game-risk-factors">Late-game risk factors<a class="headerlink" href="#late-game-risk-factors" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Bots scale free:</strong> bots don't eat/drink/sleep but DO add to beaver index. 50+ bots = more entities to cache and serialize</li>
+<li><strong>Multi-district:</strong> each district has its own resource counters. 3+ districts increases summary/resources iteration</li>
+<li><strong>Vertical builds:</strong> heavy platform/stair stacking increases map <code>occupants</code> list sizes (lists reused, but more items per tile)</li>
+<li><strong>Power networks:</strong> complex power grids fragment into many small networks. <code>power</code> endpoint iterates all buildings per call</li>
+</ul>
+<h3 id="allocation-grades">Allocation grades<a class="headerlink" href="#allocation-grades" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Frequency</th>
+<th>Allocs/sec (steady state)</th>
+<th>Grade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Snapshot capture</td>
+<td>On demand</td>
+<td><strong>0</strong> (reusable buffers, confirmed by benchmark)</td>
+<td><strong>A+</strong></td>
+</tr>
+<tr>
+<td>HTTP GET response</td>
+<td>On demand</td>
+<td>1 (ToString) + ~5 small strings</td>
+<td><strong>A-</strong></td>
+</tr>
+<tr>
+<td>Derived endpoints (alerts, power)</td>
+<td>On demand</td>
+<td>1-2 (<code>.ToArray()</code> copies)</td>
+<td><strong>A-</strong></td>
+</tr>
+<tr>
+<td>Webhook (no subscribers)</td>
+<td>N/A</td>
+<td>0</td>
+<td><strong>A+</strong></td>
+</tr>
+<tr>
+<td>Webhook (with subscribers)</td>
+<td>5Hz flush</td>
+<td>~5-20 (TimberbotJw strings only)</td>
+<td><strong>A-</strong></td>
+</tr>
+<tr>
+<td>Entity lifecycle</td>
+<td>Rare</td>
+<td>N per entity</td>
+<td><strong>A</strong> (expected)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="optimization-history">Optimization history<a class="headerlink" href="#optimization-history" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>trees</th>
+<th>buildings</th>
+<th>buildings full</th>
+<th>burst (7 calls)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Baseline (full entity scan)</td>
+<td>~50ms est</td>
+<td>~20ms est</td>
+<td>~30ms est</td>
+<td>~150ms est</td>
+</tr>
+<tr>
+<td>Typed entity indexes</td>
+<td>29ms</td>
+<td>9ms</td>
+<td>10ms</td>
+<td>67ms</td>
+</tr>
+<tr>
+<td>Event-driven (EventBus)</td>
+<td>28ms</td>
+<td>9ms</td>
+<td>13ms</td>
+<td>62ms</td>
+</tr>
+<tr>
+<td>Cached component refs</td>
+<td>25ms</td>
+<td>8ms</td>
+<td>13ms</td>
+<td>64ms</td>
+</tr>
+<tr>
+<td>GETs on listener thread</td>
+<td>23ms</td>
+<td>6.5ms</td>
+<td>8ms</td>
+<td>39ms</td>
+</tr>
+<tr>
+<td>Cached primitives + snapshot buffers</td>
+<td>4.7ms</td>
+<td>2.8ms</td>
+<td>1.3ms</td>
+<td>28ms</td>
+</tr>
+<tr>
+<td>StringBuilder (trees)</td>
+<td>2.0ms</td>
+<td>2.8ms</td>
+<td>1.3ms</td>
+<td>28ms</td>
+</tr>
+<tr>
+<td>Alloc-once + SB buildings</td>
+<td>2.0ms</td>
+<td>~1ms</td>
+<td>~1ms</td>
+<td>~20ms est</td>
+</tr>
+<tr>
+<td>DRY (Jw + ReadV2 snapshots)</td>
+<td><strong>8.6ms</strong></td>
+<td><strong>2.1ms</strong></td>
+<td><strong>3.4ms</strong></td>
+<td><strong>17ms</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="closed-issues">Closed issues<a class="headerlink" href="#closed-issues" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Issue</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Thread-unsafe: <code>CollectTreeClusters</code> reads Unity components on background thread</td>
+<td>Uses cached <code>nr.Alive</code>, <code>nr.X/Y/Z</code>, <code>nr.Grown</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Thread-unsafe: <code>CollectFoodClusters</code>. same as #1</td>
+<td>Same approach</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>CollectSummary</code> json: <code>JsonConvert.DeserializeObject</code> re-parses cluster JSON</td>
+<td><code>WriteClustersFiltered</code> builds inline via JW, zero Newtonsoft</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>CollectSummary</code>: ~20 temp collections per call</td>
+<td>Hoisted to field-level dicts/sets, cleared per call. Static roleMap/cropNames</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>CollectBuildings</code> full toon: new StringBuilder x2 per building</td>
+<td>Reuses field-level <code>_invSb</code>/<code>_recSb</code>, cleared per building</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>CollectTreeClusters</code>: new Dictionary x2 + new int[] per cell</td>
+<td>Inner <code>int[]</code> and <code>Dictionary&lt;string, int&gt;</code> reused via clear-in-place, zero alloc at steady state</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>CollectFoodClusters</code>: same as #6</td>
+<td>Same approach</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>CollectTiles</code>: new Dictionary + 3 HashSet + StringBuilder per tile</td>
+<td>Inner <code>List&lt;(string, int)&gt;</code> reused via clear-in-place, zero alloc at steady state</td>
+</tr>
+<tr>
+<td>24</td>
+<td><code>CollectTiles</code> inner list allocs per tile</td>
+<td>Inner lists cleared in place, not re-created. Zero alloc at steady state</td>
+</tr>
+<tr>
+<td>25</td>
+<td><code>CollectTreeClusters</code>/<code>CollectFoodClusters</code> inner <code>int[]</code> + <code>Dictionary</code> per cell</td>
+<td>Inner arrays reset in place, inner dicts cleared. Zero alloc at steady state</td>
+</tr>
+<tr>
+<td>26</td>
+<td><code>BuildAlertsFromBuildings</code> <code>new List</code> per call</td>
+<td>Field-level <code>_alertBuffer</code>, cleared per call. <code>.ToArray()</code> remains (1 alloc)</td>
+</tr>
+<tr>
+<td>27</td>
+<td><code>BuildPowerFromBuildings</code> <code>new Dictionary</code> per call</td>
+<td>Field-level <code>_powerNetworks</code>, cleared per call. Inner <code>List</code>/<code>.ToArray()</code> remain</td>
+</tr>
+<tr>
+<td>28</td>
+<td><code>CollectWellbeing</code> 4 new Dicts + N Lists per call</td>
+<td>All 4 dicts hoisted to field-level. Inner <code>List&lt;NeedSpec&gt;</code> reused via clear-in-place</td>
+</tr>
+<tr>
+<td>17</td>
+<td><code>CollectWellbeing</code>: 4 Dicts + List per group</td>
+<td>Superseded by #28. all dicts field-level</td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>CollectDistribution</code> GetComponent on background thread</td>
+<td>Pre-built on main thread via <code>RefreshMainThreadData()</code></td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>CollectScience</code> GetSpec on background thread</td>
+<td>Pre-built on main thread via <code>RefreshMainThreadData()</code></td>
+</tr>
+<tr>
+<td>11</td>
+<td>District refresh allocates new CachedDistrict + Dict every 1s</td>
+<td>Reuses existing CachedDistrict objects, updates in place, clears Dict</td>
+</tr>
+<tr>
+<td>23</td>
+<td><code>Math.Round(need.Points, 2)</code> boxes on Mono</td>
+<td><strong>DISPROVED</strong>. 0 GC0 across 11.4M calls</td>
+</tr>
+<tr>
+<td>29</td>
+<td><code>SaveSettingToken</code> File.Read + JObject.Parse + File.Write per keystroke</td>
+<td><code>_cachedSettings</code> JObject in memory, 1s debounce flush via <code>FlushSettingsIfNeeded()</code> in <code>UpdateSingleton()</code>, flush on <code>Unload()</code></td>
+</tr>
+<tr>
+<td>30</td>
+<td>Selected-object reflection alloc every 0.5s in panel</td>
+<td>Removed with the selected-object inspector UI; panel no longer polls selection or reflects <code>gameObject</code> accessors</td>
+</tr>
+<tr>
+<td>31</td>
+<td><code>new StringBuilder(64)</code> per building per snapshot for StatusAlerts</td>
+<td><code>BuildingCompactState.StatusAlerts</code> changed from <code>string</code> to <code>string[]</code>, stores game strings directly</td>
+</tr>
+<tr>
+<td>32</td>
+<td><code>string.Split(',')</code> per building in summary alert counting</td>
+<td>Consumers iterate <code>string[]</code> directly, no Split/Trim/array allocation</td>
+</tr>
+<tr>
+<td>37</td>
+<td><code>RegisterTooltipHandlers</code> 3 closures per settings row (33 total)</td>
+<td>Created once in <code>BuildModal()</code> at load time, not per-frame. Correct pattern for UI event handlers</td>
+</tr>
+<tr>
+<td>20</td>
+<td><code>GetBeaverNeeds()</code> LINQ iterator alloc on background thread</td>
+<td>Decompiled: read-only filter over write-once list, not a thread-safety bug. Cached as <code>_cachedBeaverNeeds</code> array at load time, zero alloc on read path</td>
+</tr>
+<tr>
+<td>-</td>
+<td><code>Priority.ToString()</code> per building per refresh</td>
+<td>Static lookup array</td>
+</tr>
+<tr>
+<td>-</td>
+<td><code>CleanName()</code> per employed beaver per refresh</td>
+<td>RefChanged pattern (ref compare)</td>
+</tr>
+<tr>
+<td>-</td>
+<td><code>GetComponent&lt;EntityComponent&gt;()</code> per beaver per refresh</td>
+<td>Cached <code>Go</code> field at add-time</td>
+</tr>
+<tr>
+<td>-</td>
+<td>Building X/Y/Z/Orientation re-read per refresh</td>
+<td>Moved to add-time (immutable)</td>
+</tr>
+<tr>
+<td>-</td>
+<td><code>foreach Inventories.AllInventories</code> / <code>inv.Stock</code></td>
+<td>Indexed for-loop (no enumerator boxing)</td>
+</tr>
+<tr>
+<td>-</td>
+<td>60fps refresh rate</td>
+<td>Cadenced to 1Hz (configurable)</td>
+</tr>
+<tr>
+<td>-</td>
+<td><code>Formatting.Indented</code> whitespace bloat</td>
+<td>Switched to <code>Formatting.None</code> (~30% smaller)</td>
+</tr>
+<tr>
+<td>-</td>
+<td><code>GetBytes()</code> byte array alloc per response</td>
+<td><code>StreamWriter</code> writes directly to output stream</td>
+</tr>
+<tr>
+<td>-</td>
+<td>UTF-8 BOM prefix from StreamWriter</td>
+<td><code>new UTF8Encoding(false)</code></td>
+</tr>
+<tr>
+<td>-</td>
+<td><code>new StringBuilder(256)</code> per webhook per flush</td>
+<td>Reuses field-level <code>_webhookSb</code></td>
+</tr>
+<tr>
+<td>-</td>
+<td><code>JsonConvert.SerializeObject</code> per webhook event</td>
+<td>TimberbotJw writes directly</td>
+</tr>
+<tr>
+<td>-</td>
+<td><code>Key().OpenArr()</code> double-comma bug</td>
+<td><code>_hasValue[_depth] = false</code> after Key()</td>
+</tr>
+<tr>
+<td>-</td>
+<td>Value methods missing <code>AutoSep()</code></td>
+<td>All value methods now call AutoSep()</td>
+</tr>
+<tr>
+<td>-</td>
+<td><code>Float(v).ToString(fmt)</code> string alloc</td>
+<td>Zero-alloc digit writing to SB</td>
+</tr>
+<tr>
+<td>-</td>
+<td>Partial JSON on prefab cost exception</td>
+<td>Collect-then-emit pattern</td>
+</tr>
+<tr>
+<td>-</td>
+<td>Webhook rate limiting</td>
+<td>200ms batching window (configurable)</td>
+</tr>
+<tr>
+<td>-</td>
+<td>Webhook circuit breaker</td>
+<td>30 consecutive failures disables webhook</td>
+</tr>
+<tr>
+<td>-</td>
+<td>TimberbotService monolith</td>
+<td>Split into 8 classes with focused DI</td>
+</tr>
+<tr>
+<td>-</td>
+<td>RefreshCachedState error isolation</td>
+<td>Per-entity try/catch in all 3 loops</td>
+</tr>
+</tbody>
+</table>
+<p>For test coverage and how to run tests, see <a href="../developing/#testing">developing.md</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../architecture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Architecture">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Architecture
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../macos-testing/" class="md-footer__link md-footer__link--next" aria-label="Next: macOS Testing">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                macOS Testing
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Timberbot API &mdash; Play Timberborn with an AI &middot; Modified fork of <a href="https://github.com/abix-/TimberbornMods">abix-/TimberbornMods</a>
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/impuls42/timberbot" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://github.com/abix-/TimberbornMods" target="_blank" rel="noopener" title="Upstream (abix-/TimberbornMods)" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "content.code.annotate", "content.tabs.link", "navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.expand", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

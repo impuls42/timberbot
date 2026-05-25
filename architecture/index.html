@@ -1,0 +1,2154 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Full read/write HTTP API for controlling Timberborn with AI (modified fork of abix-/TimberbornMods)">
+      
+      
+      
+        <link rel="canonical" href="https://impuls42.github.io/timberbot/architecture/">
+      
+      
+        <link rel="prev" href="../websocket-protocol/">
+      
+      
+        <link rel="next" href="../performance/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Architecture - Timberbot API</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#architecture" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Timberbot API" class="md-header__button md-logo" aria-label="Timberbot API" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Timberbot API
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Architecture
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/impuls42/timberbot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    impuls42/timberbot
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Timberbot API" class="md-nav__button md-logo" aria-label="Timberbot API" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Timberbot API
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/impuls42/timberbot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    impuls42/timberbot
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timberbot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timberbot Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websocket-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-mod-connector-split" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The mod ↔ connector split
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Components
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#thread-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Thread model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotService
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotagentstate-ready-gate-modes-request-slot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotAgentState — ready gate, modes, request slot
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TimberbotAgentState — ready gate, modes, request slot">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ready-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ready gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bearer-token-auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bearer-token auth
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotpanel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotPanel
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotreadv2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotReadV2
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotentityregistry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotEntityRegistry
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotwrite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotWrite
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotplacement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotPlacement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#websocket-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WebSocket protocol
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#read-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Read architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-projection-backed-collections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Projection-backed collections
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-value-stores" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Value stores
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-derived-reads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Derived reads
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fresh-on-request-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fresh-on-request behavior
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#id-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ID model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ID model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#public-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public ID
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#internal-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Internal ID
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#request-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Request flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agent-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent control
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#serialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Serialization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spatial-reads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spatial reads
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-freshness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data freshness
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data freshness">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fresh-on-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fresh-on-request
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#event-driven" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event-driven
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#path-resolution-python-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path resolution (Python side)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-posture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test posture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-debt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known debt
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related docs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../macos-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    macOS Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devenv/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dev Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unreleased/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-mod-connector-split" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The mod ↔ connector split
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Components
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#thread-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Thread model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotservice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotService
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotagentstate-ready-gate-modes-request-slot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotAgentState — ready gate, modes, request slot
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TimberbotAgentState — ready gate, modes, request slot">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ready-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ready gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bearer-token-auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bearer-token auth
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotpanel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotPanel
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotreadv2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotReadV2
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotentityregistry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotEntityRegistry
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotwrite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotWrite
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timberbotplacement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TimberbotPlacement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#websocket-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WebSocket protocol
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#read-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Read architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-projection-backed-collections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Projection-backed collections
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-value-stores" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Value stores
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-derived-reads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Derived reads
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fresh-on-request-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fresh-on-request behavior
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#id-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ID model
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ID model">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#public-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public ID
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#internal-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Internal ID
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#request-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Request flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Request flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#agent-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent control
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#serialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Serialization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spatial-reads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spatial reads
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-freshness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data freshness
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Data freshness">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fresh-on-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fresh-on-request
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#event-driven" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event-driven
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#path-resolution-python-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path resolution (Python side)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#test-posture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Test posture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-debt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known debt
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related docs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
+<p>How Timberbot works internally. For migration history, see <a href="https://github.com/impuls42/timberbot/blob/main/design/fresh-on-request-snapshots.md"><code>design/fresh-on-request-snapshots.md</code></a> in the repo.</p>
+<h2 id="the-mod-connector-split">The mod ↔ connector split<a class="headerlink" href="#the-mod-connector-split" title="Permanent link">&para;</a></h2>
+<p>Timberbot is two cooperating processes:</p>
+<ul>
+<li>The <strong>mod</strong> runs inside the game and exposes an HTTP API on port 8085 and a parallel WebSocket on port 8086. It is a pure server — it never spawns the agent. It owns the canonical session state (<code>mode</code>, <code>goal</code>, <code>pendingRequest</code>, <code>ready</code>, …) and a ready gate that refuses HTTP traffic until the player presses Launch.</li>
+<li>The <strong>agent connector</strong> (<code>tbot watch</code>) is a long-running Python process on the player's machine. It opens a single long-lived WebSocket to the mod, receives state pushes and game events, and dispatches agent runs.</li>
+</ul>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─ Timberborn (game process) ────────────────┐         ┌─ tbot watch (host process) ────────────┐
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│  Timberbot.dll                             │         │                                        │
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│    TimberbotHttpServer       :8085         │◀─HTTP──▶│  reads/writes via REST                 │
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│    TimberbotWebSocketServer  :8086         │◀── WS ─▶│  long-lived ws://host:8086/api/ws      │
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│    TimberbotAgentState  state.json         │         │  receives state + event frames         │
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│    TimberbotReadV2 / TimberbotWrite        │         │  sends heartbeat every 30s             │
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│    TimberbotPanel  (Launch / Stop widget)  │         │  agent run dispatcher                  │
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>└────────────────────────────────────────────┘         └────────────────────────────────────────┘
+</span></code></pre></div>
+<p>The HTTP listener handles request/response reads and writes. The WebSocket carries everything that used to be polled or pushed out-of-band: agent-state changes, the request-dispatch signal, and the 68-event game-event stream. Any number of WS clients can connect simultaneously — <code>tbot listen</code> is just another subscriber.</p>
+<h2 id="components">Components<a class="headerlink" href="#components" title="Permanent link">&para;</a></h2>
+<p>The mod has one read stack and one write stack:</p>
+<ul>
+<li>read: <code>TimberbotReadV2</code> — all GET endpoints, projection snapshots</li>
+<li>write: <code>TimberbotWrite</code> — all POST mutations</li>
+<li>entity lookup: <code>TimberbotEntityRegistry</code> — GUID/numeric ID bridge</li>
+<li>placement: <code>TimberbotPlacement</code> — building placement, A* path routing</li>
+<li>HTTP: <code>TimberbotHttpServer</code> — background listener, routing, ready-gate + auth middleware (port 8085)</li>
+<li>WebSocket: <code>TimberbotWebSocketServer</code> — parallel listener on <code>wsPort</code> (default 8086); accepts upgrades on <code>/api/ws</code>, broadcasts <code>state</code> and <code>event</code> frames, receives <code>heartbeat</code> / <code>ping</code> frames. Sibling event-bridge code lives in <code>TimberbotEvents.cs</code> (the <code>[OnEvent]</code> handlers there now publish into the WS broadcaster).</li>
+<li>debug: <code>TimberbotDebug</code> — reflection inspector, benchmark</li>
+<li>agent state: <code>TimberbotAgentState</code> — single source of truth for <code>mode</code>, <code>goal</code>, <code>ready</code>, <code>pendingRequest</code>, <code>lastAckedRequestId</code>, <code>lastError</code>. Persisted fields live in <code>state.json</code>; ephemeral fields reset on save load. Mutations raise a <code>Changed</code> event that the WS broadcaster turns into a <code>state</code> frame.</li>
+<li>UI: <code>TimberbotPanel</code> — movable in-game widget (Launch / Stop, mode dropdown, mode-aware textarea) + centered settings modal</li>
+<li>orchestrator: <code>TimberbotService</code> — lifecycle, settings, per-frame dispatch</li>
+<li>write jobs: <code>ITimberbotWriteJob</code> — budgeted write execution</li>
+</ul>
+<h2 id="thread-model">Thread model<a class="headerlink" href="#thread-model" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>MAIN THREAD (Unity)                         BACKGROUND THREADS
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>========================                    ==================
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>UpdateSingleton() [every frame]             HttpListener: ListenLoop() [blocking accept]
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  |                                           |
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  +-- DrainRequests() [POST only]             +-- GET request arrives
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  |     |                                     |     |
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  |     +-- RouteRequest() mutates game       |     +-- RouteRequest()
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  |     +-- Respond() sends JSON              |     +-- ReadV2 serves from:
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  |                                           |           - published snapshots, or
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>  +-- ReadV2.ProcessPendingRefresh()          |           - explicit thread-safe services
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  |     |                                     |     +-- TimberbotJw serialization
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>  |     +-- advance main-thread capture       |     +-- Respond() sends JSON
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>  |     +-- queue background finalize/publish |
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>  |                                           +-- POST request arrives
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>  +-- ProcessWriteJobs() [budgeted]                 +-- queue to _pending
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>  |     |
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>  |     +-- step pending write jobs (2ms budget)
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>  |                                           WebSocket: per-connection async loops
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>  +-- AgentState.Changed (raised after mutate)  |
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>        |                                       +-- AcceptWebSocketAsync() upgrades on /api/ws
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>        +-- WS broadcaster builds frame         +-- receive loop: heartbeat / ping
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>              |                                 +-- send loop: state / event / pong / error
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>              +-- enqueue into per-conn         +-- slow consumer → dropped from queue
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>                  bounded send queues
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Location</th>
+<th>Thread</th>
+<th>Blocks game?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HTTP listener accept/GET response</td>
+<td>background</td>
+<td>no</td>
+</tr>
+<tr>
+<td>GET endpoints</td>
+<td>background</td>
+<td>no</td>
+</tr>
+<tr>
+<td>POST endpoints</td>
+<td>main thread via <code>DrainRequests()</code></td>
+<td>yes, for duration</td>
+</tr>
+<tr>
+<td><code>ReadV2.ProcessPendingRefresh()</code></td>
+<td>main thread</td>
+<td>yes, bounded by capture budget</td>
+</tr>
+<tr>
+<td><code>ProcessWriteJobs()</code></td>
+<td>main thread</td>
+<td>yes, bounded by <code>writeBudgetMs</code> (default 1ms)</td>
+</tr>
+<tr>
+<td>WS broadcast enqueue</td>
+<td>main thread (after <code>Changed</code> / <code>[OnEvent]</code>)</td>
+<td>negligible (drop-on-overflow)</td>
+</tr>
+<tr>
+<td>WS send loop</td>
+<td>background per connection</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<h2 id="timberbotservice">TimberbotService<a class="headerlink" href="#timberbotservice" title="Permanent link">&para;</a></h2>
+<p><code>TimberbotService</code> is the singleton orchestrator.</p>
+<p>It owns:</p>
+<ul>
+<li>settings load from <code>settings.json</code> and state load from <code>state.json</code></li>
+<li>cached settings state and debounced writeback to <code>settings.json</code></li>
+<li>HTTP and WebSocket server lifetimes (both refuse to start with non-localhost <code>listenAddress</code> and empty <code>authToken</code>)</li>
+<li>event bus registration</li>
+<li><code>Registry.BuildAllIndexes()</code></li>
+<li><code>ReadV2.BuildAll()</code></li>
+<li>the shared <code>TimberbotAgentState</code> instance exposed to the panel, the HTTP layer, and the WS broadcaster</li>
+<li>per-frame dispatch:</li>
+<li><code>DrainRequests()</code></li>
+<li><code>ReadV2.ProcessPendingRefresh(now)</code></li>
+<li><code>_server.ProcessWriteJobs(now, writeBudgetMs)</code></li>
+<li><code>FlushSettingsIfNeeded(now)</code></li>
+</ul>
+<p>Settings behavior:</p>
+<ul>
+<li>runtime settings are loaded once in <code>Load()</code></li>
+<li>the in-game settings UI mutates an in-memory <code>JObject</code></li>
+<li>writes to disk are debounced (~1 second after the last change)</li>
+<li><code>Unload()</code> forces a final flush</li>
+</ul>
+<p>State behavior:</p>
+<ul>
+<li><code>Load()</code> reads <code>state.json</code> and seeds <code>mode</code>, <code>goal</code>, <code>lastError</code>. Ephemeral fields (<code>ready</code>, <code>pendingRequest</code>, <code>lastAckedRequestId</code>) reset on every save load — the player must press Launch again after reloading a save.</li>
+<li><code>Unload()</code> flushes <code>state.json</code> before shutting down the HTTP and WebSocket servers.</li>
+<li>The service does not drive the agent itself; the connector does. The service just keeps state coherent.</li>
+</ul>
+<h2 id="timberbotagentstate-ready-gate-modes-request-slot">TimberbotAgentState — ready gate, modes, request slot<a class="headerlink" href="#timberbotagentstate-ready-gate-modes-request-slot" title="Permanent link">&para;</a></h2>
+<p><code>TimberbotAgentState</code> is the thread-safe container that every other component reads and mutates.</p>
+<p>Persisted fields (written to <code>state.json</code>):</p>
+<ul>
+<li><code>mode</code> — <code>request</code> (default) or <code>autonomous</code></li>
+<li><code>goal</code> — autonomous-mode prompt</li>
+<li><code>lastError</code> — last connector-reported failure surfaced in the widget</li>
+</ul>
+<p>Ephemeral fields (reset on save load):</p>
+<ul>
+<li><code>ready</code> — true after the player presses <strong>Launch</strong>; false on Stop or save load</li>
+<li><code>pendingRequest</code> — single-slot <code>{id, prompt, createdAt}</code> set by <code>POST /api/agent/request</code> and cleared when the connector acks (<code>acked_request_id ≥ pendingRequest.id</code>)</li>
+<li><code>lastAckedRequestId</code> — for ack/clear bookkeeping; this is the same value the connector sends as <code>acked_request_id</code> in the WS heartbeat frame (snake_case on the wire, PascalCase in the C# field)</li>
+</ul>
+<p>Every mutation raises a <code>Changed</code> event (outside the lock) that the WS broadcaster turns into a <code>state</code> frame. Subscribers therefore see state transitions push-style, with no polling.</p>
+<h3 id="ready-gate">Ready gate<a class="headerlink" href="#ready-gate" title="Permanent link">&para;</a></h3>
+<p><code>TimberbotHttpServer</code> runs ready-gate middleware on every <code>/api/*</code> request. When <code>ready == false</code>, <strong>both reads and writes</strong> outside the carve-out return <code>409 {"error":"game_not_ready","hint":"player must press Launch in the Timberbot widget"}</code>.</p>
+<p>Carve-out (always live):</p>
+<ul>
+<li><code>/api/agent/*</code> — widget config + Launch trigger</li>
+<li><code>/api/ready</code> — Launch / Stop toggle</li>
+<li><code>/api/ping</code> — liveness probe</li>
+</ul>
+<p>The WebSocket on port 8086 is <strong>not</strong> gated — the connector and any <code>tbot listen</code> subscriber can stay connected across save loads and Launch / Stop toggles. They just won't see useful state changes until the player presses Launch.</p>
+<p>This is intentional. The gate is what makes the player the boss of the AI: nothing reads colony state, nothing places a building, nothing writes a save until the player explicitly opts in.</p>
+<h3 id="modes">Modes<a class="headerlink" href="#modes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Request mode</strong> (default). Player types a prompt in the widget and presses Launch. The mod sets <code>pendingRequest</code>; the WS broadcaster pushes the resulting <code>state</code> frame to every connected subscriber. The connector picks up the request immediately — no polling.</li>
+<li><strong>Autonomous mode</strong>. Connector decides cadence using the persisted <code>goal</code>. The ready gate is still authoritative — pressing Stop instantly flips <code>ready=false</code> on every connected client.</li>
+</ul>
+<p>The connector advances <code>acked_request_id</code> in its WS <code>heartbeat</code> frame after each cycle so the mod can clear the single pending slot. Queueing is the connector's problem, not the mod's.</p>
+<h3 id="bearer-token-auth">Bearer-token auth<a class="headerlink" href="#bearer-token-auth" title="Permanent link">&para;</a></h3>
+<p>When <code>authToken</code> is set in <code>settings.json</code>, every <code>/api/*</code> route requires <code>Authorization: Bearer &lt;token&gt;</code> (constant-time compare). The same token is enforced on the WS upgrade request: either <code>Authorization: Bearer &lt;token&gt;</code> on the upgrade headers, or <code>?token=&lt;token&gt;</code> as a query-param fallback for browser clients that can't set upgrade headers. The mod <strong>refuses to start</strong> if <code>listenAddress</code> is non-localhost and <code>authToken</code> is empty — there's no path to ship the API over a LAN without a token. Tokens flow into the Python client via <code>[client].auth_token</code> in <code>config.toml</code>, the <code>TBOT_AUTH_TOKEN</code> env var, or <code>TimberbotClient(auth_token=...)</code>.</p>
+<h2 id="timberbotpanel">TimberbotPanel<a class="headerlink" href="#timberbotpanel" title="Permanent link">&para;</a></h2>
+<p><code>TimberbotPanel</code> is the in-game control surface.</p>
+<p>It owns:</p>
+<ul>
+<li>a movable bottom-right widget with a connection-state pill (<code>Disconnected</code> / <code>Not Ready</code> / <code>Idle</code> / <code>Running</code> / <code>Error</code>), a mode dropdown, a mode-aware textarea, and the <strong>Launch / Stop</strong> button</li>
+<li>a centered <code>Timberbot API - Settings</code> modal for runtime + security settings</li>
+<li>saved widget position via <code>widgetLeft</code> / <code>widgetTop</code></li>
+</ul>
+<p>UI model:</p>
+<ul>
+<li>the corner widget is always visible once loaded</li>
+<li><code>Launch</code> posts <code>{"ready": true}</code> to <code>/api/ready</code>. <code>Stop</code> posts <code>{"ready": false}</code>.</li>
+<li>the mode dropdown writes <code>mode</code> via <code>POST /api/agent/config</code></li>
+<li>in <strong>Autonomous</strong> mode the textarea is bound to <code>goal</code> with debounced auto-save</li>
+<li>in <strong>Request</strong> mode the textarea is a local buffer; pressing Launch posts the prompt to <code>/api/agent/request</code> and clears the field</li>
+<li>a banner ("Connected to game session — waiting for player to Launch") appears when at least one WS subscriber is connected but the gate is off</li>
+</ul>
+<p>The panel never spawns or knows about agent processes. It only talks to the local HTTP API.</p>
+<h2 id="timberbotreadv2">TimberbotReadV2<a class="headerlink" href="#timberbotreadv2" title="Permanent link">&para;</a></h2>
+<p><code>TimberbotReadV2</code> is the read service for all GET endpoints.</p>
+<p>It owns:</p>
+<ul>
+<li>fresh-on-request projection snapshots for entity collections</li>
+<li>value stores for singleton/aggregate endpoints</li>
+<li>collection/value/paged route helpers</li>
+<li>native serialization via <code>TimberbotJw</code></li>
+<li>a private background finalize thread for snapshot publish work</li>
+<li>direct use of explicit Timberborn thread-safe services (terrain, water, soil)</li>
+<li>field-level reusable collections for derived endpoints (clusters, tiles, alerts, power, wellbeing)</li>
+</ul>
+<p>Thread safety rule:</p>
+<ul>
+<li>listener-thread reads must come from published DTO snapshots or explicitly thread-safe game services</li>
+<li>listener-thread code must not walk live Timberborn entity/component graphs</li>
+</ul>
+<h2 id="timberbotentityregistry">TimberbotEntityRegistry<a class="headerlink" href="#timberbotentityregistry" title="Permanent link">&para;</a></h2>
+<p><code>TimberbotEntityRegistry</code> is the entity lookup and ID translation layer.</p>
+<p>It owns:</p>
+<ul>
+<li>entity lifecycle tracking via Timberborn <code>EventBus</code></li>
+<li>GUID-backed identity mapping over Timberborn <code>EntityRegistry</code></li>
+<li><code>FindEntity(...)</code> for writes and placement</li>
+<li>shared constants (faction suffix, species lists, priority names)</li>
+</ul>
+<p>Identity model:</p>
+<ul>
+<li>canonical internal key: Timberborn <code>EntityComponent.EntityId</code> (<code>Guid</code>)</li>
+<li>public API key: numeric <code>id</code> (Unity <code>GameObject.GetInstanceID()</code>)</li>
+<li>mapping: <code>int &lt;-&gt; Guid</code> in both directions</li>
+</ul>
+<p>The public API uses short numeric IDs for human usability. The registry translates to GUIDs internally.</p>
+<h2 id="timberbotwrite">TimberbotWrite<a class="headerlink" href="#timberbotwrite" title="Permanent link">&para;</a></h2>
+<p><code>TimberbotWrite</code> handles all mutations on the main thread.</p>
+<p>Write flow:</p>
+<ul>
+<li>HTTP listener parses request body (background thread)</li>
+<li>request queued to <code>ConcurrentQueue</code></li>
+<li><code>DrainRequests()</code> dequeues on Unity main thread</li>
+<li>write resolves numeric <code>id</code> through <code>TimberbotEntityRegistry</code></li>
+<li>mutation runs against live game services/components</li>
+</ul>
+<h2 id="timberbotplacement">TimberbotPlacement<a class="headerlink" href="#timberbotplacement" title="Permanent link">&para;</a></h2>
+<p><code>TimberbotPlacement</code> handles:</p>
+<ul>
+<li><code>find_placement</code>. search region for valid building spots with reachability/power/flood scoring</li>
+<li><code>place_building</code>. origin-correct, validate via <code>PreviewFactory</code>, place via <code>BlockObjectPlacerService</code></li>
+<li><code>demolish_building</code> / <code>demolish_crop</code></li>
+<li><code>route_path</code>. A* pathfinding with auto-stairs across z-levels, budgeted execution via <code>RoutePathJob</code></li>
+<li><code>collect_prefabs</code>. list building templates</li>
+</ul>
+<h2 id="websocket-protocol">WebSocket protocol<a class="headerlink" href="#websocket-protocol" title="Permanent link">&para;</a></h2>
+<p>A single long-lived WebSocket replaces the previous heartbeat-polling and outbound-HTTP-webhook channels. The mod hosts a parallel listener on <code>wsPort</code> (default <code>8086</code>); clients connect to <code>ws://host:wsPort/api/ws</code> and stay connected for the life of the session.</p>
+<p>The authoritative wire contract — frame envelope, message types, auth header, reconnect guidance — lives in <a href="../websocket-protocol/"><code>websocket-protocol.md</code></a>. Mod-side implementation notes:</p>
+<ul>
+<li><code>TimberbotWebSocketServer</code> owns a separate <code>HttpListener</code> and async accept loop on <code>wsPort</code>. Upgrades go through <code>HttpListenerContext.AcceptWebSocketAsync()</code>.</li>
+<li>Each accepted connection gets a bounded send queue; slow consumers are dropped on overflow rather than back-pressuring the main thread.</li>
+<li>State broadcasts originate from <code>TimberbotAgentState.Changed</code> (raised outside the lock, after each mutation). Game-event broadcasts originate from the same <code>[OnEvent]</code> handlers in <code>TimberbotEvents.cs</code>; that file no longer makes HTTP calls — it just hands frames to the broadcaster.</li>
+<li><code>TimberbotPure</code> ships pure helpers for the envelope: <code>BuildStateMessage</code>, <code>BuildEventMessage</code>, <code>ParseInboundMessage</code>.</li>
+<li>Auth: the same <code>authToken</code> middleware applies to upgrade requests. Bearer header preferred; <code>?token=</code> fallback for browser clients.</li>
+<li>Heartbeat cadence: 30 s. The client sends a <code>heartbeat</code> frame carrying <code>{version, agent_status, acked_request_id}</code>. WS ping/pong and TCP keepalive handle liveness — there is no shorter polling loop.</li>
+<li>Game events are <strong>not</strong> ready-gated. The ready gate only filters inbound <code>/api/*</code> HTTP requests; subscribers see weather / population / power events whether the player has pressed Launch or not.</li>
+</ul>
+<h2 id="read-architecture">Read architecture<a class="headerlink" href="#read-architecture" title="Permanent link">&para;</a></h2>
+<p>There are three read patterns inside <code>ReadV2</code>.</p>
+<h3 id="1-projection-backed-collections">1. Projection-backed collections<a class="headerlink" href="#1-projection-backed-collections" title="Permanent link">&para;</a></h3>
+<p>Used for entity-style endpoints: <code>buildings</code>, <code>beavers</code>, <code>trees</code>, <code>crops</code>, <code>gatherables</code>.</p>
+<p>Shape:</p>
+<ul>
+<li>main-thread tracked refs (added/removed via <code>EventBus</code> lifecycle events)</li>
+<li><code>ProjectionSnapshot&lt;TDef, TState, TDetail&gt;</code> with double-buffered capture arrays</li>
+<li>main thread captures live state into DTO buffers under a per-frame budget (~1ms)</li>
+<li>background finalize thread publishes immutable snapshots</li>
+<li><code>CollectionRoute</code> handles format/pagination/filtering/serialization from published data</li>
+<li>concurrent readers coalesce onto shared publishes</li>
+</ul>
+<h3 id="2-value-stores">2. Value stores<a class="headerlink" href="#2-value-stores" title="Permanent link">&para;</a></h3>
+<p>Used for singleton endpoints: <code>settlement</code>, <code>time</code>, <code>weather</code>, <code>speed</code>, <code>workhours</code>, <code>science</code>, <code>distribution</code>.</p>
+<p>Shape:</p>
+<ul>
+<li><code>ValueStore&lt;TCapture, TSnapshot&gt;</code> with capture/finalize/publish pipeline</li>
+<li>main-thread capture produces a typed DTO</li>
+<li>background finalize converts to published snapshot where useful</li>
+<li><code>ValueRoute</code> handles serialization from published data</li>
+</ul>
+<h3 id="3-derived-reads">3. Derived reads<a class="headerlink" href="#3-derived-reads" title="Permanent link">&para;</a></h3>
+<p>Used for aggregate endpoints: <code>summary</code>, <code>alerts</code>, <code>power</code>, <code>wellbeing</code>, <code>districts</code>, <code>resources</code>, <code>population</code>, <code>tree_clusters</code>, <code>food_clusters</code>.</p>
+<p>Built from published snapshots and explicit thread-safe surfaces. Use field-level reusable collections (dicts, lists, arrays) that are cleared-in-place per request for zero steady-state allocation.</p>
+<h2 id="fresh-on-request-behavior">Fresh-on-request behavior<a class="headerlink" href="#fresh-on-request-behavior" title="Permanent link">&para;</a></h2>
+<p>The read contract:</p>
+<ul>
+<li>a GET may wait across one or more frames for the next publish</li>
+<li>the returned data is fresh as of the frame that serviced the request</li>
+<li>concurrent readers coalesce onto shared publishes</li>
+<li>there is no cadence-driven refresh. snapshots publish only when readers need them</li>
+<li><code>ProcessPendingRefresh()</code> is a bounded capture scheduler, not a periodic loop</li>
+<li>expensive finalize/publish work runs on <code>ReadV2</code>'s dedicated background thread</li>
+</ul>
+<h2 id="id-model">ID model<a class="headerlink" href="#id-model" title="Permanent link">&para;</a></h2>
+<h3 id="public-id">Public ID<a class="headerlink" href="#public-id" title="Permanent link">&para;</a></h3>
+<ul>
+<li>numeric <code>id</code> (Unity <code>GameObject.GetInstanceID()</code>)</li>
+<li>exposed in GET payloads, accepted by write endpoints</li>
+<li>easy for humans and scripts to type</li>
+</ul>
+<h3 id="internal-id">Internal ID<a class="headerlink" href="#internal-id" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>Guid</code> (Timberborn <code>EntityComponent.EntityId</code>)</li>
+<li>used for canonical identity and bridging into Timberborn <code>EntityRegistry</code></li>
+</ul>
+<p>Compatibility mapping lives in <code>TimberbotEntityRegistry</code>: <code>int &lt;-&gt; Guid</code>.</p>
+<h2 id="request-flow">Request flow<a class="headerlink" href="#request-flow" title="Permanent link">&para;</a></h2>
+<h3 id="get">GET<a class="headerlink" href="#get" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>HTTP GET
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  -&gt; ListenLoop() [background thread]
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  -&gt; RouteRequest()
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>  -&gt; ReadV2 endpoint method
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>     -&gt; request fresh snapshot/value if needed
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>     -&gt; wait for publish if needed
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>     -&gt; filter/paginate/serialize from published data
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>  -&gt; Respond()
+</span></code></pre></div>
+<h3 id="post">POST<a class="headerlink" href="#post" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>HTTP POST
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  -&gt; ListenLoop() [background thread]
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  -&gt; parse JSON body
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  -&gt; enqueue PendingRequest
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  -&gt; [next frame] DrainRequests() [main thread]
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>  -&gt; RouteRequest()
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>  -&gt; Write/Placement/Webhook mutation
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>  -&gt; Respond()
+</span></code></pre></div>
+<h3 id="agent-control">Agent control<a class="headerlink" href="#agent-control" title="Permanent link">&para;</a></h3>
+<p>The mod never spawns a process. The widget speaks <code>TimberbotHttpServer</code>; the connector speaks <code>TimberbotWebSocketServer</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Channel</th>
+<th>Caller</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /api/agent/state</code> (HTTP)</td>
+<td>widget</td>
+<td>One-shot read of <code>{mode, goal, ready, pendingRequest, agentStatus, lastError}</code> for UI bootstrap. The connector gets the same data as <code>state</code> frames on the WS.</td>
+</tr>
+<tr>
+<td><code>POST /api/agent/config</code> (HTTP)</td>
+<td>widget</td>
+<td>Debounced save of <code>mode</code> and/or <code>goal</code></td>
+</tr>
+<tr>
+<td><code>POST /api/agent/request</code> (HTTP)</td>
+<td>widget (Launch in request mode)</td>
+<td>Set <code>pendingRequest</code>; triggers a <code>state</code> frame on every WS subscriber</td>
+</tr>
+<tr>
+<td><code>POST /api/ready</code> (HTTP)</td>
+<td>widget</td>
+<td>Launch / Stop the ready gate</td>
+</tr>
+<tr>
+<td><code>state</code> frame (WS, server→client)</td>
+<td>connector, <code>tbot listen</code></td>
+<td>Full snapshot of agent state, pushed on every change</td>
+</tr>
+<tr>
+<td><code>event</code> frame (WS, server→client)</td>
+<td>connector, <code>tbot listen</code></td>
+<td>Single game event with <code>{event, day, timestamp, data}</code></td>
+</tr>
+<tr>
+<td><code>heartbeat</code> frame (WS, client→server)</td>
+<td>connector</td>
+<td>30 s liveness ping carrying <code>{version, agent_status, acked_request_id}</code></td>
+</tr>
+<tr>
+<td><code>ping</code> / <code>pong</code> frames (WS)</td>
+<td>both sides</td>
+<td>Optional application-level keepalive on top of the WS protocol-level ping/pong</td>
+</tr>
+</tbody>
+</table>
+<p>The connector (<code>tbot watch</code>) owns the agent process lifetime. It dispatches <code>tbot agent run</code> (or <code>opencode run --attach &lt;url&gt;</code>) on each <code>state</code> frame that surfaces a new <code>pendingRequest</code>, then sends a <code>heartbeat</code> frame with the new <code>acked_request_id</code> so the mod can clear the pending slot.</p>
+<h2 id="serialization">Serialization<a class="headerlink" href="#serialization" title="Permanent link">&para;</a></h2>
+<p><code>TimberbotJw</code> is the core JSON writer. Zero-alloc fluent API that writes directly to a reusable <code>StringBuilder</code>.</p>
+<p>Usage pattern:</p>
+<ul>
+<li>each request/build path owns its own writer instance</li>
+<li><code>Reset()</code> per request</li>
+<li>staged finalize paths avoid reusing main-thread writers across threads</li>
+</ul>
+<p>Major writers: <code>ReadV2</code> (main + science/distribution builders), <code>Write</code>, <code>Placement</code>, <code>Webhook</code>, <code>HttpServer</code> (error responses).</p>
+<h2 id="spatial-reads">Spatial reads<a class="headerlink" href="#spatial-reads" title="Permanent link">&para;</a></h2>
+<p><code>/api/tiles</code> reads from:</p>
+<ul>
+<li><code>IThreadSafeWaterMap</code>. water depth and contamination</li>
+<li><code>IThreadSafeColumnTerrainMap</code>. terrain height</li>
+<li>safe-wrapped <code>ISoilContaminationService</code> / <code>ISoilMoistureService</code></li>
+<li>published building/resource snapshots for occupant data</li>
+<li>field-level reusable occupant lists (cleared-in-place per request)</li>
+</ul>
+<h2 id="data-freshness">Data freshness<a class="headerlink" href="#data-freshness" title="Permanent link">&para;</a></h2>
+<h3 id="fresh-on-request">Fresh-on-request<a class="headerlink" href="#fresh-on-request" title="Permanent link">&para;</a></h3>
+<p>Projection snapshots and value stores. Request-triggered, waits for publish, best freshness guarantee.</p>
+<h3 id="event-driven">Event-driven<a class="headerlink" href="#event-driven" title="Permanent link">&para;</a></h3>
+<p>Registry data (GUID-to-ID maps, event-bridge lifecycle hooks). Updated on <code>EntityInitializedEvent</code>/<code>EntityDeletedEvent</code>. Used for entity lookup and compatibility only.</p>
+<h2 id="settings">Settings<a class="headerlink" href="#settings" title="Permanent link">&para;</a></h2>
+<p><code>settings.json</code> in the mod folder:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">&quot;debugEndpointEnabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">&quot;httpPort&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8085</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">&quot;wsPort&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8086</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">&quot;wsEnabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">&quot;listenAddress&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">&quot;authToken&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="nt">&quot;writeBudgetMs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nt">&quot;maxBodyBytes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1048576</span><span class="p">,</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="nt">&quot;widgetLeft&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;123&quot;</span><span class="p">,</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span><span class="nt">&quot;widgetTop&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;456&quot;</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>There are three categories of settings:</p>
+<ul>
+<li>runtime, read by <code>TimberbotService</code>: <code>debugEndpointEnabled</code>, <code>httpPort</code>, <code>wsPort</code>, <code>wsEnabled</code>, <code>writeBudgetMs</code></li>
+<li>security, also applied at load:</li>
+<li><code>listenAddress</code> — bind address for both listeners; default <code>127.0.0.1</code>. Use <code>+</code>/<code>0.0.0.0</code> for LAN</li>
+<li><code>authToken</code> — bearer token required on every <code>/api/*</code> request and on every WS upgrade when set. <strong>Required</strong> if <code>listenAddress</code> is non-localhost; the mod refuses to start otherwise.</li>
+<li><code>maxBodyBytes</code> — POST body size cap before <code>413 body_too_large</code>; default <code>1048576</code></li>
+<li>widget position written by <code>TimberbotPanel</code>: <code>widgetLeft</code>, <code>widgetTop</code></li>
+</ul>
+<p>Agent-shaped state lives in <strong><code>state.json</code></strong> alongside <code>settings.json</code>, not in settings:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;request&quot;</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;reach 50 beavers with 77 wellbeing&quot;</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">&quot;lastError&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Deprecated <code>settings.json</code> keys are logged once at load and otherwise ignored:</p>
+<ul>
+<li>legacy agent-launcher: <code>terminal</code>, <code>pythonCommand</code>, <code>agentBinary</code>, <code>agentGoal</code>, <code>agentModel</code>, <code>agentEffort</code>, <code>agentCommandTemplate</code>, <code>agentAllowlistEnabled</code>, <code>agentAllowedBinaries</code>, <code>tbotCommand</code>. Backend choice, model, effort, and custom command templates live in <code>~/.config/timberbot/config.toml</code> (consumed by <code>tbot watch</code> and <code>tbot agent run</code>).</li>
+<li>legacy outbound webhooks: <code>webhooksEnabled</code>, <code>webhookBatchMs</code>, <code>webhookCircuitBreaker</code>, <code>webhookMaxPendingEvents</code>, <code>webhookValidateUrls</code>. Events now flow over the WebSocket; there is no outbound HTTP delivery path.</li>
+</ul>
+<p>Important behavior:</p>
+<ul>
+<li>runtime/security settings are applied on load; changing them in the modal updates <code>settings.json</code> immediately in memory but may require reloading the save/mod to fully apply</li>
+<li><code>state.json</code> is rewritten whenever the widget changes <code>mode</code>/<code>goal</code> or the connector reports a <code>lastError</code> (debounced)</li>
+</ul>
+<h2 id="path-resolution-python-side">Path resolution (Python side)<a class="headerlink" href="#path-resolution-python-side" title="Permanent link">&para;</a></h2>
+<p>The Python <code>tbot</code> CLI does not consult the game's <code>Documents/</code> tree at runtime — every endpoint goes over HTTP/WS, and per-settlement <code>brain.toon</code> files live under the OS user-data dir (<code>config.data_dir() / "memory"</code>):</p>
+<ul>
+<li>Linux: <code>$XDG_DATA_HOME/timberbot/memory/</code> (default <code>~/.local/share/timberbot/memory/</code>)</li>
+<li>macOS: <code>~/Library/Application Support/timberbot/memory/</code></li>
+<li>Windows: <code>%LOCALAPPDATA%\timberbot\memory\</code></li>
+</ul>
+<p>Override with <code>TBOT_DATA_DIR</code>.</p>
+<p>The legacy Proton/Documents resolver still lives at <code>scripts/_paths.py</code> for the sole benefit of the build-time <code>scripts/deploy.sh</code>, which copies freshly built DLLs into the mod folder. It honours <code>TBOT_DOCUMENTS_DIR</code> / <code>TBOT_MOD_DIR</code> for non-standard Wine prefixes.</p>
+<h2 id="test-posture">Test posture<a class="headerlink" href="#test-posture" title="Permanent link">&para;</a></h2>
+<p>Primary live harness: <code>python/tests/integration/v2_runner.py</code>. Validates the <code>/api/*</code> surface against a running game.</p>
+<p>Modes: <code>smoke</code>, <code>freshness</code>, <code>write_to_read</code>, <code>performance</code>, <code>concurrency</code>, <code>all</code>. Invoke via <code>python -m pytest python/tests/integration/ -m integration</code> with <code>-k &lt;mode&gt;</code> to filter.</p>
+<p>The connector and event receiver (<code>tbot watch</code>, <code>tbot listen</code>) are unit-tested against an in-process aiohttp WebSocket server — they don't require a live game.</p>
+<h2 id="known-debt">Known debt<a class="headerlink" href="#known-debt" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>/api/debug</code> and benchmark surfaces are evolving</li>
+<li>capture budgeting is intentionally conservative and may need tuning per domain</li>
+<li><code>BuildAlertsFromBuildings</code> and <code>BuildPowerFromBuildings</code> still allocate <code>.ToArray()</code> per call (1 array each)</li>
+</ul>
+<h2 id="related-docs">Related docs<a class="headerlink" href="#related-docs" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../websocket-protocol/"><code>websocket-protocol.md</code></a>. authoritative WS wire contract (envelope, auth, reconnect)</li>
+<li><a href="../events/"><code>events.md</code></a>. user-facing guide to consuming the WS event stream</li>
+<li><a href="https://github.com/impuls42/timberbot/blob/main/design/fresh-on-request-snapshots.md"><code>design/fresh-on-request-snapshots.md</code></a>. migration rationale and validation history (in repo, not on docs site)</li>
+<li><a href="https://github.com/impuls42/timberbot/blob/main/design/thread-safe-surfaces.md"><code>design/thread-safe-surfaces.md</code></a>. Timberborn thread-safety guidance (in repo, not on docs site)</li>
+<li><a href="../developing/"><code>developing.md</code></a>. build, test, file structure</li>
+<li><a href="../performance/"><code>performance.md</code></a>. allocation audit, benchmarks, open issues</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../websocket-protocol/" class="md-footer__link md-footer__link--prev" aria-label="Previous: WebSocket Protocol">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                WebSocket Protocol
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../performance/" class="md-footer__link md-footer__link--next" aria-label="Next: Performance">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Performance
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Timberbot API &mdash; Play Timberborn with an AI &middot; Modified fork of <a href="https://github.com/abix-/TimberbornMods">abix-/TimberbornMods</a>
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/impuls42/timberbot" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://github.com/abix-/TimberbornMods" target="_blank" rel="noopener" title="Upstream (abix-/TimberbornMods)" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "content.code.annotate", "content.tabs.link", "navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.expand", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

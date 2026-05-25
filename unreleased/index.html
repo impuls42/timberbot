@@ -1,0 +1,1300 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Full read/write HTTP API for controlling Timberborn with AI (modified fork of abix-/TimberbornMods)">
+      
+      
+      
+        <link rel="canonical" href="https://impuls42.github.io/timberbot/unreleased/">
+      
+      
+        <link rel="prev" href="../devenv/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Changelog - Timberbot API</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#v09-tbot-serve-waits-for-the-mod-by-default" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Timberbot API" class="md-header__button md-logo" aria-label="Timberbot API" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Timberbot API
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Changelog
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/impuls42/timberbot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    impuls42/timberbot
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Timberbot API" class="md-nav__button md-logo" aria-label="Timberbot API" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Timberbot API
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/impuls42/timberbot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    impuls42/timberbot
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timberbot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timberbot Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websocket-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../macos-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    macOS Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devenv/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dev Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#v09-tbot-serve-waits-for-the-mod-by-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9 tbot serve waits for the mod by default
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v09-cli-python-fire-dispatcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9 CLI: python-fire dispatcher
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.9 CLI: python-fire dispatcher">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#migration-cheatsheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration cheatsheet
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v09-websocket-cutover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9 WebSocket cutover
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.9 WebSocket cutover">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#migration-cheatsheet_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration cheatsheet
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v09-architecture-cutover-connector-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9 architecture cutover (connector model)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error messages
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#write-endpoint-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write endpoint fixes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#panel-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Panel defaults
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#v09-tbot-serve-waits-for-the-mod-by-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9 tbot serve waits for the mod by default
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v09-cli-python-fire-dispatcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9 CLI: python-fire dispatcher
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.9 CLI: python-fire dispatcher">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#migration-cheatsheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration cheatsheet
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v09-websocket-cutover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9 WebSocket cutover
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.9 WebSocket cutover">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#migration-cheatsheet_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migration cheatsheet
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#v09-architecture-cutover-connector-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.9 architecture cutover (connector model)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error messages
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#write-endpoint-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write endpoint fixes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Agent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#panel-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Panel defaults
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docs
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+  <h1>Changelog</h1>
+
+<h2 id="v09-tbot-serve-waits-for-the-mod-by-default">v0.9 <code>tbot serve</code> waits for the mod by default<a class="headerlink" href="#v09-tbot-serve-waits-for-the-mod-by-default" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[feature] <strong>Launch-order-agnostic startup.</strong> <code>tbot serve</code> no longer fails fast when the mod is unreachable at startup. It now retries the <code>/api/ping</code> probe with <code>exp_backoff(1s→30s)</code> — the same cadence <code>tbot watch</code> and <code>tbot listen</code> already use — until the game is reachable. Run <code>tbot serve</code> first, then start Timberborn; both orderings work.</li>
+<li>[feature] <strong><code>--no-wait</code> opt-out.</strong> Scripts and CI that prefer the legacy fail-fast behaviour (clean exit if the mod is down) can pass <code>--no-wait</code>. The friendly <code>ModUnreachableError</code> handler in <code>cli.commands.serve</code> is unchanged.</li>
+<li>[behaviour] The first retry logs <code>serve: waiting for mod at http://… (launch Timberborn + load a save). Retrying every 1s…</code> at INFO so the operator can see what's happening; subsequent retries are at DEBUG to avoid log spam. Once the mod responds, <code>serve: mod reachable at …</code> is logged at INFO.</li>
+</ul>
+<h2 id="v09-cli-python-fire-dispatcher">v0.9 CLI: python-fire dispatcher<a class="headerlink" href="#v09-cli-python-fire-dispatcher" title="Permanent link">&para;</a></h2>
+<p>The <code>tbot</code> CLI is now dispatched via <a href="https://github.com/google/python-fire">python-fire</a> instead of the hand-rolled argparse + key:value dispatcher. The custom <code>cli/args.py</code> and <code>cli/dispatcher.py</code> modules are gone.</p>
+<div class="admonition warning">
+<p class="admonition-title">Breaking change for shell scripts and AI prompts</p>
+<p>The legacy <code>tbot &lt;command&gt; key:value key:value</code> syntax no longer works. Pass arguments either positionally (in the order shown in <code>tbot &lt;command&gt; --help</code>) or with <code>--key=value</code> / <code>--key value</code> flags. Hyphens and underscores in flag names are interchangeable. Existing user-edited prompts under <code>~/.config/timberbot/agent_prompts/</code> need re-materializing (<code>tbot init --force</code>) or hand-updating.</p>
+</div>
+<ul>
+<li>[feature] <strong>python-fire dispatcher.</strong> <code>tbot &lt;method&gt;</code> introspects every public <code>TimberbotClient</code> method and exposes it as a typed subcommand. Built-in subcommands (<code>top</code>, <code>manager</code>, <code>launch</code>, <code>init</code>, <code>listen</code>, <code>watch</code>, <code>serve</code>, <code>agent</code>) live as methods on the <code>Tbot</code> class; <code>agent</code> is a sub-group with <code>run</code> / <code>list_backends</code> / <code>prompts</code>.</li>
+<li>[feature] <strong>Per-command <code>--help</code>.</strong> <code>tbot &lt;command&gt; --help</code> renders the full Fire screen with positional args, flags, types, and defaults. <code>tbot --help</code> keeps a concise top-level index of builtins + client methods.</li>
+<li>[feature] <strong>Hyphen↔underscore flag aliasing.</strong> <code>--source_id=42</code> and <code>--source-id=42</code> both work for any flag.</li>
+<li>[removed] <strong><code>timberbot.cli.args</code> / <code>timberbot.cli.dispatcher</code>.</strong> Scripts that imported <code>parse_flags</code>, <code>_build_registry</code>, <code>parse_kv_args</code>, <code>format_usage</code>, or <code>_inject_listen_globals</code> need updating; the same global flags (<code>--host=</code>, <code>--port=</code>, <code>--auth-token=</code>, <code>--json</code>, <code>-v</code>/<code>--debug</code>) are now parsed by <code>timberbot.cli.main.parse_global_flags</code>.</li>
+</ul>
+<h3 id="migration-cheatsheet">Migration cheatsheet<a class="headerlink" href="#migration-cheatsheet" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>You were doing</th>
+<th>Do this instead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tbot set_speed speed:3</code></td>
+<td><code>tbot set_speed 3</code> or <code>tbot set_speed --speed=3</code></td>
+</tr>
+<tr>
+<td><code>tbot buildings name:Pump</code></td>
+<td><code>tbot buildings --name=Pump</code></td>
+</tr>
+<tr>
+<td><code>tbot place_building prefab:Path x:120 y:130 z:2 orientation:south</code></td>
+<td><code>tbot place_building --prefab=Path --x=120 --y=130 --z=2 --orientation=south</code></td>
+</tr>
+<tr>
+<td><code>tbot link source_id:42 target_id:44 input:a</code></td>
+<td><code>tbot link --source-id=42 --target-id=44 --input=a</code></td>
+</tr>
+<tr>
+<td><code>tbot brain goal:"reach 50 beavers"</code></td>
+<td><code>tbot brain --goal="reach 50 beavers"</code></td>
+</tr>
+<tr>
+<td><code>tbot launch settlement:MyCastle save:day5</code></td>
+<td><code>tbot launch --settlement=MyCastle --save=day5</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="v09-websocket-cutover">v0.9 WebSocket cutover<a class="headerlink" href="#v09-websocket-cutover" title="Permanent link">&para;</a></h2>
+<p>Hard cutover — no fallback path. The heartbeat-polling channel and the outbound-HTTP-webhook channel are both replaced by a single long-lived WebSocket.</p>
+<div class="admonition warning">
+<p class="admonition-title">Breaking change for existing <code>tbot watch</code>, <code>tbot listen</code>, and webhook subscribers</p>
+<p>Old <code>tbot</code> versions stop working against a v0.9 WebSocket mod — they speak the deleted HTTP heartbeat. Reinstall the matching <code>tbot</code> version (<code>pipx install --upgrade timberbot</code>).</p>
+<p>Anyone hosting an HTTP server to receive <code>POST /api/webhooks</code> deliveries must migrate to either <code>tbot listen</code> or a custom WebSocket subscriber. There is no shim — the outbound HTTP delivery loop is gone.</p>
+</div>
+<ul>
+<li>[feature] <strong>WebSocket transport.</strong> Parallel listener on <code>wsPort</code> (default 8086, <code>ws://host:wsPort/api/ws</code>). Frame envelope <code>{"type": "...", "payload": {...}}</code>. Server→client: <code>state</code>, <code>event</code>, <code>error</code>, <code>pong</code>. Client→server: <code>heartbeat</code>, <code>ping</code>. Auth via <code>Authorization: Bearer &lt;token&gt;</code> on the upgrade request (or <code>?token=</code> query param). Heartbeat cadence drops from 2 s polling to 30 s — WS ping/pong and TCP keepalive handle liveness.</li>
+<li>[feature] <strong><code>tbot listen</code> is now a pure WS client.</strong> No more <code>--port</code> / <code>--host</code> inbound flags; <code>tbot listen</code> connects out to the mod and prints <code>event</code> frames as they arrive. <code>--pretty</code> and <code>--forward-to FILE|URL</code> still work.</li>
+<li>[feature] <strong><code>tbot watch</code> is now a pure WS client.</strong> Polling loop and local-listener trigger queue deleted; the connector subscribes to the WS and reacts to <code>state</code> frames. <code>--listen-port</code> is gone — no inbound HTTP server.</li>
+<li>[feature] <strong>WS protocol contract.</strong> New <code>docs/websocket-protocol.md</code> is the authoritative wire spec. OpenAPI stays HTTP-only.</li>
+<li>[removed] <strong>HTTP endpoints:</strong> <code>POST /api/tbot/heartbeat</code>, <code>POST /api/tbot/register</code>, <code>POST /api/webhooks</code>, <code>GET /api/webhooks</code>, <code>POST /api/webhooks/delete</code>. The HTTP delivery loop, batching, circuit breaker, and subscriber registry in <code>TimberbotEvents.cs</code> are gutted (the <code>[OnEvent]</code> handlers stay; they now publish to the WS broadcaster).</li>
+<li>[removed] <strong>Settings keys:</strong> <code>webhooksEnabled</code>, <code>webhookBatchMs</code>, <code>webhookCircuitBreaker</code>, <code>webhookMaxPendingEvents</code>, <code>webhookValidateUrls</code>. Logged as ignored on load.</li>
+<li>[removed] <strong><code>tbotWebhookUrl</code> ephemeral field</strong> and <code>ExpireWebhookIfStale()</code> from <code>TimberbotAgentState</code> / <code>TimberbotService</code> — no connector-trigger URL is ever stored.</li>
+<li>[removed] <strong>Python client methods:</strong> <code>TimberbotClient.tbot_heartbeat</code>, <code>tbot_register</code>, <code>set_webhook</code>, <code>delete_webhook</code>, <code>list_webhooks</code>. Generated pydantic models for those endpoints are deleted.</li>
+<li>[removed] <strong>CLI commands:</strong> <code>tbot register_webhook</code>, <code>tbot unregister_webhook</code>, <code>tbot list_webhooks</code>. Use <code>tbot listen</code> instead.</li>
+<li>[docs] <a href="../architecture/">architecture.md</a>, <a href="../getting-started/">getting-started.md</a>, and the renamed <a href="../events/">events.md</a> (previously <code>webhooks.md</code>) rewritten around the WebSocket transport. <code>events.md</code> now documents WS event consumption rather than HTTP webhook registration. <code>AGENTS.md</code> (repo root) adds <code>docs/websocket-protocol.md</code> to the dev-facing read-first list.</li>
+</ul>
+<h3 id="migration-cheatsheet_1">Migration cheatsheet<a class="headerlink" href="#migration-cheatsheet_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>You were doing</th>
+<th>Do this instead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tbot register_webhook url:... events:...</code> then hosting your own HTTP server</td>
+<td><code>tbot listen</code> (pure WS client; no port needed)</td>
+</tr>
+<tr>
+<td><code>tbot watch --listen-port 9000</code></td>
+<td><code>tbot watch</code> (no <code>--listen-port</code> flag)</td>
+</tr>
+<tr>
+<td>Custom HTTP receiver subscribed to events</td>
+<td>Open a WS to <code>ws://host:8086/api/ws</code>, filter on <code>frame.payload.event</code></td>
+</tr>
+<tr>
+<td>Bumping <code>webhookBatchMs</code> to reduce delivery rate</td>
+<td>Buffer client-side — the mod pushes one frame per event</td>
+</tr>
+<tr>
+<td>Relying on circuit-breaker auto-disable</td>
+<td>Reconnect on your own; the mod drops slow consumers from the bounded send queue</td>
+</tr>
+</tbody>
+</table>
+<h2 id="v09-architecture-cutover-connector-model">v0.9 architecture cutover (connector model)<a class="headerlink" href="#v09-architecture-cutover-connector-model" title="Permanent link">&para;</a></h2>
+<p>Hard cutover — no fallback path. The widget no longer spawns the agent; the connector does.</p>
+<ul>
+<li>[feature] <strong><code>tbot watch</code> connector.</strong> Long-running Python process: reconnects with exponential backoff, heartbeats every 30 s over the WebSocket, dispatches <code>tbot agent run</code> (or attaches to <code>opencode serve</code>) per cycle.</li>
+<li>[feature] <strong>Launch / Stop ready gate.</strong> The widget button replaces Start/Stop. Until the player presses Launch, the mod returns <code>409 game_not_ready</code> on <strong>every <code>/api/*</code> read and write</strong> except <code>/api/agent/*</code>, <code>/api/ready</code>, <code>/api/ping</code>. Game events keep flowing over the WebSocket.</li>
+<li>[feature] <strong>Mode dropdown.</strong> Request (default) vs Autonomous. Request mode has a per-launch prompt textarea; autonomous mode persists <code>goal</code> to <code>state.json</code> and lets the connector pick cadence.</li>
+<li>[feature] <strong>Four new endpoints.</strong> <code>GET /api/agent/state</code>, <code>POST /api/agent/config</code>, <code>POST /api/agent/request</code>, <code>POST /api/ready</code>. (<code>POST /api/tbot/register</code> and <code>POST /api/tbot/heartbeat</code> were added here and later removed in the WS cutover above.)</li>
+<li>[feature] <strong>Bearer-token auth.</strong> <code>authToken</code> in <code>settings.json</code> requires <code>Authorization: Bearer &lt;token&gt;</code> on every <code>/api/*</code> route (constant-time compare). The mod refuses to start with a non-localhost <code>listenAddress</code> and empty <code>authToken</code>. Client side adds <code>[client].auth_token</code>, <code>TBOT_AUTH_TOKEN</code>, and <code>TimberbotClient(auth_token=…)</code>.</li>
+<li>[feature] <strong><code>tbot listen</code> WS client.</strong> Pure WebSocket subscriber that connects to the mod and prints <code>event</code> frames; <code>--pretty</code> for human rendering, <code>--forward-to FILE|URL</code> for piping.</li>
+<li>[feature] <strong>opencode <code>--attach</code>.</strong> <code>[backends.opencode].attach_url</code> (or <code>--attach-url</code>) makes <code>tbot agent run</code> target a long-running <code>opencode serve</code> instead of spawning a fresh process.</li>
+<li>[feature] <strong><code>state.json</code>.</strong> New file alongside <code>settings.json</code> for agent-shaped state. Persists <code>mode</code>, <code>goal</code>, <code>lastError</code>. Ephemeral state (<code>ready</code>, <code>pendingRequest</code>, <code>tbotWebhookUrl</code>, <code>lastAckedRequestId</code>) resets on save load. (<code>tbotWebhookUrl</code> is later removed in the WS cutover entry above; no replacement field — there's no connector-trigger URL to store.)</li>
+<li>[removed] <code>TimberbotAgent</code> subprocess spawn. The mod is a pure HTTP server.</li>
+<li>[removed] Settings keys: <code>agentBinary</code>, <code>agentGoal</code>, <code>agentModel</code>, <code>agentEffort</code>, <code>agentCommandTemplate</code>, <code>agentAllowlistEnabled</code>, <code>agentAllowedBinaries</code>, <code>tbotCommand</code>. Backend choice lives in <code>~/.config/timberbot/config.toml</code>; the connector runs <code>tbot</code>, not the mod.</li>
+<li>[docs] <a href="../getting-started/">getting-started.md</a>, <a href="../timberbot/">timberbot.md</a>, <code>webhooks.md</code> (later renamed to <a href="../events/">events.md</a> in the WS cutover), and <a href="../architecture/">architecture.md</a> rewritten around the new flow.</li>
+</ul>
+<h2 id="error-messages">Error messages<a class="headerlink" href="#error-messages" title="Permanent link">&para;</a></h2>
+<p>Every API error response is now rich and actionable. The AI gets enough context to correct the next call without guessing.</p>
+<p><strong>Write endpoints (TimberbotWrite.cs)</strong>
+- [fix] <code>not_found</code> errors explain that ids are ephemeral and tell the caller to re-query buildings
+- [fix] <code>invalid_type</code> errors include the building name and explain which building types support the operation
+- [fix] <code>invalid_param</code> errors echo the bad value and list all valid options
+- [fix] <code>no_population</code> includes requested vs available count
+- [fix] <code>insufficient_science</code> includes cost and current points with a human-readable message
+- [fix] district errors (<code>not_found</code>, <code>SetDistribution</code>) list all available district names
+- [fix] recipe and plantable errors list all available options for that building</p>
+<p><strong>Placement (TimberbotPlacement.cs)</strong>
+- [fix] placement validation errors name the blocking object (e.g. "occupied by Lumberjack") instead of generic "occupied"
+- [fix] every validation error includes a suggestion (e.g. "demolish it or try a different location")
+- [fix] <code>not_unlocked</code> tells the caller to use science/unlock first
+- [internal] extracted <code>FindBlockerAt()</code> helper for DRY blocker lookup across buildings, natural resources, and tracked blockers</p>
+<p><strong>HTTP server (TimberbotHttpServer.cs)</strong>
+- [fix] <code>invalid_body</code> explains the expected format
+- [fix] <code>unknown_endpoint</code> now lists all GET and POST endpoints (was only 13, now 55+)</p>
+<p><strong>Python client (timberbot.py)</strong>
+- [fix] unknown CLI parameters now show the bad param, valid params, and full usage line
+- [fix] toon error output shows the full response dict instead of just the error string</p>
+<h2 id="storage">Storage<a class="headerlink" href="#storage" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[feature] <code>POST /api/building/storage</code> endpoint for piles, warehouses, and tanks</li>
+<li>[feature] set allowed good (<code>good:Water</code>) and storage mode (<code>mode:obtain</code>) in one call</li>
+<li>[feature] four storage modes matching the player UI: accept, obtain, supply, empty</li>
+<li>[feature] <code>storageMode</code> and <code>allowedGood</code> fields in buildings detail:full output</li>
+<li>[fix] <code>SingleGoodAllower</code> now uses <code>Allow()</code> / <code>Disallow()</code> instead of direct property set, so the UI updates correctly</li>
+<li>[breaking] <code>/api/stockpile/good</code> and <code>/api/stockpile/capacity</code> removed, replaced by <code>/api/building/storage</code></li>
+</ul>
+<h2 id="write-endpoint-fixes">Write endpoint fixes<a class="headerlink" href="#write-endpoint-fixes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[fix] <code>Workplace.SetDesiredWorkers()</code> used instead of direct property set, fires <code>DesiredWorkersChanged</code> event and handles overstaffing</li>
+<li>[fix] <code>WorkingHoursManager.WorkedPartOfDay</code> used instead of direct <code>EndHours</code> set, fires <code>WorkingHoursChangedEvent</code></li>
+<li>[fix] <code>set_workers</code> minimum clamped to 1 (was 0), matching player UI behavior</li>
+<li>[breaking] <code>set_capacity</code> removed, player cannot change stockpile capacity</li>
+</ul>
+<h2 id="agent">Agent<a class="headerlink" href="#agent" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[removed] shipped Claude Code hooks (<code>pretool-bash.py</code>, <code>session-start.py</code>) deleted. they blocked parallel tool calls and are no longer needed</li>
+</ul>
+<h2 id="panel-defaults">Panel defaults<a class="headerlink" href="#panel-defaults" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[fix] model and effort defaults extracted to named constants (<code>DefaultClaudeModel</code>, <code>DefaultCodexModel</code>, etc.) instead of scattered string literals</li>
+<li>[fix] switching binary (claude/codex) auto-selects the correct default model and effort</li>
+</ul>
+<h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[new] 141 xUnit unit tests for <code>TimberbotJw</code> (serialization, commas, nesting, reuse) and <code>TimberbotPure</code> (orientation, name cleanup, assertions, normalization, quoting)</li>
+<li>[new] <code>timberbot/test/</code> project (net8.0, xUnit) shares source files with the main project, no Unity deps required</li>
+<li>[internal] extracted pure static helpers from 5 Unity-dependent files into <code>TimberbotPure.cs</code></li>
+</ul>
+<h2 id="docs">Docs<a class="headerlink" href="#docs" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[docs] "Timberbot AI" pages renamed to "Timberbot Guide"</li>
+<li>[docs] getting-started page updated with setup instructions</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../devenv/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Dev Environment">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Dev Environment
+              </div>
+            </div>
+          </a>
+        
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Timberbot API &mdash; Play Timberborn with an AI &middot; Modified fork of <a href="https://github.com/abix-/TimberbornMods">abix-/TimberbornMods</a>
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/impuls42/timberbot" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://github.com/abix-/TimberbornMods" target="_blank" rel="noopener" title="Upstream (abix-/TimberbornMods)" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "content.code.annotate", "content.tabs.link", "navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.expand", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

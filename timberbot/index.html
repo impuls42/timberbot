@@ -1,0 +1,3201 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Full operating guide for Claude and other LLMs playing Timberborn via the tbot CLI.">
+      
+      
+      
+        <link rel="canonical" href="https://impuls42.github.io/timberbot/timberbot/">
+      
+      
+        <link rel="prev" href="../api-reference/">
+      
+      
+        <link rel="next" href="../features/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Timberbot Guide - Timberbot API</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#timberbot-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Timberbot API" class="md-header__button md-logo" aria-label="Timberbot API" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Timberbot API
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Timberbot Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/impuls42/timberbot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    impuls42/timberbot
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Timberbot API" class="md-nav__button md-logo" aria-label="Timberbot API" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Timberbot API
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/impuls42/timberbot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    impuls42/timberbot
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timberbot Guide
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timberbot Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-agent-gets-here" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the agent gets here
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#first-run-boot-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FIRST RUN: Boot Sequence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FIRST RUN: Boot Sequence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#boot-rules-confirmation-no-api-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boot (rules confirmation. NO API calls)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#brain-pre-loaded-do-not-call-brain-again" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brain (pre-loaded. do NOT call brain again)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hard-rule-sequential-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HARD RULE: Sequential execution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roads
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#game-speed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Game Speed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#automation-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automation (1.0+)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Automation (1.0+)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#automation-buildings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automation buildings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-wiring-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How wiring works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuring-sensors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuring sensors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reading-automation-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading automation state
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#brain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brain
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Brain">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-brain-returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What brain returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#districts-and-clusters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Districts and clusters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#locations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Locations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factions-and-prefab-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Factions and prefab names
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Factions and prefab names">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#folktails-key-buildings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folktails key buildings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iron-teeth-key-buildings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Iron Teeth key buildings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-buildings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared buildings
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#path-routing-and-placement-hazards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path routing and placement hazards
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Path routing and placement hazards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#path-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path routing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flooding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flooding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#priorities-and-footprints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Priorities and footprints
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#game-mechanics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Game mechanics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Game mechanics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#time-pressure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Time pressure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#food" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Food
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#water" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Water
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#irrigation-and-moisture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Irrigation and moisture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#water-management-structures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Water management structures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aquifer-drills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aquifer drills
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#badwater-and-contamination" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Badwater and contamination
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trees" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trees
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#power" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Power
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manufacturing-chains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manufacturing chains
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#beaver-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beaver lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#weather-cycles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Weather cycles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#population-growth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Population growth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bots
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scaling-ratios-approximate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scaling ratios (approximate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#districts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Districts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#death-spiral" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Death spiral
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wellbeing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wellbeing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Wellbeing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#folktails-wellbeing-max-77" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folktails wellbeing (max 77)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iron-teeth-wellbeing-max-77" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Iron Teeth wellbeing (max ~77)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wellbeing-building-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wellbeing building placement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recipe-switching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recipe switching
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rooftop-buildings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rooftop buildings
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conditional-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditional References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websocket-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../macos-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    macOS Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devenv/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dev Environment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unreleased/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-the-agent-gets-here" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the agent gets here
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#first-run-boot-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FIRST RUN: Boot Sequence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FIRST RUN: Boot Sequence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#boot-rules-confirmation-no-api-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boot (rules confirmation. NO API calls)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#brain-pre-loaded-do-not-call-brain-again" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brain (pre-loaded. do NOT call brain again)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hard-rule-sequential-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HARD RULE: Sequential execution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roads
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Placement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#game-speed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Game Speed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#automation-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automation (1.0+)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Automation (1.0+)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#automation-buildings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automation buildings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-wiring-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How wiring works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuring-sensors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuring sensors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API commands
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reading-automation-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reading automation state
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#brain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brain
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Brain">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-brain-returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What brain returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#districts-and-clusters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Districts and clusters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#locations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Locations
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factions-and-prefab-names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Factions and prefab names
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Factions and prefab names">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#folktails-key-buildings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folktails key buildings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iron-teeth-key-buildings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Iron Teeth key buildings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shared-buildings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shared buildings
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#path-routing-and-placement-hazards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path routing and placement hazards
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Path routing and placement hazards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#path-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Path routing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#flooding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flooding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#priorities-and-footprints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Priorities and footprints
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#game-mechanics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Game mechanics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Game mechanics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#time-pressure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Time pressure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#food" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Food
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#water" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Water
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#irrigation-and-moisture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Irrigation and moisture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#water-management-structures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Water management structures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aquifer-drills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Aquifer drills
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#badwater-and-contamination" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Badwater and contamination
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#trees" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trees
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#power" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Power
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#manufacturing-chains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manufacturing chains
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#beaver-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beaver lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#weather-cycles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Weather cycles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#population-growth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Population growth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bots
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scaling-ratios-approximate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scaling ratios (approximate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#districts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Districts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#death-spiral" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Death spiral
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workers
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wellbeing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wellbeing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Wellbeing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#folktails-wellbeing-max-77" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folktails wellbeing (max 77)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#iron-teeth-wellbeing-max-77" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Iron Teeth wellbeing (max ~77)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wellbeing-building-placement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wellbeing building placement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recipe-switching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recipe switching
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rooftop-buildings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rooftop buildings
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conditional-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditional References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="timberbot-guide">Timberbot Guide<a class="headerlink" href="#timberbot-guide" title="Permanent link">&para;</a></h1>
+<p>This is the full Timberbot Guide for playing Timberborn through the <code>tbot</code> CLI.</p>
+<p>The <code>timberbot</code> agent prompt (shipped as <code>tbot.agent_prompts.timberbot</code> and materialized via <code>tbot init</code>) is the slim runtime prompt injected at launch. This page is the full guide behind that prompt. The split keeps launch tokens low while preserving the deeper operating rules and reference material the agent may need.</p>
+<p>Read this first. Use the other docs only when needed:</p>
+<ul>
+<li><a href="../api-reference/">API Reference</a> for exact commands, endpoint shapes, helper behavior, pagination, and error payloads</li>
+<li><a href="../getting-started/">Getting Started</a> for install, PATH, remote host, and troubleshooting</li>
+</ul>
+<h2 id="how-the-agent-gets-here">How the agent gets here<a class="headerlink" href="#how-the-agent-gets-here" title="Permanent link">&para;</a></h2>
+<p>The agent never starts itself. The chain is:</p>
+<ol>
+<li>The player runs <code>tbot watch</code> on their machine. It opens a long-lived WebSocket to <code>ws://host:8086/api/ws</code>, sends a <code>heartbeat</code> frame every 30 s, and receives <code>state</code> and <code>event</code> pushes from the mod.</li>
+<li>The player presses <strong>Launch</strong> in the in-game Timberbot widget. The mod sets <code>ready=true</code> and opens the <code>/api/*</code> gate. The state change broadcasts to every connected WS client (your connector + any <code>tbot listen</code> subscribers) within ~50 ms.</li>
+<li>In <strong>request mode</strong>, the player typed a prompt and pressed Launch; the mod's <code>pendingRequest</code> field appears in the next <code>state</code> push and the connector picks it up. In <strong>autonomous mode</strong>, the connector dispatches on its own cadence using the persisted <code>goal</code>.</li>
+<li>The connector calls <code>tbot agent run</code> (or attaches to a long-running <code>opencode serve</code>), which is when this guide enters the agent's context.</li>
+</ol>
+<p>You're the agent in step 4. The widget and the connector are not in your context — they're the human's tooling for waving you in. The contract you care about is:</p>
+<ul>
+<li><code>/api/agent/state</code> tells you the current <code>mode</code>, <code>goal</code>, <code>ready</code>, and (if any) the <code>pendingRequest</code> payload that triggered this run.</li>
+<li>The ready gate is <strong>already open</strong> by the time you run; you don't need to touch <code>/api/ready</code>. If you ever see <code>409 game_not_ready</code>, the player pressed Stop mid-run — abort cleanly and don't retry.</li>
+<li>After completing a request-mode cycle, the connector advances <code>acked_request_id</code> to clear the pending slot. You don't have to ack manually.</li>
+</ul>
+<h2 id="first-run-boot-sequence">FIRST RUN: Boot Sequence<a class="headerlink" href="#first-run-boot-sequence" title="Permanent link">&para;</a></h2>
+<p>On the first invocation of <code>/timberbot</code> per session, complete <code>Boot</code>, then <code>Brain</code>, in order. The boot report is not a game action. It proves that you loaded the guide before making changes.</p>
+<h3 id="boot-rules-confirmation-no-api-calls">Boot (rules confirmation. NO API calls)<a class="headerlink" href="#boot-rules-confirmation-no-api-calls" title="Permanent link">&para;</a></h3>
+<p>The <code>tbot</code> CLI is on PATH. Run it directly. never use <code>python</code> prefix, never <code>cd</code> anywhere.</p>
+<ol>
+<li>Read this entire guide top to bottom before calling any game APIs.</li>
+<li>Read <code>api-reference.md</code> top to bottom. Once in context, use it from context. do not re-read it.</li>
+<li>Immediately print this boot report in markdown. Replace every placeholder yourself. Use lowercase throughout:</li>
+</ol>
+<div class="language-md highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gu">## TIMBERBOT</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">&gt; </span><span class="ge">**docs source** `&lt;full docs directory path | github docs url with user approval&gt;`</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">&gt; </span><span class="ge">**ai doc** `&lt;full path | MISSING&gt;`</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">&gt; </span><span class="ge">**api doc** `&lt;full path | MISSING&gt;`</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">&gt; </span><span class="ge">**setup doc** `&lt;full path | MISSING&gt;`</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">-</span><span class="w"> </span><span class="gs">**boot rule**</span> <span class="sb">`&lt;when boot runs&gt;`</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="k">-</span><span class="w"> </span><span class="gs">**first read**</span> <span class="sb">`&lt;first command to read colony state&gt;`</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">-</span><span class="w"> </span><span class="gs">**placement**</span> <span class="sb">`&lt;required building placement method&gt;`</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">-</span><span class="w"> </span><span class="gs">**crops**</span> <span class="sb">`&lt;required crop planning method&gt;`</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="k">-</span><span class="w"> </span><span class="gs">**mutations**</span> <span class="sb">`&lt;mutation execution rule&gt;`</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">-</span><span class="w"> </span><span class="gs">**path root**</span> <span class="sb">`&lt;what path distance is measured from&gt;`</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">-</span><span class="w"> </span><span class="gs">**prefabs**</span> <span class="sb">`&lt;prefab naming rule. include the lookup requirement&gt;`</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="k">-</span><span class="w"> </span><span class="gs">**power**</span> <span class="sb">`&lt;power routing rule&gt;`</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="k">-</span><span class="w"> </span><span class="gs">**errors**</span> <span class="sb">`&lt;error format rule&gt;`</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="k">-</span><span class="w"> </span><span class="gs">**remote**</span> <span class="sb">`&lt;remote connection rule&gt;`</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="k">&gt; </span><span class="ge">**boot result** `&lt;PASSED | FAILED&gt;`</span>
+</span></code></pre></div>
+<p>If boot is <code>PASSED</code>, continue immediately to <code>Brain</code>.
+If any doc is <code>MISSING</code>, any placeholder is left blank, or any fact cannot be stated, boot is <code>FAILED</code>. Report the issue, ask the user for guidance, and do not make any game API calls.</p>
+<h3 id="brain-pre-loaded-do-not-call-brain-again">Brain (pre-loaded. do NOT call brain again)<a class="headerlink" href="#brain-pre-loaded-do-not-call-brain-again" title="Permanent link">&para;</a></h3>
+<p>Colony state was already gathered and injected into your system prompt before this session started. Look for the <code>## CURRENT COLONY STATE</code> section in your context. Do NOT run <code>tbot brain</code>. it was already run for you.</p>
+<ol>
+<li>Print this readout using the colony state from your system prompt:</li>
+</ol>
+<div class="language-md highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">&gt; </span><span class="ge">**settlement** `&lt;name&gt;` | `&lt;faction&gt;` | &lt;&quot;new&quot; or &quot;loaded&quot;&gt;</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">&gt; </span><span class="ge">**goal** `&lt;goal text or &quot;none. awaiting orders&quot;&gt;`</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">&gt;</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="ge">&gt; **day** `&lt;N&gt;` | **speed** `&lt;S&gt;` | **weather** &lt;temperate/drought&gt; `&lt;N&gt;d` remain</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">&gt; </span><span class="ge">**pop** `&lt;adults&gt;` adults, `&lt;children&gt;` children | **beds** `&lt;occ&gt;`/`&lt;total&gt;` | **workers** `&lt;assigned&gt;`/`&lt;vacancies&gt;`</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">&gt; </span><span class="ge">**supply** food `&lt;F&gt;d` | water `&lt;W&gt;d` | logs `&lt;L&gt;d` | planks `&lt;P&gt;d` | gears `&lt;G&gt;d`</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">&gt; </span><span class="ge">**wellbeing** `&lt;avg&gt;`/77 | `&lt;miserable&gt;` miserable | `&lt;critical&gt;` critical (beavers only)</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">&gt; </span><span class="ge">**nearby** `&lt;N&gt;` trees (`&lt;species&gt;`) | `&lt;N&gt;` food (`&lt;species&gt;`)</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="k">&gt; </span><span class="ge">**alerts** `&lt;unstaffed&gt;` unstaffed | `&lt;unpowered&gt;` unpowered | `&lt;unreachable&gt;` unreachable</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">&gt;</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="ge">&gt; **tasks** &lt;count pending/active/failed or &quot;none&quot;&gt;</span>
+</span></code></pre></div>
+<p>If food or water is <code>&lt;= 1d</code>, append <code>CRITICAL</code> after the value. If alerts are all zero, show <code>all clear</code>.</p>
+<p><strong>Note on stats:</strong> Wellbeing averages, "miserable" counts, "critical" counts, and survival days (food/water/logs/planks/gears) strictly reflect <strong>organic beavers</strong> only. Bots are excluded to ensure statistics represent actual colony survival and health.</p>
+<p>If the colony state section is missing from your system prompt, fall back to running <code>tbot brain --goal="&lt;goal&gt;"</code> manually.</p>
+<ol>
+<li>If there are failed or active tasks from a previous session, list them and assess whether to retry or re-plan before starting new work.</li>
+</ol>
+<p>Only after both phases are complete should you begin working on the user's request.</p>
+<p>On subsequent invocations in the same session, skip the boot sequence and go straight to work.</p>
+<hr />
+<p>This is a human-AI co-op game. The human player is also building, demolishing, and changing settings in real time. Game state can change between API calls.</p>
+<p>The <code>tbot</code> CLI is on PATH. Call it directly. See <a href="../getting-started/">Getting Started</a> for setup details.</p>
+<p>Beavers die if food or water hits 0.</p>
+<h2 id="hard-rule-sequential-execution">HARD RULE: Sequential execution<a class="headerlink" href="#hard-rule-sequential-execution" title="Permanent link">&para;</a></h2>
+<p>Never run mutating game API calls in parallel. Every placement, path, or config call changes the map state that the next call depends on. A failed placement invalidates every subsequent call that assumed it succeeded.</p>
+<p>Read-only calls like <code>brain</code>, <code>buildings</code>, <code>find_placement</code>, <code>map</code>, <code>tiles</code>, and <code>weather</code> can run in parallel if you truly need that, but any mutating call such as <code>place_building</code>, <code>place_path</code>, <code>demolish_building</code>, <code>demolish_crop</code>, <code>set_*</code>, <code>plant_crop</code>, or <code>mark_trees</code> must complete and succeed before the next action.</p>
+<h2 id="roads">Roads<a class="headerlink" href="#roads" title="Permanent link">&para;</a></h2>
+<p>Roads are the circulatory system of the colony. They cost nothing and can be placed freely. Every building, workplace, and resource site must connect back to the district center through an unbroken chain of path tiles. Without roads, beavers are trapped at the DC and cannot reach work, haul, or access water.</p>
+<p>Think of the road network as a tree:</p>
+<ul>
+<li>the DC entrance is the root</li>
+<li>trunk roads extend outward from it</li>
+<li>branch roads fork toward resources and building sites</li>
+<li>each building attaches via its entrance tile</li>
+</ul>
+<p>The DC entrance is on the side matching the DC orientation. For a south-facing DC at <code>(x, y)</code>, the entrance is the middle tile of the south edge: <code>(x+1, y-1)</code>.</p>
+<p><code>find_placement.reachable</code> means "path-connected to DC." <code>find_placement.distance</code> is the path cost from the DC entrance through the flow field. A building with <code>reachable:0</code> cannot be staffed or supplied. Lower distance means shorter hauler trips.</p>
+<h2 id="placement">Placement<a class="headerlink" href="#placement" title="Permanent link">&para;</a></h2>
+<p>Use <code>find_placement</code> for all building placement. Never manually search tiles, grep for water, or scan the map by eye for final coordinates. It checks terrain, water depth, flooding, orientation, path adjacency, and reachability in one call. Use the <code>x</code>, <code>y</code>, <code>z</code>, and <code>orientation</code> it returns.</p>
+<p><strong>Proximity filtering:</strong> When searching for buildings, trees, or placements, the <code>radius</code> filter (default: 30) <strong>requires both x and y</strong> coordinates to be provided. Providing only one coordinate will disable the proximity filter to avoid accidental <code>y=0</code> defaults.</p>
+<p><code>brain</code> returns the DC coords, entrance, z-level, and a 41x41 ANSI map centered on the DC. The saved map file (<code>memory/map-districtcenter-*.txt</code>) shows terrain, water, trees, and buildings.</p>
+<p>Paths are 1x1 entities that occupy tiles. A path on a tile prevents any building from being placed there.</p>
+<p>The tile one step in the orientation direction from the entrance must be a path. <code>find_placement</code> returns <code>orientation</code> pointing the entrance toward the nearest path.</p>
+<p>Entrance directions:</p>
+<ul>
+<li>north = <code>+y</code></li>
+<li>south = <code>-y</code></li>
+<li>east = <code>+x</code></li>
+<li>west = <code>-x</code></li>
+</ul>
+<p>Example: building at <code>(10,10)</code> with orientation <code>south</code> means the entrance faces <code>-y</code>, so tile <code>(10,9)</code> must be a path.</p>
+<p>Important planning fields:</p>
+<ul>
+<li><code>entranceX</code> / <code>entranceY</code>: tile where a path must go</li>
+<li><code>flooded</code>: whether the footprint floods</li>
+<li><code>waterDepth</code>: useful for pumps and water structures</li>
+<li><code>reachable</code>: whether the site connects back to the DC</li>
+<li><code>pathAccess</code>: whether the site already has a path-adjacent entrance</li>
+<li><code>nearPower</code>: whether the site already touches the power network</li>
+<li><code>distance</code>: path cost from the DC entrance via flow field</li>
+</ul>
+<p>Sort preference: non-flooded &gt; reachable &gt; lower distance &gt; pathAccess &gt; nearPower.</p>
+<p><code>z</code> must equal the terrain height at the placement location. Wrong <code>z</code> causes invisible or broken placement. Use the brain map for fast orientation and <code>tiles</code> when you need raw data.</p>
+<p>A new game starts with only a district center and no roads. Paths cost nothing. Stairs and platforms require science unlocks.</p>
+<h2 id="game-speed">Game Speed<a class="headerlink" href="#game-speed" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Name</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td><strong>Paused</strong></td>
+<td>No time passes. Placement, pathing, and priority changes still work.</td>
+</tr>
+<tr>
+<td>1</td>
+<td><strong>Normal</strong></td>
+<td>1x speed</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Fast</strong></td>
+<td>2x speed</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Fastest</strong></td>
+<td>4x speed</td>
+</tr>
+</tbody>
+</table>
+<p>Use speed 0 to plan and queue work without spending resources. Do not unpause without a reason.</p>
+<h2 id="automation-10">Automation (1.0+)<a class="headerlink" href="#automation-10" title="Permanent link">&para;</a></h2>
+<p>Timberborn 1.0 introduced a full automation system: sensors detect conditions, relays process logic, and wires connect them to buildings. The API exposes wiring and configuration for AI agents.</p>
+<blockquote>
+<p><strong>Vocabulary warning.</strong> Timberborn reuses "high" and "low" across three unrelated systems (automation signals, priorities, physical heights). Mixing them produces hallucinated commands. Read <a href="https://github.com/impuls42/timberbot/blob/main/design/automation-states.md"><code>design/automation-states.md</code></a> (in repo) for the disambiguation. The short version: automation wires carry only <code>On</code>/<code>Off</code>, priorities use <code>VeryLow</code>..<code>VeryHigh</code>, and floodgate heights are floats.</p>
+</blockquote>
+<h3 id="automation-buildings">Automation buildings<a class="headerlink" href="#automation-buildings" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Building</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Depth Sensor</td>
+<td>Triggers when water reaches a threshold</td>
+</tr>
+<tr>
+<td>Contamination Sensor</td>
+<td>Triggers when badwater contamination reaches a threshold</td>
+</tr>
+<tr>
+<td>Flow Sensor</td>
+<td>Triggers when water flow reaches a threshold</td>
+</tr>
+<tr>
+<td>Resource Counter</td>
+<td>Triggers when a good's stock or fill rate meets a threshold</td>
+</tr>
+<tr>
+<td>Population Counter</td>
+<td>Triggers when beaver/bot population meets a threshold</td>
+</tr>
+<tr>
+<td>Power Meter</td>
+<td>Triggers when power production or consumption meets a threshold</td>
+</tr>
+<tr>
+<td>Relay</td>
+<td>Combines two inputs with logic (Not/And/Or/Xor/Passthrough)</td>
+</tr>
+<tr>
+<td>Memory</td>
+<td>Stores input state; reset via a third input</td>
+</tr>
+<tr>
+<td>Timer</td>
+<td>Fires on a schedule</td>
+</tr>
+<tr>
+<td>Chronometer</td>
+<td>Fires between start and end times</td>
+</tr>
+<tr>
+<td>Lever</td>
+<td>Binary on/off output; can be spring-return or pinned</td>
+</tr>
+<tr>
+<td>Gate</td>
+<td>Pauses or unpauses flow through a waterway</td>
+</tr>
+</tbody>
+</table>
+<h3 id="how-wiring-works">How wiring works<a class="headerlink" href="#how-wiring-works" title="Permanent link">&para;</a></h3>
+<ol>
+<li>A <strong>sensor/relay</strong> has an <code>Automator</code> component (it is a transmitter).</li>
+<li>A <strong>building</strong> (pump, factory, gate, etc.) has an <code>Automatable</code> component (it accepts a wire).</li>
+<li>The API <code>link</code> call connects the transmitter's output to the building's pause input.</li>
+<li>For <strong>relays and memory</strong>, there are two inputs (A and B) and optionally a reset.</li>
+</ol>
+<h3 id="configuring-sensors">Configuring sensors<a class="headerlink" href="#configuring-sensors" title="Permanent link">&para;</a></h3>
+<p>Each sensor has a threshold, a comparison mode (Equal, Greater, Less, etc.), and type-specific options:</p>
+<ul>
+<li><strong>Resource Counter</strong>: also needs <code>goodId</code> (e.g., <code>"Water"</code>, <code>"Logs"</code>, <code>"Carrot"</code>) and optionally <code>fillRateThreshold</code></li>
+<li><strong>Population Counter</strong>: can count beavers only, bots only, or both; can be global or district-local</li>
+<li><strong>Power Meter</strong>: can use absolute (int) or percentage thresholds</li>
+</ul>
+<h3 id="api-commands">API commands<a class="headerlink" href="#api-commands" title="Permanent link">&para;</a></h3>
+<p>See <code>docs/api-reference.md</code> for the full endpoint reference. The key commands are:</p>
+<ul>
+<li><code>tbot link --source-id=&lt;id&gt; --target-id=&lt;id&gt; [--input=a|b]</code> — wire a sensor/relay to a building or relay input</li>
+<li><code>tbot unlink --id=&lt;id&gt; [--input=a|b|reset]</code> — remove a wire</li>
+<li><code>tbot configure_automation --id=&lt;id&gt; --property=&lt;prop&gt; --value=&lt;val&gt;</code> — set threshold, mode, goodId, etc.</li>
+</ul>
+<h3 id="reading-automation-state">Reading automation state<a class="headerlink" href="#reading-automation-state" title="Permanent link">&para;</a></h3>
+<p>Buildings with automation have an <code>automation</code> block in their JSON response:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ContaminationSensor&quot;</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">&quot;automation&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ContaminationSensor&quot;</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">&quot;state&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;On&quot;</span><span class="p">,</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;threshold&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;comparisonMode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Greater&quot;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">&quot;outputs&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">44</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Relay #1&quot;</span><span class="p">}]</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>A regular building with a wire looks like:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">44</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;WaterPump&quot;</span><span class="p">,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">&quot;automation&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">&quot;isAutomated&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">&quot;inputState&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;On&quot;</span><span class="p">,</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">&quot;input&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ContaminationSensor&quot;</span><span class="p">}</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>For full API details, read <code>docs/api-reference.md</code> and <code>design/automation-plan.md</code> (which contains the decompiled game API surface).</p>
+<h2 id="brain">Brain<a class="headerlink" href="#brain" title="Permanent link">&para;</a></h2>
+<p><code>brain</code> is the preferred first read for colony state because it combines live game state with persistent task and memory state.</p>
+<ul>
+<li><code>tbot brain</code> returns live summary from the game plus goal/tasks/locations from disk</li>
+<li><code>tbot brain --goal="&lt;text&gt;"</code> sets or overwrites the persistent goal</li>
+</ul>
+<h3 id="what-brain-returns">What brain returns<a class="headerlink" href="#what-brain-returns" title="Permanent link">&para;</a></h3>
+<p><strong>Live summary (fresh every call):</strong></p>
+<ul>
+<li>settlement name and faction</li>
+<li>day, progress, speed, and weather</li>
+<li>district population/resources/housing/employment/wellbeing/DC</li>
+<li>trees and crops, including species breakdowns</li>
+<li>wellbeing summary and per-category values</li>
+<li>science, alerts, building role counts</li>
+<li>nearby <code>treeClusters</code> and <code>foodClusters</code></li>
+</ul>
+<p><strong>Persistent state (stored in <code>&lt;user-data&gt;/timberbot/memory/&lt;settlement&gt;/brain.toon</code> — <code>~/.local/share/timberbot/memory/</code> on Linux, <code>~/Library/Application Support/timberbot/memory/</code> on macOS, <code>%LOCALAPPDATA%\timberbot\memory\</code> on Windows; override with <code>TBOT_DATA_DIR</code>):</strong></p>
+<ul>
+<li><code>goal</code></li>
+<li>ordered <code>tasks</code></li>
+<li>saved <code>locations</code></li>
+<li>last write timestamp</li>
+</ul>
+<h3 id="districts-and-clusters">Districts and clusters<a class="headerlink" href="#districts-and-clusters" title="Permanent link">&para;</a></h3>
+<p>Each district is self-contained: population, resources, housing, employment, wellbeing, and DC coords. Multi-district colonies return all districts.</p>
+<p><code>treeClusters</code> and <code>foodClusters</code> are filtered to the same z-level as the first DC and within 40 Manhattan distance. <code>grown</code> means harvestable now. <code>total</code> includes seedlings or immature growth.</p>
+<h3 id="locations">Locations<a class="headerlink" href="#locations" title="Permanent link">&para;</a></h3>
+<p><code>brain</code> auto-seeds named locations (DC, forests, berries) from live data on first run. Use <code>set_location</code> and <code>remove_location</code> to manage them. Locations are stored in <code>brain.toon</code> and survive between sessions.</p>
+<h3 id="task-workflow">Task workflow<a class="headerlink" href="#task-workflow" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Use persistent tasks for multi-step work that will span turns or sessions.</li>
+<li>Mark failed tasks with the real reason so the next session can re-plan instead of repeating the same mistake.</li>
+</ul>
+<h2 id="factions-and-prefab-names">Factions and prefab names<a class="headerlink" href="#factions-and-prefab-names" title="Permanent link">&para;</a></h2>
+<p>Timberborn has two factions: <strong>Folktails</strong> and <strong>Iron Teeth</strong>. Every prefab except <code>Path</code> and the reserve storage buildings requires a faction suffix (<code>.Folktails</code> or <code>.IronTeeth</code>). Never use a bare name like <code>GathererFlag</code>; it must be <code>GathererFlag.Folktails</code> or <code>GathererFlag.IronTeeth</code>.</p>
+<p>Use <code>brain</code> or summary output to confirm the current faction before planning buildings.</p>
+<p>ALWAYS run <code>tbot prefabs | grep -i &lt;keyword&gt;</code> before placing any building you have not already placed this session. NEVER guess a prefab name by swapping faction suffixes. Names are inconsistent across factions:</p>
+<ul>
+<li>Folktails <code>SmallPile</code> -&gt; Iron Teeth <code>SmallIndustrialPile</code> (not SmallPile)</li>
+<li>Folktails <code>LumberMill</code> -&gt; Iron Teeth <code>IndustrialLumberMill</code> (not LumberMill)</li>
+<li>Folktails <code>EfficientFarmHouse</code> -&gt; Iron Teeth <code>FarmHouse</code> (reversed)</li>
+<li>Folktails <code>SmallWarehouse</code> -&gt; Iron Teeth <code>MediumWarehouse</code> (different size prefix)</li>
+</ul>
+<p>A wrong prefab name causes <code>invalid_prefab</code> on every placement attempt. If <code>find_placement</code> returns <code>invalid_prefab</code>, check the prefab name FIRST.</p>
+<h3 id="folktails-key-buildings">Folktails key buildings<a class="headerlink" href="#folktails-key-buildings" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Prefab name</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Housing</td>
+<td>Lodge.Folktails</td>
+<td>2x2 starter housing</td>
+</tr>
+<tr>
+<td>Housing</td>
+<td>MiniLodge.Folktails</td>
+<td>1x1, science unlock</td>
+</tr>
+<tr>
+<td>Housing</td>
+<td>DoubleLodge.Folktails</td>
+<td>science unlock</td>
+</tr>
+<tr>
+<td>Housing</td>
+<td>TripleLodge.Folktails</td>
+<td>science unlock</td>
+</tr>
+<tr>
+<td>Farming</td>
+<td>EfficientFarmHouse.Folktails</td>
+<td>land crops; there is no <code>FarmHouse.Folktails</code></td>
+</tr>
+<tr>
+<td>Farming</td>
+<td>AquaticFarmhouse.Folktails</td>
+<td>aquatic crops</td>
+</tr>
+<tr>
+<td>Water</td>
+<td>WaterPump.Folktails</td>
+<td>must straddle land/water edge</td>
+</tr>
+<tr>
+<td>Water</td>
+<td>LargeWaterPump.Folktails</td>
+<td>science unlock</td>
+</tr>
+<tr>
+<td>Power</td>
+<td>WaterWheel.Folktails</td>
+<td>needs flowing water</td>
+</tr>
+<tr>
+<td>Power</td>
+<td>WindTurbine.Folktails</td>
+<td>science unlock</td>
+</tr>
+<tr>
+<td>Power</td>
+<td>LargeWindTurbine.Folktails</td>
+<td>science unlock</td>
+</tr>
+<tr>
+<td>Wood</td>
+<td>LumberjackFlag.Folktails</td>
+<td>chops trees</td>
+</tr>
+<tr>
+<td>Wood</td>
+<td>LumberMill.Folktails</td>
+<td>logs to planks</td>
+</tr>
+<tr>
+<td>Wood</td>
+<td>Forester.Folktails</td>
+<td>plants trees, science unlock</td>
+</tr>
+<tr>
+<td>Food processing</td>
+<td>Grill.Folktails</td>
+<td>grilled foods</td>
+</tr>
+<tr>
+<td>Food processing</td>
+<td>Gristmill.Folktails</td>
+<td>flour</td>
+</tr>
+<tr>
+<td>Food processing</td>
+<td>Bakery.Folktails</td>
+<td>bread</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>SmallWarehouse.Folktails</td>
+<td>starter warehouse</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>SmallTank.Folktails</td>
+<td>starter water storage</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>SmallPile.Folktails</td>
+<td>starter log pile</td>
+</tr>
+<tr>
+<td>Science</td>
+<td>Inventor.Folktails</td>
+<td>science generation</td>
+</tr>
+<tr>
+<td>Leisure</td>
+<td>Campfire.Folktails</td>
+<td>SocialLife +1</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>DistrictCenter.Folktails</td>
+<td>colony hub</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>HaulingPost.Folktails</td>
+<td>hauler workplace</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>Dam.Folktails</td>
+<td>starter water retention</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>Levee.Folktails</td>
+<td>full water block</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>Stairs.Folktails</td>
+<td>z-level transition</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>Platform.Folktails</td>
+<td>multi-level jump</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>PowerShaft.Folktails</td>
+<td>power transmission</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>GathererFlag.Folktails</td>
+<td>gathers berries</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>ScavengerFlag.Folktails</td>
+<td>collects scrap metal</td>
+</tr>
+<tr>
+<td>Wellbeing</td>
+<td>RooftopTerrace.Folktails</td>
+<td>SocialLife +1</td>
+</tr>
+<tr>
+<td>Utility</td>
+<td>TeethGrindstone.Folktails</td>
+<td>fixes chipped teeth</td>
+</tr>
+<tr>
+<td>Utility</td>
+<td>MedicalBed.Folktails</td>
+<td>heals injuries</td>
+</tr>
+</tbody>
+</table>
+<h3 id="iron-teeth-key-buildings">Iron Teeth key buildings<a class="headerlink" href="#iron-teeth-key-buildings" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Prefab name</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Housing</td>
+<td>Rowhouse.IronTeeth</td>
+<td>starter housing</td>
+</tr>
+<tr>
+<td>Housing</td>
+<td>Barrack.IronTeeth</td>
+<td>science unlock</td>
+</tr>
+<tr>
+<td>Farming</td>
+<td>FarmHouse.IronTeeth</td>
+<td>land crops</td>
+</tr>
+<tr>
+<td>Farming</td>
+<td>HydroponicGarden.IronTeeth</td>
+<td>indoor, needs power and science</td>
+</tr>
+<tr>
+<td>Water</td>
+<td>DeepWaterPump.IronTeeth</td>
+<td>3x2, must straddle land/water edge</td>
+</tr>
+<tr>
+<td>Power</td>
+<td>LargePowerWheel.IronTeeth</td>
+<td>300hp hamster wheel</td>
+</tr>
+<tr>
+<td>Power</td>
+<td>SteamEngine.IronTeeth</td>
+<td>science unlock</td>
+</tr>
+<tr>
+<td>Wood</td>
+<td>LumberjackFlag.IronTeeth</td>
+<td>chops trees</td>
+</tr>
+<tr>
+<td>Wood</td>
+<td>IndustrialLumberMill.IronTeeth</td>
+<td>logs to planks (NOT LumberMill)</td>
+</tr>
+<tr>
+<td>Wood</td>
+<td>Forester.IronTeeth</td>
+<td>plants trees</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>SmallIndustrialPile.IronTeeth</td>
+<td>starter log pile (NOT SmallPile)</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>SmallTank.IronTeeth</td>
+<td>starter water storage</td>
+</tr>
+<tr>
+<td>Storage</td>
+<td>MediumWarehouse.IronTeeth</td>
+<td>starter warehouse (NOT SmallWarehouse)</td>
+</tr>
+<tr>
+<td>Science</td>
+<td>Inventor.IronTeeth</td>
+<td>science generation</td>
+</tr>
+<tr>
+<td>Leisure</td>
+<td>Campfire.IronTeeth</td>
+<td>SocialLife +1</td>
+</tr>
+<tr>
+<td>Wellbeing</td>
+<td>Scratcher.IronTeeth</td>
+<td>Fun +1</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>HaulingPost.IronTeeth</td>
+<td>hauler workplace</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>GathererFlag.IronTeeth</td>
+<td>gathers berries</td>
+</tr>
+<tr>
+<td>Infrastructure</td>
+<td>ScavengerFlag.IronTeeth</td>
+<td>collects scrap metal</td>
+</tr>
+</tbody>
+</table>
+<h3 id="shared-buildings">Shared buildings<a class="headerlink" href="#shared-buildings" title="Permanent link">&para;</a></h3>
+<p><code>Path</code>, <code>AncientAquiferDrill</code>, <code>ReservePile</code>, <code>ReserveTank</code>, and <code>ReserveWarehouse</code> do not use faction suffixes.</p>
+<h2 id="path-routing-and-placement-hazards">Path routing and placement hazards<a class="headerlink" href="#path-routing-and-placement-hazards" title="Permanent link">&para;</a></h2>
+<h3 id="path-routing">Path routing<a class="headerlink" href="#path-routing" title="Permanent link">&para;</a></h3>
+<p><code>place_path</code> uses A* pathfinding over a 3D surface graph. It routes around buildings, natural resources, ruins, water, and terrain obstacles. It handles diagonal routes, multi-z transitions with auto-stairs, and reuses existing paths/stairs/platforms.</p>
+<p>Parameters:</p>
+<ul>
+<li><code>x1, y1, x2, y2</code>: start and end coordinates</li>
+<li><code>style</code>: <code>"direct"</code> (default, shortest path) or <code>"straight"</code> (prefers straight lines when costs are equal)</li>
+<li><code>sections</code>: stop after N stair/ramp crossings (0 = unlimited). Useful for building paths incrementally across elevation changes.</li>
+</ul>
+<p>Paths cost nothing; use them freely. Stairs and platforms require science unlocks. Without those unlocks, vertical routing stops at z-changes.</p>
+<p>The path planner treats ruins and map editor objects as impassable, the same as buildings. If a path seems blocked by invisible obstacles, check <code>tiles</code> for ruin occupants.</p>
+<h3 id="flooding">Flooding<a class="headerlink" href="#flooding" title="Permanent link">&para;</a></h3>
+<p>Buildings placed in water become flooded and completely non-functional. Beavers and bots cannot access them.</p>
+<ul>
+<li>Most buildings flood when any water touches their footprint tile.</li>
+<li>Paths, power shafts, landscaping, stream gauges, Zipline/Tubeway Stations, Gravity Battery, Numbercruncher, and Control Tower are immune.</li>
+<li>Flooded tiles with badwater contamination also poison beavers who walk through them.</li>
+<li>Flooded buildings resume when water recedes; there is no permanent damage.</li>
+<li><code>find_placement.flooded</code> is the signal to trust. Terrain height alone is not reliable.</li>
+</ul>
+<h3 id="priorities-and-footprints">Priorities and footprints<a class="headerlink" href="#priorities-and-footprints" title="Permanent link">&para;</a></h3>
+<p>Buildings have separate construction and workplace priority concepts. Reserve high priority for true bottlenecks rather than marking everything urgent.</p>
+<p>Common footprints:</p>
+<ul>
+<li>Common: DistrictCenter 3x3, HaulingPost 3x2, Inventor 2x2, Forester 2x2, flags 1x1, Path 1x1</li>
+<li>Folktails: Lodge 2x2, EfficientFarmHouse 2x2, WaterPump 2x3, LumberMill 2x3, Shower 1x2</li>
+<li>Iron Teeth: Rowhouse 1x2, Barrack 3x2, FarmHouse 2x2, DeepWaterPump 3x2, LargePowerWheel 3x3, IndustrialLumberMill 2x3, DoubleShower 1x2</li>
+</ul>
+<h2 id="game-mechanics">Game mechanics<a class="headerlink" href="#game-mechanics" title="Permanent link">&para;</a></h2>
+<h3 id="time-pressure">Time pressure<a class="headerlink" href="#time-pressure" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The game clock runs continuously. Every in-game hour spent idle is an hour beavers are not eating, drinking, or building.</li>
+<li>Drought arrives on a fixed schedule. Unspent time before a drought is time that could have been used to stockpile water and food.</li>
+<li>There is almost always something productive to do: mark trees, place a building, assign workers, adjust priorities, plant crops, expand roads.</li>
+<li>Inaction compounds. A 2-day gap with no actions can mean 2 fewer days of crop growth, 2 fewer days of resource hauling, and 2 fewer days of construction progress.</li>
+<li>When in doubt, check <code>alerts</code> for unstaffed/unpowered/unreachable buildings, or <code>resources</code> for low stocks.</li>
+<li>Pausing (speed 0) is available for planning, but the game only progresses when unpaused. A paused game produces no food, no water, no construction progress.</li>
+<li>Unpause AFTER giving beavers work, not before. If all workers are unemployed, unpausing just wastes food/water while beavers idle. Place buildings, assign workers, build roads FIRST at speed 0, then unpause.</li>
+<li>The summary shows <code>unemployed</code> count. If unemployed &gt; 0 and vacancies &gt; 0, beavers need roads to reach workplaces or workers need to be assigned.</li>
+<li>Speed 0 for extended periods means nothing happens. Use speed 1-3 to keep the colony alive once beavers have work.</li>
+</ul>
+<h3 id="food">Food<a class="headerlink" href="#food" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Beavers eat about 1 food per day.</li>
+<li>Wild berries are finite; gatherers deplete them.</li>
+<li>Rough rule: 1 farmhouse per 8 beavers with full fields.</li>
+<li>Crops need irrigated soil. Crops continue growing during drought if the soil stays moist.</li>
+<li>Use <code>find_planting</code>; do not guess irrigated zones.</li>
+</ul>
+<p><strong>Folktails crops:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Crop</th>
+<th>Growth</th>
+<th>Processing</th>
+<th>Nutrition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Carrot</td>
+<td>4 days (2.8 w/ beehive)</td>
+<td>raw</td>
+<td>+1</td>
+</tr>
+<tr>
+<td>Sunflower</td>
+<td>5 days (3.5 w/ beehive)</td>
+<td>raw (seeds)</td>
+<td>+1</td>
+</tr>
+<tr>
+<td>Potato</td>
+<td>6 days (4.2 w/ beehive)</td>
+<td>Grill -&gt; GrilledPotatoes</td>
+<td>+2</td>
+</tr>
+<tr>
+<td>Wheat</td>
+<td>10 days (7 w/ beehive)</td>
+<td>Gristmill -&gt; flour -&gt; Bakery -&gt; Bread</td>
+<td>+2</td>
+</tr>
+<tr>
+<td>Cattail</td>
+<td>8 days (5.6 w/ beehive)</td>
+<td>aquatic -&gt; CattailCracker</td>
+<td>+2</td>
+</tr>
+<tr>
+<td>Spadderdock</td>
+<td>12 days (8.4 w/ beehive)</td>
+<td>aquatic, Grill -&gt; GrilledSpadderdock</td>
+<td>+2</td>
+</tr>
+<tr>
+<td>Chestnut</td>
+<td>tree, 24 days</td>
+<td>Grill -&gt; GrilledChestnuts</td>
+<td>+2</td>
+</tr>
+<tr>
+<td>Maple</td>
+<td>tree, 28 days</td>
+<td>tree tap -&gt; MaplePastry</td>
+<td>+3</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Iron Teeth crops:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Crop</th>
+<th>Growth</th>
+<th>Processing</th>
+<th>Nutrition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Kohlrabi</td>
+<td>3 days</td>
+<td>raw</td>
+<td>+1</td>
+</tr>
+<tr>
+<td>Mangrove Fruit</td>
+<td>tree, 10 days</td>
+<td>raw</td>
+<td>+1</td>
+</tr>
+<tr>
+<td>Cassava</td>
+<td>5 days</td>
+<td>Fermenter -&gt; FermentedCassava</td>
+<td>+2</td>
+</tr>
+<tr>
+<td>Soybean</td>
+<td>8 days</td>
+<td>Fermenter -&gt; FermentedSoybean</td>
+<td>+2</td>
+</tr>
+<tr>
+<td>Corn</td>
+<td>10 days</td>
+<td>FoodFactory -&gt; CornRation</td>
+<td>+2</td>
+</tr>
+<tr>
+<td>Eggplant</td>
+<td>12 days</td>
+<td>FoodFactory -&gt; EggplantRation</td>
+<td>+2</td>
+</tr>
+<tr>
+<td>Canola</td>
+<td>9 days</td>
+<td>-&gt; oil (processing)</td>
+<td>+2</td>
+</tr>
+<tr>
+<td>Coffee</td>
+<td>bush (Forester)</td>
+<td>roasted, doesn't satisfy hunger</td>
+<td>+3</td>
+</tr>
+</tbody>
+</table>
+<p>Berries are a bridge to farming, not a long-term food plan.</p>
+<p><strong>Beehive</strong> (Folktails only) boosts crop growth about 30% in a 3-tile radius. It does not boost trees or bushes.</p>
+<h3 id="water">Water<a class="headerlink" href="#water" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Water is the top priority. Beavers die without water faster than without food. Place water pumps and route paths to them BEFORE placing other buildings. Other buildings placed near the water's edge consume waterfront tiles that pumps need.</li>
+<li>Pumps must straddle the land/water edge. Waterfront tiles are limited and irreplaceable. once a path or non-pump building occupies a waterfront tile, no pump can go there. Reserve waterfront tiles for pumps.</li>
+<li>Place paths and non-water buildings away from the water's edge. Route paths around waterfront, not along it.</li>
+<li>Folktails use <code>WaterPump.Folktails</code> or <code>LargeWaterPump.Folktails</code>.</li>
+<li>Iron Teeth use <code>DeepWaterPump.IronTeeth</code>.</li>
+<li>Run <code>find_placement</code> with the water pump prefab to discover all valid pump locations. Results with <code>waterDepth &gt; 0</code> are waterfront tiles with water access. Use these positions for pumps. they are the only tiles where pumps can function.</li>
+<li>If valid pump positions are on the same z-level as the DC, prioritize those. shorter haul distance for water delivery.</li>
+<li>Rough rule: 2 pumps per 15 beavers, 3 pumps once you are above that and preparing for drought.</li>
+<li>During drought, water is consumed but not produced; only stored water and aquifer drills help.</li>
+</ul>
+<h3 id="irrigation-and-moisture">Irrigation and moisture<a class="headerlink" href="#irrigation-and-moisture" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Water tiles irrigate nearby ground.</li>
+<li>A 1x1 pond irrigates only a short radius; larger connected bodies irrigate farther.</li>
+<li>Elevation changes reduce irrigation range significantly.</li>
+<li>If soil dries out, plants wither and die.</li>
+<li><code>tiles</code> output includes <code>moist: true</code>.</li>
+</ul>
+<h3 id="water-management-structures">Water management structures<a class="headerlink" href="#water-management-structures" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Dam</strong>: cheap early retention, spills above 0.65 height</li>
+<li><strong>Levee</strong>: watertight wall, stackable, beavers can walk on it</li>
+<li><strong>Floodgate</strong>: adjustable water control, no walking on top</li>
+</ul>
+<h3 id="aquifer-drills">Aquifer drills<a class="headerlink" href="#aquifer-drills" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Ancient Aquifer Drills</strong> are map-placed and need 400hp.</li>
+<li><strong>Aquifer Drill</strong> is the player-built version and also needs 400hp.</li>
+<li>Aquifer drills keep producing during drought.</li>
+</ul>
+<h3 id="badwater-and-contamination">Badwater and contamination<a class="headerlink" href="#badwater-and-contamination" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Badwater contaminates beavers and kills plants.</li>
+<li>It is also a mid-game resource for extract and explosives chains.</li>
+<li>Folktails clean contamination with Herbalists; Iron Teeth use Decontamination Pods.</li>
+</ul>
+<h3 id="trees">Trees<a class="headerlink" href="#trees" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tree</th>
+<th>Growth</th>
+<th>Logs</th>
+<th>Special</th>
+<th>Faction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Birch</td>
+<td>7 days</td>
+<td>1</td>
+<td>-</td>
+<td>both</td>
+</tr>
+<tr>
+<td>Pine</td>
+<td>12 days</td>
+<td>2</td>
+<td>Pine Resin</td>
+<td>both</td>
+</tr>
+<tr>
+<td>Oak</td>
+<td>30 days</td>
+<td>8</td>
+<td>-</td>
+<td>both</td>
+</tr>
+<tr>
+<td>Chestnut</td>
+<td>24 days</td>
+<td>4</td>
+<td>Chestnuts (food)</td>
+<td>Folktails</td>
+</tr>
+<tr>
+<td>Maple</td>
+<td>28 days</td>
+<td>6</td>
+<td>Maple Syrup (food)</td>
+<td>Folktails</td>
+</tr>
+<tr>
+<td>Mangrove</td>
+<td>10 days</td>
+<td>2</td>
+<td>Mangrove Fruits (food)</td>
+<td>Iron Teeth</td>
+</tr>
+</tbody>
+</table>
+<p>Birch is best early. Oak is strongest long-term.</p>
+<p><code>tree_clusters</code> finds the densest grown tree clusters. <code>food_clusters</code> finds the densest gatherable food clusters (berries, bushes), excluding trees. <code>markedGrown</code> in <code>brain</code> is the immediately choppable supply.</p>
+<p><strong>Forester</strong> plants trees and bushes on moist soil. One forester keeps up with about four lumberjacks.</p>
+<h3 id="power">Power<a class="headerlink" href="#power" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Power transfers through adjacent buildings only.</li>
+<li>Paths do not conduct power.</li>
+<li>Oasis maps have standing water, so manual power is often better than water wheels.</li>
+<li><code>find_placement.nearPower</code> helps with adjacency checks.</li>
+</ul>
+<h3 id="manufacturing-chains">Manufacturing chains<a class="headerlink" href="#manufacturing-chains" title="Permanent link">&para;</a></h3>
+<p>Construction supply chain:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Trees -&gt; Logs -&gt; Planks -&gt; most buildings
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Planks -&gt; Gears -&gt; advanced buildings and bot parts
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>ScrapMetal -&gt; MetalBlocks -&gt; late-game buildings
+</span></code></pre></div>
+<p>Planks are usually the first bottleneck. Gears are the second.</p>
+<p>Folktails knowledge chain: Paper -&gt; Books</p>
+<p>Extract chain: Badwater + Logs -&gt; Extract</p>
+<p>Biofuel chain (Folktails): Crops + Water -&gt; Biofuel. Timberbots consume about 2 biofuel per day.</p>
+<h3 id="beaver-lifecycle">Beaver lifecycle<a class="headerlink" href="#beaver-lifecycle" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Lifespan is about 50 days.</li>
+<li>Kits mature in 6 days base, faster with high wellbeing.</li>
+<li>Beavers sleep at home during non-work hours.</li>
+<li><code>TeethGrindstone</code> fixes chipped teeth.</li>
+</ul>
+<h3 id="weather-cycles">Weather cycles<a class="headerlink" href="#weather-cycles" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Every cycle has one temperate phase and one hazardous phase.</li>
+<li>Hazardous weather is drought or badtide.</li>
+<li>Durations escalate over time.</li>
+<li>Games always start in temperate weather.</li>
+</ul>
+<h3 id="population-growth">Population growth<a class="headerlink" href="#population-growth" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Folktails reproduce naturally through housing.</li>
+<li>Iron Teeth use Breeding Pods.</li>
+</ul>
+<h3 id="bots">Bots<a class="headerlink" href="#bots" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Bots work 24/7 and ignore food, water, sleep, and wellbeing.</li>
+<li>Folktails bots need Biofuel.</li>
+<li>Iron Teeth bots need Charging Stations.</li>
+<li>Bots cannot work at Power Wheels or Inventors.</li>
+</ul>
+<h3 id="scaling-ratios-approximate">Scaling ratios (approximate)<a class="headerlink" href="#scaling-ratios-approximate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Per-capita</th>
+<th>Ratio</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Farmhouse</td>
+<td>1 per 8 beavers</td>
+<td>with full irrigated fields</td>
+</tr>
+<tr>
+<td>Water pump</td>
+<td>1 per 7 beavers</td>
+<td>more during drought prep</td>
+</tr>
+<tr>
+<td>Housing</td>
+<td>depends on building</td>
+<td>Lodge (FT) holds ~4, Rowhouse (IT) holds 2</td>
+</tr>
+<tr>
+<td>Lumberjack</td>
+<td>1 per 15 beavers</td>
+<td>keep staffed always</td>
+</tr>
+<tr>
+<td>Water tanks</td>
+<td>30 water per drought-day per beaver</td>
+<td>plan for longest expected drought</td>
+</tr>
+</tbody>
+</table>
+<h3 id="storage">Storage<a class="headerlink" href="#storage" title="Permanent link">&para;</a></h3>
+<p>Three storage families exist:</p>
+<ul>
+<li>Piles for logs, planks, metal blocks, and dirt</li>
+<li>Warehouses for food, gears, and manufactured goods</li>
+<li>Tanks for water, badwater, extract, syrup, and biofuel</li>
+</ul>
+<p>Each storage holds one good type at a time. Configure filters and capacities with the API when needed.</p>
+<h3 id="districts">Districts<a class="headerlink" href="#districts" title="Permanent link">&para;</a></h3>
+<p>Districts are separate colonies connected by District Crossings. Resources do not automatically flow between them.</p>
+<ul>
+<li>Expand when work clusters are too far from the DC.</li>
+<li>Use distribution controls for goods flow between districts.</li>
+<li>Use migration controls for population transfers.</li>
+<li>Every district needs its own basic survival chain.</li>
+</ul>
+<h3 id="death-spiral">Death spiral<a class="headerlink" href="#death-spiral" title="Permanent link">&para;</a></h3>
+<p>When food or water hits zero: beavers die -&gt; fewer workers -&gt; less production -&gt; more die.</p>
+<h3 id="workers">Workers<a class="headerlink" href="#workers" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Hauling requires idle or unemployed beavers.</li>
+<li>Too many staffed buildings with too few workers means nobody hauls.</li>
+<li>Lumberjacks must stay staffed.</li>
+<li>Default work hours end at 18.</li>
+</ul>
+<h2 id="wellbeing">Wellbeing<a class="headerlink" href="#wellbeing" title="Permanent link">&para;</a></h2>
+<p>Wellbeing categories and caps differ by faction. Use the API when you need the exact live breakdown, but use the tables below for planning and prioritization.</p>
+<h3 id="folktails-wellbeing-max-77">Folktails wellbeing (max 77)<a class="headerlink" href="#folktails-wellbeing-max-77" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Max</th>
+<th>Needs (building/food -&gt; bonus)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BasicNeeds</td>
+<td>5</td>
+<td>Hunger (+1), Thirst (+1), Sleep (+1), Shelter (+1), WetFur (+1 via Shower.Folktails)</td>
+</tr>
+<tr>
+<td>SocialLife</td>
+<td>11</td>
+<td>Campfire (+1), ContemplationSpot (+1), RooftopTerrace (+1), Agora (+3), DanceHall (+5)</td>
+</tr>
+<tr>
+<td>Fun</td>
+<td>8</td>
+<td>Detailer (+1), Lido (+1), Carousel (+3), MudPit (+3)</td>
+</tr>
+<tr>
+<td>Nutrition</td>
+<td>15</td>
+<td>Carrots (+1), SunflowerSeeds (+1), GrilledPotatoes (+2), GrilledChestnuts (+2), GrilledSpadderdock (+2), Bread (+2), CattailCracker (+2), MaplePastry (+3)</td>
+</tr>
+<tr>
+<td>Aesthetics</td>
+<td>9</td>
+<td>Shrub (+1), Lantern (+1), Roof (+1), Scarecrow (+1), Weathervane (+1), BeaverStatue (+2), BulletinPole (+2)</td>
+</tr>
+<tr>
+<td>Knowledge</td>
+<td>3</td>
+<td>Books (+3 via PrintingPress)</td>
+</tr>
+<tr>
+<td>Awe</td>
+<td>26</td>
+<td>FarmerMonument (+3), BrazierOfBonding (+5), FountainOfJoy (+8), EarthRecultivator (+10)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="iron-teeth-wellbeing-max-77">Iron Teeth wellbeing (max ~77)<a class="headerlink" href="#iron-teeth-wellbeing-max-77" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Max</th>
+<th>Needs (building/food -&gt; bonus)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BasicNeeds</td>
+<td>5</td>
+<td>Hunger (+1), Thirst (+1), Sleep (+1), Shelter (+1), WetFur (+1 via DoubleShower.IronTeeth)</td>
+</tr>
+<tr>
+<td>SocialLife</td>
+<td>2</td>
+<td>Campfire (+1), RooftopTerrace (+1)</td>
+</tr>
+<tr>
+<td>Fun</td>
+<td>17</td>
+<td>Scratcher (+1), SwimmingPool (+1), ExercisePlaza (+3), MudBath (+3), WindTunnel (+3), Motivatorium (+5)</td>
+</tr>
+<tr>
+<td>Nutrition</td>
+<td>17</td>
+<td>Kohlrabi (+1), MangroveFruits (+1), FermentedCassava (+2), FermentedSoybean (+2), FermentedMushroom (+2), CornRation (+2), EggplantRation (+2), AlgaeRation (+2), Coffee (+3, no hunger)</td>
+</tr>
+<tr>
+<td>Aesthetics</td>
+<td>10</td>
+<td>Lantern (+1), Brazier (+1), Shrub (+1), Roof (+1), BeaverBust (+1), BeaverStatue (+2), Bell (+1), DecorativeClock (+2)</td>
+</tr>
+<tr>
+<td>Awe</td>
+<td>26</td>
+<td>LaborerMonument (+3), FlameOfUnity (+5), TributeToIngenuity (+8), EarthRepopulator (+10)</td>
+</tr>
+</tbody>
+</table>
+<p>Nutrition requires food variety. Different food types matter; more of one food does not.</p>
+<h3 id="wellbeing-building-placement">Wellbeing building placement<a class="headerlink" href="#wellbeing-building-placement" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Each wellbeing building has an <code>effectRadius</code>.</li>
+<li>Place wellbeing buildings near high-traffic areas.</li>
+<li>Different wellbeing types can overlap productively.</li>
+<li>Duplicating the same wellbeing building in the same area is usually wasted coverage.</li>
+</ul>
+<h3 id="recipe-switching">Recipe switching<a class="headerlink" href="#recipe-switching" title="Permanent link">&para;</a></h3>
+<p>Changing recipes destroys in-progress items and consumed materials. Re-setting the same recipe also resets progress. Treat recipe changes as expensive and avoid churning them.</p>
+<h3 id="rooftop-buildings">Rooftop buildings<a class="headerlink" href="#rooftop-buildings" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Decorative roofs provide aesthetics just by existing and do not need path access.</li>
+<li><code>RooftopTerrace</code> is an actual visited building and does need path or stair access.</li>
+</ul>
+<h2 id="conditional-references">Conditional References<a class="headerlink" href="#conditional-references" title="Permanent link">&para;</a></h2>
+<p>Use these docs when you need more than the AI guide itself:</p>
+<ul>
+<li><a href="../api-reference/">API Reference</a> for exact commands, query parameters, pagination, helper behavior, and error payloads</li>
+<li><a href="../getting-started/">Getting Started</a> for install (GitHub release), PATH, remote host, Proton/Wine paths, and troubleshooting guidance</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../api-reference/" class="md-footer__link md-footer__link--prev" aria-label="Previous: API Reference">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                API Reference
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../features/" class="md-footer__link md-footer__link--next" aria-label="Next: Features">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Features
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Timberbot API &mdash; Play Timberborn with an AI &middot; Modified fork of <a href="https://github.com/abix-/TimberbornMods">abix-/TimberbornMods</a>
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/impuls42/timberbot" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://github.com/abix-/TimberbornMods" target="_blank" rel="noopener" title="Upstream (abix-/TimberbornMods)" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "content.code.annotate", "content.tabs.link", "navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.expand", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
