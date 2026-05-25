@@ -87,16 +87,30 @@ class SubagentBroker:
 
     def lookup_by_request(self) -> UserState | None:
         """Read `X-Timberbot-User-Id` from the current HTTP request and
-        return that user's state, or None if no header / no match."""
+        return that user's state, or None if no header / no match.
+
+        Logs a warning on every miss so a misconfigured caller (no HTTP
+        request context, missing header, unknown user) is visible in the
+        serve log rather than silently falling through to the tool's
+        `"no Timberbot user bound"` error reply.
+        """
         from fastmcp.server.dependencies import get_http_request  # noqa: PLC0415
         try:
             req = get_http_request()
-        except Exception:  # noqa: BLE001 - no request bound (test stub, etc.)
+        except Exception as exc:  # noqa: BLE001 - no request bound (test stub, etc.)
+            log.warning("delegate-family tool called outside HTTP request context: %s", exc)
             return None
         user_id = req.headers.get(USER_ID_HEADER) if req is not None else None
         if not user_id:
+            log.warning(
+                "delegate-family tool called without %s header — cannot route",
+                USER_ID_HEADER,
+            )
             return None
-        return self._users.get(user_id)
+        state = self._users.get(user_id)
+        if state is None:
+            log.warning("delegate-family tool: no registered user %r", user_id)
+        return state
 
 
 # ---------------------------------------------------------------------------
@@ -128,6 +142,25 @@ def _last_reply(run: SubagentRun) -> str:
 
 def _last_stop_reason(run: SubagentRun) -> str:
     return run.transcript[-1].stop_reason if run.transcript else ""
+
+
+def _drain_background_turn(task: asyncio.Task[str]) -> None:
+    """Done-callback for fire-and-forget `_drive_turn` tasks.
+
+    `delegate(wait=False)` / `subagent_reply(wait=False)` schedule turns
+    nobody awaits — without a callback, an unhandled exception (including a
+    `CancelledError` from `subagent_cancel`) gets logged by asyncio's
+    default handler. `_drive_turn` already records the failure into
+    `run.status` + `run.last_error`, so the callback just consumes the
+    result. CancelledError is the expected outcome of `subagent_cancel`
+    and is silently swallowed; everything else is logged at WARNING.
+    """
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is None or isinstance(exc, asyncio.CancelledError):
+        return
+    log.warning("background subagent turn failed: %s", exc)
 
 
 async def _drive_turn(run: SubagentRun, user_message: str, prompt_text: str) -> str:
@@ -218,12 +251,17 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
             }
 
         # wait=False: kick off the turn as a background task and return.
-        run._turn_task = asyncio.create_task(
+        # We set `run.status = "running"` here *before* the task starts
+        # executing — between `create_task` and this tool's return there's
+        # no await, so the wrapped coroutine hasn't run yet and would still
+        # show "idle". `_drive_turn` re-asserts "running" on its first line;
+        # the duplication is intentional so a `subagent_status` racing this
+        # return always sees "running", never an interim "idle".
+        run.turn_task = asyncio.create_task(
             _drive_turn(run, task, prompt_text),
             name=f"subagent-turn-{run.subagent_id}",
         )
-        # Mark running immediately — the model may poll subagent_status
-        # before the task actually starts executing.
+        run.turn_task.add_done_callback(_drain_background_turn)
         run.status = "running"
         return {"subagent_id": run.subagent_id, "status": "running"}
 
@@ -264,10 +302,11 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
                 "reply": reply,
             }
 
-        run._turn_task = asyncio.create_task(
+        run.turn_task = asyncio.create_task(
             _drive_turn(run, message, message),
             name=f"subagent-turn-{subagent_id}",
         )
+        run.turn_task.add_done_callback(_drain_background_turn)
         run.status = "running"
         return {"subagent_id": subagent_id, "status": "running"}
 
@@ -299,17 +338,25 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         if run is None:
             return {"error": f"unknown subagent_id: {subagent_id!r}"}
 
-        if run._turn_task is not None and not run._turn_task.done():
+        if run.turn_task is not None and not run.turn_task.done():
             try:
-                await asyncio.wait_for(asyncio.shield(run._turn_task), timeout=timeout)
+                await asyncio.wait_for(asyncio.shield(run.turn_task), timeout=timeout)
             except asyncio.TimeoutError:
                 return {
                     "subagent_id": subagent_id,
                     "status": run.status,
                     "timed_out": True,
                 }
-            except Exception:  # noqa: BLE001 - run.status carries the error
+            except asyncio.CancelledError:
+                # The turn was cancelled externally (subagent_cancel). The
+                # registry already recorded status="cancelled"; fall through
+                # to the return below, which surfaces it to the caller.
                 pass
+            except Exception as exc:  # noqa: BLE001 - `_drive_turn` recorded run.last_error
+                log.warning(
+                    "subagent_wait saw underlying turn fail for %s: %s",
+                    subagent_id, exc,
+                )
 
         return {
             "subagent_id": subagent_id,

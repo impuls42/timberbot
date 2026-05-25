@@ -38,6 +38,13 @@ class AgentFeedback:
     category: str
     severity: str
     message: str
+    # Optional originating user — when set, the adapter targets only that
+    # user's chat instead of broadcasting to all bound chats. Carried for
+    # multi-user-ready routing; today the `complain` MCP tool can't yet
+    # discover which user it's serving (see design/subagent-delegation.md §7
+    # for the same routing concern in delegation), so this is wired but
+    # unused by the current `_on_complaint` callback.
+    user_id: str | None = None
 
 
 @dataclass

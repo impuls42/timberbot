@@ -55,11 +55,12 @@ class SubagentRun:
     last_error: str | None = None
     created_at: float = field(default_factory=time.monotonic)
     last_active_at: float = field(default_factory=time.monotonic)
-    # Future the in-flight turn resolves into. None when the run is idle.
-    # Held here (rather than on the Session) because the registry owns the
-    # turn boundary — it wraps Session.prompt_awaitable in a task so callers
-    # who don't hold the awaitable can still query/wait via the registry.
-    _turn_task: asyncio.Task[str] | None = None
+    # Task wrapping the in-flight prompt turn. None when the run is idle.
+    # Lives on the run (not the Session) because the delegation layer needs
+    # to await it from outside the session-owning coroutine — `subagent_wait`
+    # blocks on it, `subagent_cancel` cancels it, and the eviction path
+    # cancels every run's task on main-session teardown.
+    turn_task: asyncio.Task[str] | None = None
 
     @property
     def turns_completed(self) -> int:
@@ -144,8 +145,8 @@ class SubagentRegistry:
         run = self._runs.pop(subagent_id, None)
         if run is None:
             return
-        if run._turn_task is not None and not run._turn_task.done():
-            run._turn_task.cancel()
+        if run.turn_task is not None and not run.turn_task.done():
+            run.turn_task.cancel()
         try:
             await run.session.close()
         except Exception:  # noqa: BLE001 - close is best-effort
@@ -161,8 +162,8 @@ class SubagentRegistry:
         run = self._runs.get(subagent_id)
         if run is None:
             return None
-        if run._turn_task is not None and not run._turn_task.done():
-            run._turn_task.cancel()
+        if run.turn_task is not None and not run.turn_task.done():
+            run.turn_task.cancel()
         try:
             await run.session.cancel()
         except Exception:  # noqa: BLE001 - cancel is best-effort

@@ -119,7 +119,16 @@ class TelegramAdapter:
 
     async def _handle_feedback(self, msg: AgentFeedback) -> None:
         text = f"[feedback/{msg.category}/{msg.severity}] {msg.message}"
-        for chat_id in set(self._chat_ids.values()):
+        # If the feedback names a specific originating user, target that
+        # user's most recent chat. Otherwise fall back to broadcasting to
+        # every chat we've ever bound a session to — matches the historical
+        # behavior from #77 when no user_id was wired.
+        if msg.user_id is not None:
+            chat_id = self._chat_by_user.get(msg.user_id)
+            targets: set[int] = {chat_id} if chat_id is not None else set()
+        else:
+            targets = set(self._chat_ids.values())
+        for chat_id in targets:
             try:
                 await self._app.bot.send_message(chat_id=chat_id, text=text)
             except Exception:

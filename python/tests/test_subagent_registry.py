@@ -74,24 +74,25 @@ def test_make_subagent_id_collision_retry():
     assert sid != "scout-aaaa"
 
 
-def test_make_subagent_id_exhausts_retries():
+def test_make_subagent_id_exhausts_retries(monkeypatch):
     """If every nonce attempted is already taken, raise. Realistically
-    impossible at 65k IDs/slug, but the safeguard is contractually required."""
-    # Monkeypatch `secrets.token_hex` for this test so collisions are forced.
+    impossible at 65k IDs/slug, but the safeguard is contractually required.
+
+    Uses pytest's `monkeypatch` so the stub is rolled back automatically and
+    doesn't leak into other tests running on the same module (relevant for
+    pytest-xdist workers, where each worker imports the module fresh but
+    test ordering inside a worker is shared).
+    """
     from timberbot.connector import subagent as _sa
-    orig = _sa.secrets
 
     class _FixedSecrets:
         @staticmethod
         def token_hex(n):
             return "dead"
 
-    _sa.secrets = _FixedSecrets()  # type: ignore[assignment]
-    try:
-        with pytest.raises(RuntimeError, match="collision"):
-            _make_subagent_id("scout", existing={"scout-dead"}, retries=3)
-    finally:
-        _sa.secrets = orig
+    monkeypatch.setattr(_sa, "secrets", _FixedSecrets)
+    with pytest.raises(RuntimeError, match="collision"):
+        _make_subagent_id("scout", existing={"scout-dead"}, retries=3)
 
 
 # --- registry lifecycle -------------------------------------------------

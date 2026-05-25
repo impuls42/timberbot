@@ -127,9 +127,9 @@ async def test_delegate_wait_false_returns_running_immediately(harness):
     # The run is registered; turn task is scheduled but we haven't awaited it.
     run = registry.get(sid)
     assert run is not None
-    assert run._turn_task is not None
+    assert run.turn_task is not None
     # Let the turn complete.
-    await run._turn_task
+    await run.turn_task
     assert run.status == "completed"
     assert run.transcript and run.transcript[0].user_message == "find spot"
     # The actual session.prompt_awaitable saw the bootstrap-prefixed prompt.
@@ -195,7 +195,7 @@ async def test_subagent_reply_when_busy_rejects(harness):
     assert res.get("error") == "busy"
     # Cleanup: release and wait.
     run.session._block.set()
-    await run._turn_task
+    await run.turn_task
 
 
 # --- subagent_status / subagent_list ------------------------------------
@@ -260,7 +260,7 @@ async def test_subagent_wait_times_out(harness):
     assert res["status"] == "running"
     # Cleanup.
     run.session._block.set()
-    await run._turn_task
+    await run.turn_task
 
 
 @pytest.mark.asyncio
@@ -304,6 +304,25 @@ async def test_subagent_close_unknown_id(harness):
     mcp, *_ = harness
     res = await _call(mcp, "subagent_close", subagent_id="ghost-0000")
     assert "error" in res
+
+
+@pytest.mark.asyncio
+async def test_subagent_cancel_does_not_log_cancellederror(harness, caplog):
+    """Fire-and-forget background turn cancellation should be silent —
+    `_drain_background_turn` swallows the CancelledError so asyncio's default
+    handler doesn't log it as an unhandled exception."""
+    import logging
+    mcp, _, _, registry = harness
+    opened = await _call(mcp, "delegate", agent="scout", task="t")
+    sid = opened["subagent_id"]
+    run = registry.get(sid)
+    assert run is not None
+    run.session._block.clear()  # hold the turn open
+    with caplog.at_level(logging.WARNING):
+        await _call(mcp, "subagent_cancel", subagent_id=sid)
+        # Give the cancellation a chance to fully unwind.
+        await asyncio.sleep(0.05)
+    assert "background subagent turn failed" not in caplog.text
 
 
 # --- broker → user_id routing ------------------------------------------
