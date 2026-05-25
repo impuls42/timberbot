@@ -781,6 +781,24 @@ class TimberbotClient:
         """Remove tasks with given status (default: done). Returns count cleared."""
         return self.settlement_context().clear_tasks(status)
 
+    def agent_message(self, message: str) -> dict[str, Any]:
+        """Post a message to the in-game agent log console."""
+        return self._post("/api/agent/message", {"message": message})
+
+    def complain(
+        self, message: str, category: str = "bug", severity: str = "medium",
+    ) -> dict[str, Any]:
+        """Record agent feedback (bug/inconsistency/missing_feature). Persists to feedback.toon."""
+        return self.settlement_context().add_feedback(message, category, severity)
+
+    def list_complaints(self, resolved: bool = False) -> list[dict[str, Any]]:
+        """List recorded agent feedback. resolved=False shows open items only."""
+        return self.settlement_context().list_feedback(resolved)
+
+    def resolve_complaint(self, id: int) -> dict[str, Any]:
+        """Mark a complaint as resolved by id."""
+        return self.settlement_context().resolve_feedback(id)
+
     def find(
         self, source: str, name: str | None = None,
         x: int | None = None, y: int | None = None, radius: int = 20, limit: int = 0,

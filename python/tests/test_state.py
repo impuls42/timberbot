@@ -153,3 +153,34 @@ def test_sanitize_name_strips_filesystem_unsafe_chars():
     assert sanitize_name("  ") == "unknown"
     assert sanitize_name("") == "unknown"
     assert sanitize_name("simple") == "simple"
+
+
+def test_feedback_lifecycle(tmp_path):
+    ctx = SettlementContext("Castle", base=tmp_path)
+    f1 = ctx.add_feedback("buildings() returns wrong count", category="bug", severity="high")
+    f2 = ctx.add_feedback("need a crop_yield tool", category="missing_feature")
+    assert f1["id"] == 1 and f1["resolved"] is False and f1["category"] == "bug"
+    assert f2["id"] == 2 and f2["category"] == "missing_feature" and f2["severity"] == "medium"
+
+    open_items = ctx.list_feedback(resolved=False)
+    assert len(open_items) == 2
+
+    ctx.resolve_feedback(1)
+    assert len(ctx.list_feedback(resolved=False)) == 1
+    assert len(ctx.list_feedback(resolved=True)) == 1
+    resolved = ctx.list_feedback(resolved=True)[0]
+    assert resolved["id"] == 1 and resolved["resolved"] is True
+
+
+def test_resolve_unknown_feedback_returns_error(tmp_path):
+    ctx = SettlementContext("Castle", base=tmp_path)
+    out = ctx.resolve_feedback(99)
+    assert "error" in out
+
+
+def test_feedback_stored_separately_from_brain(tmp_path):
+    ctx = SettlementContext("Castle", base=tmp_path)
+    ctx.add_feedback("test bug")
+    brain = ctx.load_brain()
+    assert "feedback" not in brain
+    assert ctx.feedback_path.exists()

@@ -379,5 +379,8 @@ namespace Timberbot
                 SaveBoolSetting("actionLoggingEnabled", value);
             }
         }
+
+        public event System.Action<string> OnAgentFeedback;
+        public void PostAgentFeedback(string message) => OnAgentFeedback?.Invoke(message);
     }
 }

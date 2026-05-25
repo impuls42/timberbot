@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import fastmcp
@@ -62,7 +63,11 @@ def _make_envelope(bus: EventBus, cursor: int, result: Any) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def create_mcp_server(client: TimberbotClient, bus: EventBus) -> fastmcp.FastMCP:
+def create_mcp_server(
+    client: TimberbotClient,
+    bus: EventBus,
+    on_complaint: Callable[[str, str, str], Awaitable[None]] | None = None,
+) -> fastmcp.FastMCP:
     """Create and return a configured FastMCP instance with all game tools.
 
     The returned server is not yet running — call run_http_async() on it.
@@ -777,6 +782,32 @@ def create_mcp_server(client: TimberbotClient, bus: EventBus) -> fastmcp.FastMCP
         result = await loop.run_in_executor(
             None, lambda: client.update_task(id=id, status=status, error=error or None)
         )
+        return _make_envelope(bus, cursor, result)
+
+    @mcp.tool
+    async def complain(
+        cursor: int = 0,
+        message: str = "",
+        category: str = "bug",
+        severity: str = "medium",
+    ) -> dict[str, Any]:
+        """Report a bug, inconsistency, or missing feature in the timberbot tools or API.
+
+        category: bug | inconsistency | missing_feature
+        severity: low | medium | high
+        Use this whenever you notice something wrong or missing — it helps improve the tools.
+        """
+        loop = loop_getter()
+        result = await loop.run_in_executor(
+            None, lambda: client.complain(message=message, category=category, severity=severity)
+        )
+        try:
+            label = f"[feedback/{category}/{severity}] {message}"
+            await loop.run_in_executor(None, lambda: client.agent_message(label))
+        except Exception:
+            log.debug("agent_message failed (game not ready?), skipping")
+        if on_complaint is not None:
+            await on_complaint(message, category, severity)
         return _make_envelope(bus, cursor, result)
 
     return mcp

@@ -86,6 +86,8 @@ def client() -> MagicMock:
     m.remove_location.return_value = _ok
     m.add_task.return_value = {"id": 1}
     m.update_task.return_value = _ok
+    m.complain.return_value = {"id": 1, "category": "bug", "severity": "medium", "message": "test", "resolved": False}
+    m.agent_message.return_value = _ok
     return m
 
 
@@ -126,7 +128,7 @@ async def test_all_expected_tools_registered(mcp):
         "migrate", "place_building", "demolish_building", "demolish_crop",
         "mark_trees", "clear_trees", "plant_crop", "clear_planting", "place_path",
         "link", "unlink", "configure_automation", "rename_automation",
-        "set_location", "remove_location", "add_task", "update_task",
+        "set_location", "remove_location", "add_task", "update_task", "complain",
     }
     assert expected.issubset(names), f"Missing tools: {expected - names}"
 
@@ -256,3 +258,36 @@ async def test_set_speed_calls_client(mcp, client):
 async def test_migrate_calls_client(mcp, client):
     await mcp.call_tool("migrate", {"cursor": 0, "from_district": "A", "to_district": "B", "count": 3})
     client.migrate.assert_called_once_with(from_district="A", to_district="B", count=3)
+
+
+@pytest.mark.asyncio
+async def test_complain_returns_envelope(mcp, client):
+    r = await mcp.call_tool("complain", {
+        "cursor": 0, "message": "buildings() is broken", "category": "bug", "severity": "high",
+    })
+    data = _parse(r)
+    assert "result" in data and "meta" in data
+    client.complain.assert_called_once_with(
+        message="buildings() is broken", category="bug", severity="high",
+    )
+
+
+@pytest.mark.asyncio
+async def test_complain_calls_on_complaint_callback(client, bus):
+    called_with: list[tuple] = []
+
+    async def capture(msg: str, cat: str, sev: str) -> None:
+        called_with.append((msg, cat, sev))
+
+    mcp_with_cb = create_mcp_server(client, bus, on_complaint=capture)
+    await mcp_with_cb.call_tool("complain", {
+        "cursor": 0, "message": "missing crop_yield", "category": "missing_feature", "severity": "low",
+    })
+    assert called_with == [("missing crop_yield", "missing_feature", "low")]
+
+
+@pytest.mark.asyncio
+async def test_complain_no_callback_does_not_crash(mcp, client):
+    r = await mcp.call_tool("complain", {"cursor": 0, "message": "test", "category": "inconsistency"})
+    data = _parse(r)
+    assert "result" in data

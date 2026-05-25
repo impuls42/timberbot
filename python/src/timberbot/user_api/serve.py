@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass, field
 
 from timberbot.user_api.protocol import (
+    AgentFeedback,
     GameElicitation,
     SessionStateChange,
     TextChunk,
@@ -288,12 +289,16 @@ async def run_serve(cfg: ServeConfig) -> None:
     bus = EventBus()
     ws_client = TimberbotWsClient(cfg.host, cfg.ws_port, cfg.auth_token)
     ingestor = EventIngestor(ws_client, bus)
-    mcp = create_mcp_server(client, bus)
 
     adapter_cls = ClaudeCodeAdapter if cfg.backend == "claude" else OpencodeAdapter
     acp = ACPConnector(adapter=adapter_cls(), allowed_tools=cfg.allowed_tools)
 
     user_adapter = TelegramAdapter(cfg.telegram_token, allowed_users=cfg.telegram_allowed_users)
+
+    async def _on_complaint(message: str, category: str, severity: str) -> None:
+        await user_adapter.send(AgentFeedback(category=category, severity=severity, message=message))
+
+    mcp = create_mcp_server(client, bus, on_complaint=_on_complaint)
     session_mgr = SessionManager()
 
     async with asyncio.TaskGroup() as tg:
