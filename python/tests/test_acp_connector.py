@@ -1,464 +1,295 @@
+"""Tests for the SDK-backed ACP connector.
+
+The wire format itself is owned and validated by the `agent-client-protocol`
+SDK, so these tests focus on Timberbot's own logic: how `SessionHandle`
+orchestrates the connection, and how `_ConnectorClient` maps streaming updates
+and permission requests onto Timberbot's callbacks and `allowed_tools`.
+"""
 from __future__ import annotations
 
 import asyncio
-import contextlib
 
+import acp
 import pytest
+from acp import schema
 
-from timberbot.connector.connector import ACPConnector
-from timberbot.connector.session import SessionHandle, SessionState
+from timberbot.connector.session import (
+    SessionHandle,
+    SessionState,
+    _pick_option,
+    _to_mcp_server,
+    _tool_match_names,
+)
 
 
-class FakeTransport:
-    """Test double that pairs each outgoing request with a pre-configured response.
+class _FakeConn:
+    """Stand-in for acp.ClientSideConnection that records the calls SessionHandle makes."""
 
-    recv_line blocks until send() is called (simulating that a real subprocess
-    only responds after receiving a request). For server-initiated notifications,
-    use push_notification() to inject a message outside the request/response cycle.
-
-    Only request frames (those carrying an "id") consume a queued response;
-    notifications (e.g. session/cancel) are recorded but don't pull one off the
-    queue, mirroring real ACP framing.
-    """
-
-    def __init__(self, responses: list[dict]) -> None:
-        self._responses = list(responses)
-        self.sent: list[dict] = []
+    def __init__(self, *, set_model_error: Exception | None = None) -> None:
+        self.calls: list[tuple] = []
         self.closed = False
-        self._inbox: asyncio.Queue[dict | None] = asyncio.Queue()
+        self._set_model_error = set_model_error
+        self.prompt_started = asyncio.Event()
+        self.prompt_release = asyncio.Event()
 
-    async def start(self) -> None:
-        pass
+    async def initialize(self, protocol_version: int, client_capabilities=None, **_):
+        self.calls.append(("initialize", protocol_version, client_capabilities))
+        return schema.InitializeResponse(protocol_version=protocol_version,
+                                         agent_capabilities=schema.AgentCapabilities())
 
-    async def send(self, msg: dict) -> None:
-        self.sent.append(msg)
-        # Deliver the next pre-configured response when a request is sent.
-        # Outbound responses (our replies to server requests, which carry a
-        # "result"/"error" instead of a "method") and notifications don't expect
-        # an answer back.
-        if "method" in msg and "id" in msg and self._responses:
-            await self._inbox.put(self._responses.pop(0))
+    async def new_session(self, cwd: str, mcp_servers=None, **_):
+        self.calls.append(("new_session", cwd, mcp_servers))
+        return schema.NewSessionResponse(session_id="acp-1")
 
-    async def recv_line(self) -> dict | None:
-        return await self._inbox.get()
+    async def set_session_model(self, model_id: str, session_id: str, **_):
+        self.calls.append(("set_session_model", model_id, session_id))
+        if self._set_model_error is not None:
+            raise self._set_model_error
+        return schema.SetSessionModelResponse()
 
-    async def close(self) -> None:
+    async def prompt(self, prompt, session_id: str, **_):
+        self.calls.append(("prompt", session_id, prompt))
+        self.prompt_started.set()
+        await self.prompt_release.wait()  # hold the turn open until released
+        return schema.PromptResponse(stop_reason="end_turn")
+
+    async def cancel(self, session_id: str, **_):
+        self.calls.append(("cancel", session_id))
+
+    async def close(self):
         self.closed = True
 
-    async def push_notification(self, msg: dict) -> None:
-        """Inject a server-initiated notification (not tied to a request)."""
-        await self._inbox.put(msg)
 
-    async def push_eof(self) -> None:
-        """Signal EOF."""
-        await self._inbox.put(None)
-
-
-def _init_response() -> dict:
-    return {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "result": {"protocolVersion": 1, "agentCapabilities": {"mcpCapabilities": {"sse": True}}},
-    }
+def _handle_with_conn(*, model=None, allowed_tools=None, set_model_error=None) -> tuple[SessionHandle, _FakeConn]:
+    handle = SessionHandle(allowed_tools=allowed_tools, model=model)
+    conn = _FakeConn(set_model_error=set_model_error)
+    handle._conn = conn
+    return handle, conn
 
 
-async def _drain(n: int = 5) -> None:
-    for _ in range(n):
-        await asyncio.sleep(0)
+# --- SessionHandle orchestration ----------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_initialize_transitions_to_active():
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport)
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
+async def test_initialize_sets_active_and_captures_caps():
+    handle, conn = _handle_with_conn()
     await handle.initialize()
     assert handle.state == SessionState.ACTIVE
-    assert handle.agent_capabilities == {"mcpCapabilities": {"sse": True}}
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+    assert isinstance(handle.agent_capabilities, schema.AgentCapabilities)
+    assert conn.calls[0][0] == "initialize"
+    assert conn.calls[0][1] == acp.PROTOCOL_VERSION
+    caps = conn.calls[0][2]
+    assert caps.terminal is False
+    assert caps.fs.read_text_file is False and caps.fs.write_text_file is False
 
 
 @pytest.mark.asyncio
-async def test_initialize_sends_spec_capabilities():
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport)
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-
-    init = transport.sent[0]
-    assert init["method"] == "initialize"
-    assert init["params"]["protocolVersion"] == 1
-    assert init["params"]["clientCapabilities"] == {
-        "fs": {"readTextFile": False, "writeTextFile": False},
-        "terminal": False,
-    }
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
-
-
-@pytest.mark.asyncio
-async def test_new_session_returns_session_id_and_resolves_cwd():
-    transport = FakeTransport([
-        _init_response(),
-        {"jsonrpc": "2.0", "id": 2, "result": {"sessionId": "abc"}},
-    ])
-    handle = SessionHandle(transport)
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-    sid = await handle.new_session(cwd="/tmp", mcp_servers=[])
-    assert sid == "abc"
-    assert handle.session_id == "abc"
-
-    new_req = transport.sent[1]
-    assert new_req["method"] == "session/new"
-    # cwd must be an absolute path per spec.
-    assert new_req["params"]["cwd"].startswith("/")
-    # No model configured -> no session/set_model request.
-    assert all(m.get("method") != "session/set_model" for m in transport.sent)
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+async def test_new_session_resolves_cwd_and_converts_mcp_servers():
+    handle, conn = _handle_with_conn()
+    sid = await handle.new_session(
+        cwd="/tmp",
+        mcp_servers=[{"type": "sse", "name": "game", "url": "http://127.0.0.1:8091/sse", "headers": []}],
+    )
+    assert sid == "acp-1"
+    assert handle.session_id == "acp-1"
+    _, cwd, servers = next(c for c in conn.calls if c[0] == "new_session")
+    assert cwd.startswith("/")  # absolute
+    assert len(servers) == 1 and isinstance(servers[0], schema.SseMcpServer)
+    assert servers[0].url.endswith("/sse")
+    # No model configured -> no set_session_model.
+    assert not any(c[0] == "set_session_model" for c in conn.calls)
 
 
 @pytest.mark.asyncio
 async def test_new_session_pins_model_when_configured():
-    transport = FakeTransport([
-        _init_response(),
-        {"jsonrpc": "2.0", "id": 2, "result": {"sessionId": "abc"}},
-        {"jsonrpc": "2.0", "id": 3, "result": {}},
-    ])
-    handle = SessionHandle(transport, model="claude-opus-4-7")
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
+    handle, conn = _handle_with_conn(model="claude-opus-4-7")
     await handle.new_session(cwd="/tmp", mcp_servers=[])
-
-    set_model = [m for m in transport.sent if m.get("method") == "session/set_model"]
-    assert len(set_model) == 1
-    assert set_model[0]["params"] == {"sessionId": "abc", "modelId": "claude-opus-4-7"}
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+    set_model = [c for c in conn.calls if c[0] == "set_session_model"]
+    assert set_model == [("set_session_model", "claude-opus-4-7", "acp-1")]
 
 
 @pytest.mark.asyncio
 async def test_new_session_tolerates_set_model_error():
-    """An agent without model selection answers session/set_model with an error;
-    new_session must still succeed (soft failure)."""
-    transport = FakeTransport([
-        _init_response(),
-        {"jsonrpc": "2.0", "id": 2, "result": {"sessionId": "abc"}},
-        {"jsonrpc": "2.0", "id": 3, "error": {"code": -32601, "message": "Method not found"}},
-    ])
-    handle = SessionHandle(transport, model="glm-4.6")
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
+    handle, conn = _handle_with_conn(model="glm-4.6", set_model_error=acp.RequestError.method_not_found("x"))
     sid = await handle.new_session(cwd="/tmp", mcp_servers=[])
-    assert sid == "abc"
-    assert handle.session_id == "abc"
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+    assert sid == "acp-1"  # soft failure: session still created
+    assert any(c[0] == "set_session_model" for c in conn.calls)
 
 
 @pytest.mark.asyncio
-async def test_prompt_sends_content_block_list():
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport)
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-
-    await handle.prompt("abc", "summarize my colony")
-    prompts = [m for m in transport.sent if m.get("method") == "session/prompt"]
-    assert len(prompts) == 1
-    assert prompts[0]["params"] == {
-        "sessionId": "abc",
-        "prompt": [{"type": "text", "text": "summarize my colony"}],
-    }
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+async def test_prompt_dispatches_text_block_without_blocking():
+    handle, conn = _handle_with_conn()
+    handle.session_id = "acp-1"
+    # conn.prompt blocks until released; prompt() must return before that.
+    await asyncio.wait_for(handle.prompt("acp-1", "summarize my colony"), timeout=1.0)
+    await asyncio.wait_for(conn.prompt_started.wait(), timeout=1.0)
+    _, sid, blocks = next(c for c in conn.calls if c[0] == "prompt")
+    assert sid == "acp-1"
+    assert len(blocks) == 1 and isinstance(blocks[0], schema.TextContentBlock)
+    assert blocks[0].text == "summarize my colony"
+    conn.prompt_release.set()
+    await handle.close()
 
 
 @pytest.mark.asyncio
-async def test_prompt_does_not_block_on_turn_completion():
-    """prompt() returns once the request is sent, before the turn's stopReason
-    response arrives — so the caller stays free to dispatch /cancel."""
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport)
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-
-    # No queued response for the prompt request; the call must still complete.
-    await asyncio.wait_for(handle.prompt("abc", "hi"), timeout=1.0)
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+async def test_cancel_calls_conn_and_transitions_to_halting():
+    handle, conn = _handle_with_conn()
+    await handle.cancel("acp-1")
+    assert ("cancel", "acp-1") in conn.calls
+    assert handle.state == SessionState.HALTING
 
 
 @pytest.mark.asyncio
-async def test_session_update_fires_callback_with_text_block():
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport)
+async def test_close_tears_down_connection_and_ends():
+    handle, conn = _handle_with_conn()
+    await handle.close()
+    assert conn.closed is True
+    assert handle.state == SessionState.ENDED
+
+
+# --- _ConnectorClient: streaming updates --------------------------------
+
+
+@pytest.mark.asyncio
+async def test_session_update_forwards_message_chunk_text():
+    handle, _ = _handle_with_conn()
     received: list[tuple[str, str]] = []
 
-    async def on_update(sid: str, chunk: str) -> None:
-        received.append((sid, chunk))
+    async def on_update(sid, text):
+        received.append((sid, text))
 
     handle.on_update = on_update
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-
-    notif = {
-        "jsonrpc": "2.0",
-        "method": "session/update",
-        "params": {
-            "sessionId": "abc",
-            "update": {
-                "sessionUpdate": "agent_message_chunk",
-                "content": {"type": "text", "text": "hello"},
-            },
-        },
-    }
-    await transport.push_notification(notif)
-    await _drain()
-
-    assert ("abc", "hello") in received
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+    update = schema.AgentMessageChunk(session_update="agent_message_chunk", content=acp.text_block("hello"))
+    await handle._client.session_update(session_id="acp-1", update=update)
+    assert received == [("acp-1", "hello")]
 
 
 @pytest.mark.asyncio
-async def test_session_update_surfaces_thought_chunks():
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport)
+async def test_session_update_forwards_thought_chunk_text():
+    handle, _ = _handle_with_conn()
     received: list[tuple[str, str]] = []
 
-    async def on_update(sid: str, chunk: str) -> None:
-        received.append((sid, chunk))
+    async def on_update(sid, text):
+        received.append((sid, text))
 
     handle.on_update = on_update
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-
-    await transport.push_notification({
-        "jsonrpc": "2.0",
-        "method": "session/update",
-        "params": {
-            "sessionId": "abc",
-            "update": {
-                "sessionUpdate": "agent_thought_chunk",
-                "content": {"type": "text", "text": "thinking…"},
-            },
-        },
-    })
-    await _drain()
-
-    assert ("abc", "thinking…") in received
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+    update = schema.AgentThoughtChunk(session_update="agent_thought_chunk", content=acp.text_block("thinking"))
+    await handle._client.session_update(session_id="acp-1", update=update)
+    assert received == [("acp-1", "thinking")]
 
 
 @pytest.mark.asyncio
-async def test_session_update_skips_non_text_and_other_kinds():
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport)
+async def test_session_update_skips_non_text_content():
+    handle, _ = _handle_with_conn()
     received: list[tuple[str, str]] = []
 
-    async def on_update(sid: str, chunk: str) -> None:
-        received.append((sid, chunk))
+    async def on_update(sid, text):
+        received.append((sid, text))
 
     handle.on_update = on_update
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-
-    # Non-text content block on a message chunk — skipped.
-    await transport.push_notification({
-        "jsonrpc": "2.0",
-        "method": "session/update",
-        "params": {
-            "sessionId": "abc",
-            "update": {
-                "sessionUpdate": "agent_message_chunk",
-                "content": {"type": "image", "data": "…", "mimeType": "image/png"},
-            },
-        },
-    })
-    # A tool_call update — not a text surface, skipped.
-    await transport.push_notification({
-        "jsonrpc": "2.0",
-        "method": "session/update",
-        "params": {
-            "sessionId": "abc",
-            "update": {
-                "sessionUpdate": "tool_call",
-                "toolCallId": "t1",
-                "title": "mcp__game__summary",
-            },
-        },
-    })
-    await _drain()
-
+    img = schema.ImageContentBlock(type="image", data="zzz", mime_type="image/png")
+    update = schema.AgentMessageChunk(session_update="agent_message_chunk", content=img)
+    await handle._client.session_update(session_id="acp-1", update=update)
     assert received == []
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
 
 
-def _permission_request(title: str, kind: str = "other") -> dict:
-    return {
-        "jsonrpc": "2.0",
-        "id": 99,
-        "method": "session/request_permission",
-        "params": {
-            "sessionId": "abc",
-            "toolCall": {"toolCallId": "t1", "title": title, "kind": kind, "rawInput": {}},
-            "options": [
-                {"optionId": "allow_always", "name": "Always allow", "kind": "allow_always"},
-                {"optionId": "allow", "name": "Allow", "kind": "allow_once"},
-                {"optionId": "reject", "name": "Reject", "kind": "reject_once"},
-            ],
-        },
-    }
+# --- _ConnectorClient: permission requests ------------------------------
+
+
+def _options() -> list[schema.PermissionOption]:
+    return [
+        schema.PermissionOption(option_id="allow_always", name="Always", kind="allow_always"),
+        schema.PermissionOption(option_id="allow", name="Allow", kind="allow_once"),
+        schema.PermissionOption(option_id="reject", name="Reject", kind="reject_once"),
+    ]
 
 
 @pytest.mark.asyncio
-async def test_permission_auto_approved_for_allowed_tool():
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport, allowed_tools=["game.*"])
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-
-    # The Claude Agent SDK titles MCP tools mcp__<server>__<tool>.
-    await transport.push_notification(_permission_request("mcp__game__summary"))
-    await _drain()
-
-    responses = [m for m in transport.sent if m.get("id") == 99]
-    assert responses, "no response sent for permission request"
-    assert responses[0]["result"]["outcome"] == {"outcome": "selected", "optionId": "allow"}
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+async def test_permission_approves_allowed_mcp_tool():
+    handle, _ = _handle_with_conn(allowed_tools=["game.*"])
+    tool_call = schema.ToolCallUpdate(tool_call_id="t1", title="mcp__game__summary", kind="other")
+    resp = await handle._client.request_permission(
+        options=_options(), session_id="acp-1", tool_call=tool_call
+    )
+    assert isinstance(resp.outcome, schema.AllowedOutcome)
+    assert resp.outcome.option_id == "allow"  # the allow_once option
 
 
 @pytest.mark.asyncio
-async def test_permission_auto_rejected_for_unknown_tool():
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport, allowed_tools=["game.*"])
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-
-    # A shell command (Bash) — title is the command, kind execute; not allowed.
-    await transport.push_notification(_permission_request("rm -rf /", kind="execute"))
-    await _drain()
-
-    responses = [m for m in transport.sent if m.get("id") == 99]
-    assert responses, "no response sent for permission request"
-    assert responses[0]["result"]["outcome"] == {"outcome": "selected", "optionId": "reject"}
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+async def test_permission_rejects_unknown_tool():
+    handle, _ = _handle_with_conn(allowed_tools=["game.*"])
+    tool_call = schema.ToolCallUpdate(tool_call_id="t1", title="rm -rf /", kind="execute")
+    resp = await handle._client.request_permission(
+        options=_options(), session_id="acp-1", tool_call=tool_call
+    )
+    assert isinstance(resp.outcome, schema.AllowedOutcome)
+    assert resp.outcome.option_id == "reject"  # the reject_once option
 
 
 @pytest.mark.asyncio
-async def test_game_elicitation_fires_callback():
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport)
+async def test_permission_cancels_when_no_usable_option():
+    handle, _ = _handle_with_conn(allowed_tools=["game.*"])
+    tool_call = schema.ToolCallUpdate(tool_call_id="t1", title="mcp__game__summary", kind="other")
+    resp = await handle._client.request_permission(options=[], session_id="acp-1", tool_call=tool_call)
+    assert isinstance(resp.outcome, schema.DeniedOutcome)
+    assert resp.outcome.outcome == "cancelled"
+
+
+# --- _ConnectorClient: game elicitation extension -----------------------
+
+
+@pytest.mark.asyncio
+async def test_ext_notification_routes_game_elicitation():
+    handle, _ = _handle_with_conn()
     received: list[tuple[str, dict]] = []
 
-    async def on_elicitation(sid: str, payload: dict) -> None:
+    async def on_elicitation(sid, payload):
         received.append((sid, payload))
 
     handle.on_elicitation = on_elicitation
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-
-    elicit_notif = {
-        "jsonrpc": "2.0",
-        "method": "game/elicitation",
-        "params": {"sessionId": "abc", "question": "should I build?"},
-    }
-    await transport.push_notification(elicit_notif)
-    await _drain()
-
-    assert received, "on_elicitation was not called"
-    assert received[0][0] == "abc"
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+    await handle._client.ext_notification("game/elicitation", {"sessionId": "acp-1", "question": "build?"})
+    assert received and received[0][0] == "acp-1"
 
 
 @pytest.mark.asyncio
-async def test_eof_transitions_to_ended():
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport)
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-    await transport.push_eof()
-    await _drain(10)
-    assert handle.state == SessionState.ENDED
-    await task
+async def test_ext_notification_ignores_other_methods():
+    handle, _ = _handle_with_conn()
+    received: list = []
+
+    async def on_elicitation(sid, payload):
+        received.append((sid, payload))
+
+    handle.on_elicitation = on_elicitation
+    await handle._client.ext_notification("some/other", {"sessionId": "acp-1"})
+    assert received == []
 
 
-@pytest.mark.asyncio
-async def test_cancel_sends_notification_and_transitions_to_halting():
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport)
-    task = asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-    await handle.cancel("abc")
-    assert handle.state == SessionState.HALTING
-
-    cancels = [m for m in transport.sent if m.get("method") == "session/cancel"]
-    assert len(cancels) == 1
-    # Notifications carry no id.
-    assert "id" not in cancels[0]
-    assert cancels[0]["params"] == {"sessionId": "abc"}
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError):
-        await task
+# --- pure helpers --------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_close_cancels_read_task_and_pending_futures():
-    transport = FakeTransport([_init_response()])
-    handle = SessionHandle(transport)
-    asyncio.get_running_loop().create_task(handle.read_loop())
-    await handle.initialize()
-    await _drain()  # let read_loop register itself
-
-    pending_fut: asyncio.Future = asyncio.get_running_loop().create_future()
-    handle._pending[999] = pending_fut
-
-    await handle.close()
-
-    assert handle.state == SessionState.ENDED
-    assert handle._read_task is None
-    assert pending_fut.cancelled()
-    assert 999 not in handle._pending
-    assert transport.closed is True
+def test_tool_match_names_normalizes_mcp_naming():
+    tc = schema.ToolCallUpdate(tool_call_id="t1", title="mcp__game__place_building", kind="other")
+    names = _tool_match_names(tc)
+    assert "mcp__game__place_building" in names
+    assert "game.place_building" in names
 
 
-@pytest.mark.asyncio
-async def test_connect_returns_active_handle(monkeypatch: pytest.MonkeyPatch) -> None:
-    """ACPConnector.connect() spawns transport, sends initialize, and returns an ACTIVE handle."""
+def test_tool_match_names_plain_title():
+    tc = schema.ToolCallUpdate(tool_call_id="t1", title="Read foo.py", kind="read")
+    assert _tool_match_names(tc) == {"Read foo.py"}
 
-    class _FakeAdapter:
-        def build_argv(self, binary: str, model: str) -> list[str]:
-            return [binary]
 
-    class _FakeSubprocessTransport(FakeTransport):
-        def __init__(self, argv: list[str], cwd: str | None = None) -> None:
-            super().__init__([_init_response()])
+def test_pick_option_prefers_once_variants():
+    assert _pick_option(_options(), approve=True) == "allow"
+    assert _pick_option(_options(), approve=False) == "reject"
 
-    monkeypatch.setattr("timberbot.connector.connector.SubprocessTransport", _FakeSubprocessTransport)
 
-    connector = ACPConnector(adapter=_FakeAdapter(), allowed_tools=["game.*"])
-    handle = await connector.connect("claude-agent-acp", "claude-opus-4-7")
+def test_pick_option_returns_none_when_empty():
+    assert _pick_option([], approve=True) is None
 
-    assert handle.state == SessionState.ACTIVE
-    await handle.close()
+
+def test_to_mcp_server_sse_and_http():
+    sse = _to_mcp_server({"type": "sse", "name": "game", "url": "http://h/sse", "headers": []})
+    assert isinstance(sse, schema.SseMcpServer) and sse.type == "sse"
+    http = _to_mcp_server({"type": "http", "name": "game", "url": "http://h/mcp", "headers": []})
+    assert isinstance(http, schema.HttpMcpServer) and http.type == "http"

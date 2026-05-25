@@ -38,6 +38,7 @@ dependencies = [
 
 [project.optional-dependencies]
 serve = [
+  "agent-client-protocol>=0.10",
   "fastmcp>=2.0",
   "python-telegram-bot[asyncio]>=21.0",
 ]

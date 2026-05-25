@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import asyncio
-
+from timberbot.connector.adapters.base import RuntimeAdapter
 from timberbot.connector.session import SessionHandle
-from timberbot.connector.transport import SubprocessTransport
 
 
 class ACPConnector:
     def __init__(
         self,
-        adapter: object,
+        adapter: RuntimeAdapter,
         allowed_tools: list[str] | None = None,
         cwd: str | None = None,
     ) -> None:
@@ -19,11 +17,7 @@ class ACPConnector:
 
     async def connect(self, binary: str, model: str) -> SessionHandle:
         argv = self._adapter.build_argv(binary, model)
-        transport = SubprocessTransport(argv, cwd=self._cwd)
-        await transport.start()
-
-        handle = SessionHandle(transport, self._allowed_tools, model=model)
-        asyncio.get_running_loop().create_task(handle.read_loop())
-
+        handle = SessionHandle(allowed_tools=self._allowed_tools, model=model)
+        await handle.start(argv, cwd=self._cwd)
         await handle.initialize()
         return handle
