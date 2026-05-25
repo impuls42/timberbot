@@ -496,7 +496,8 @@ namespace Timberbot
                 "/api/cutting/area", "/api/building/storage",
                 "/api/science/unlock", "/api/distribution", "/api/workhours",
                 "/api/district/migrate",
-                "/api/automation/link", "/api/automation/unlink", "/api/automation/configure", "/api/automation/rename"
+                "/api/automation/link", "/api/automation/unlink", "/api/automation/configure", "/api/automation/rename",
+                "/api/agent/config", "/api/agent/request", "/api/agent/message", "/api/ready"
             }));
         }
 
