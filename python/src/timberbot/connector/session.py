@@ -50,6 +50,46 @@ def _to_mcp_server(spec: dict) -> schema.HttpMcpServer | schema.SseMcpServer | s
     )
 
 
+# MCP tool names that mutate game state. Read-only tools (summary, alerts,
+# time, weather, prefabs, buildings, etc.) are intentionally excluded so the
+# action-feed doesn't drown the chat in routine inspection calls.
+_WRITE_TOOL_PREFIXES: tuple[str, ...] = (
+    "add_", "clear_", "configure_", "demolish_",
+    "mark_", "migrate", "pause_", "unpause_",
+    "place_", "plant_", "remove_", "rename_",
+    "set_", "unlock_", "update_", "link", "unlink",
+)
+
+
+def _clean_tool_title(title: str) -> str:
+    """Strip the Claude SDK's `mcp__<server>__<tool>` framing so the user sees
+    just `<tool>`. Pass-through for any title that doesn't match the pattern."""
+    if title.startswith("mcp__"):
+        _, _, tool = title[len("mcp__"):].partition("__")
+        if tool:
+            return tool
+    return title
+
+
+def _is_write_tool(name: str) -> bool:
+    return any(name.startswith(p) for p in _WRITE_TOOL_PREFIXES)
+
+
+def _format_tool_input(raw: object) -> str:
+    """One-line key=value rendering of a tool's raw_input; capped for readability."""
+    if isinstance(raw, dict):
+        parts: list[str] = []
+        for k, v in list(raw.items())[:6]:
+            s = str(v)
+            if len(s) > 40:
+                s = s[:37] + "…"
+            parts.append(f"{k}={s}")
+        if len(raw) > 6:
+            parts.append("…")
+        return ", ".join(parts)
+    return str(raw)[:120] if raw is not None else ""
+
+
 def _tool_match_names(tool_call: object) -> set[str]:
     """Candidate names for a tool call to match against `allowed_tools`.
 
@@ -96,19 +136,27 @@ def _pick_option(options: list, approve: bool) -> str | None:
 class _ConnectorClient:
     """ACP `Client` (editor side): the agent calls back into this.
 
-    Streaming updates are forwarded to `handle.on_update`; tool permission
-    requests are auto-resolved against `handle._allowed_tools`; the deprecated
-    game elicitation extension is routed to `handle.on_elicitation`. We advertise
-    no fs/terminal support, so those requests never arrive — the fs methods below
-    exist only to satisfy the SDK router and refuse defensively if ever called.
+    Inbound notifications carry `session_id`; we look up the right `Session`
+    on the owning `AgentConnection` and forward to its callbacks. Tool
+    permission requests are auto-resolved against the calling session's
+    `_allowed_tools`. The deprecated game elicitation extension routes to
+    that session's `on_elicitation`.
     """
 
-    def __init__(self, handle: SessionHandle) -> None:
-        self._handle = handle
+    def __init__(self, conn: AgentConnection) -> None:
+        self._conn = conn
 
     async def session_update(self, session_id: str, update: object, **_: object) -> None:
-        on_update = self._handle.on_update
-        if on_update is None:
+        session = self._conn._sessions.get(session_id)
+        if session is None:
+            log.debug("session/update for unknown session %s; ignoring", session_id)
+            return
+        # Tool-call lifecycle: emit a one-line "🔧 …" notification once per
+        # write-tool call when it reaches a terminal status. Dedup by
+        # tool_call_id so we only fire once even though the SDK may send
+        # multiple updates (pending → in_progress → completed) per call.
+        if isinstance(update, (schema.ToolCallStart, schema.ToolCallProgress, schema.ToolCallUpdate)):
+            await self._maybe_emit_tool_action(session, update)
             return
         if not isinstance(update, (schema.AgentMessageChunk, schema.AgentThoughtChunk)):
             return
@@ -117,24 +165,63 @@ class _ConnectorClient:
             log.debug("session/update %s: skipping non-text content", type(update).__name__)
             return
         if content.text:
-            await on_update(session_id, content.text)
+            await session._handle_text_chunk(content.text)
+
+    async def _maybe_emit_tool_action(self, session: Session, update: object) -> None:
+        tool_call_id = getattr(update, "tool_call_id", None)
+        if not tool_call_id:
+            return
+        # Remember start payloads so we can resolve the title and input
+        # when the terminal `ToolCallProgress` arrives with title=None.
+        title = getattr(update, "title", None)
+        raw_input = getattr(update, "raw_input", None)
+        if title is not None or raw_input is not None:
+            prev = session._tool_call_meta.get(tool_call_id, ("", None))
+            session._tool_call_meta[tool_call_id] = (
+                title or prev[0],
+                raw_input if raw_input is not None else prev[1],
+            )
+
+        status = getattr(update, "status", None)
+        if status not in ("completed", "failed"):
+            return
+        if tool_call_id in session._emitted_tool_calls:
+            return
+        resolved_title, resolved_input = session._tool_call_meta.get(tool_call_id, ("", None))
+        if not resolved_title:
+            return
+        clean = _clean_tool_title(resolved_title)
+        if not _is_write_tool(clean):
+            return  # quiet on read-only inspections
+        session._emitted_tool_calls.add(tool_call_id)
+        on_tool_action = session.on_tool_action
+        if on_tool_action is None:
+            return
+        args = _format_tool_input(resolved_input)
+        emoji = "✅" if status == "completed" else "❌"
+        summary = f"{emoji} {clean}({args})" if args else f"{emoji} {clean}"
+        with contextlib.suppress(Exception):
+            await on_tool_action(session.session_id, summary, status == "completed")
 
     async def request_permission(
         self, options: list, session_id: str, tool_call: object, **_: object
     ) -> acp.RequestPermissionResponse:
-        approved = self._handle._tool_allowed(tool_call)
+        session = self._conn._sessions.get(session_id)
+        approved = bool(session is not None and session._tool_allowed(tool_call))
         option_id = _pick_option(options, approve=approved)
         outcome: schema.AllowedOutcome | schema.DeniedOutcome
         if option_id is not None:
             outcome = schema.AllowedOutcome(outcome="selected", option_id=option_id)
         else:
-            # No usable option offered — decline by reporting cancellation.
             outcome = schema.DeniedOutcome(outcome="cancelled")
         return acp.RequestPermissionResponse(outcome=outcome)
 
     async def ext_notification(self, method: str, params: dict) -> None:
-        if method == NOTIF_GAME_ELICITATION and self._handle.on_elicitation:
-            await self._handle.on_elicitation(params.get("sessionId", ""), params)
+        if method == NOTIF_GAME_ELICITATION:
+            sid = str(params.get("sessionId", ""))
+            session = self._conn._sessions.get(sid)
+            if session is not None and session.on_elicitation is not None:
+                await session.on_elicitation(sid, params)
 
     async def ext_method(self, method: str, params: dict) -> dict:
         raise acp.RequestError.method_not_found(method)
@@ -149,27 +236,193 @@ class _ConnectorClient:
         raise acp.RequestError.method_not_found("fs/write_text_file")
 
 
-class SessionHandle:
+class Session:
+    """One conversation thread inside an `AgentConnection`.
+
+    Owns: its `session_id`, allowed-tool scope (per-session, not process-wide),
+    streaming/elicitation/tool-action callbacks, per-call dedup state, and the
+    in-flight turn future used by `prompt_awaitable`.
+    """
+
     def __init__(
         self,
+        conn: AgentConnection,
+        session_id: str,
         allowed_tools: list[str] | None = None,
-        model: str | None = None,
     ) -> None:
-        self._allowed_tools: list[str] = allowed_tools or []
-        self._model = model
+        self._conn = conn
+        self.session_id = session_id
+        self.state: SessionState = SessionState.ACTIVE
+        self._allowed_tools: list[str] = list(allowed_tools or [])
 
-        self.state: SessionState = SessionState.PENDING
-        self.session_id: str | None = None
-        self.agent_capabilities: object = None
         self.on_update: Callable[[str, str], Awaitable[None]] | None = None
         self.on_elicitation: Callable[[str, dict], Awaitable[None]] | None = None
+        # (session_id, summary, ok) — fires once per completed/failed write-tool call.
+        self.on_tool_action: Callable[[str, str, bool], Awaitable[None]] | None = None
 
+        # Tool-call ids already turned into a chat notification, to dedupe
+        # across the (pending → in_progress → completed) update sequence.
+        self._emitted_tool_calls: set[str] = set()
+        # tool_call_id → (title, raw_input). The Claude SDK only fills these
+        # on the initial `ToolCallStart`; the final `ToolCallProgress` that
+        # carries `status="completed"` arrives with `title=None`, so we
+        # remember the start payload to resolve names on the terminal event.
+        self._tool_call_meta: dict[str, tuple[str, object]] = {}
+
+        # prompt_awaitable bookkeeping. _current_turn is the future the caller
+        # is awaiting; _reply_buffer collects text chunks for that turn so the
+        # caller gets the full reply when the future resolves.
+        self._current_turn: asyncio.Future[str] | None = None
+        self._reply_buffer: list[str] = []
+        self._current_stop_reason: str | None = None
+
+        self._turn_tasks: set[asyncio.Task] = set()
+        self._closed = False
+
+    async def _handle_text_chunk(self, text: str) -> None:
+        # Accumulate for prompt_awaitable, then forward to user callback.
+        if self._current_turn is not None and not self._current_turn.done():
+            self._reply_buffer.append(text)
+        on_update = self.on_update
+        if on_update is not None:
+            await on_update(self.session_id, text)
+
+    def _tool_allowed(self, tool_call: object) -> bool:
+        return any(
+            fnmatch.fnmatch(name, pat)
+            for name in _tool_match_names(tool_call)
+            for pat in self._allowed_tools
+        )
+
+    @property
+    def is_busy(self) -> bool:
+        """True iff a turn is currently in flight on this session."""
+        return self._current_turn is not None and not self._current_turn.done()
+
+    async def prompt(self, text: str) -> None:
+        """Fire-and-forget turn: returns immediately, run_turn streams via callbacks."""
+        loop = asyncio.get_running_loop()
+        task = loop.create_task(self._run_turn(text, awaiter=None))
+        self._turn_tasks.add(task)
+        task.add_done_callback(self._turn_tasks.discard)
+
+    async def prompt_awaitable(self, text: str) -> str:
+        """Send a turn and wait for the full reply text.
+
+        Raises `RuntimeError("busy")` if a turn is already in flight on this
+        session — subagent semantics require explicit `cancel`/`wait` first.
+        """
+        if self.is_busy:
+            raise RuntimeError("busy")
+        loop = asyncio.get_running_loop()
+        fut: asyncio.Future[str] = loop.create_future()
+        self._current_turn = fut
+        self._reply_buffer = []
+        self._current_stop_reason = None
+        task = loop.create_task(self._run_turn(text, awaiter=fut))
+        self._turn_tasks.add(task)
+        task.add_done_callback(self._turn_tasks.discard)
+        return await fut
+
+    @property
+    def current_stop_reason(self) -> str | None:
+        """Stop reason of the most recent turn (None until one completes)."""
+        return self._current_stop_reason
+
+    async def _run_turn(
+        self,
+        text: str,
+        awaiter: asyncio.Future[str] | None,
+    ) -> None:
+        assert self._conn._conn is not None
+        try:
+            result = await self._conn._conn.prompt(
+                prompt=[acp.text_block(text)], session_id=self.session_id,
+            )
+            stop_reason = getattr(result, "stop_reason", None)
+            self._current_stop_reason = str(stop_reason) if stop_reason is not None else None
+            log.debug("agent prompt turn ended: stop_reason=%s", stop_reason)
+            if awaiter is not None and not awaiter.done():
+                awaiter.set_result("".join(self._reply_buffer))
+        except asyncio.CancelledError:
+            if awaiter is not None and not awaiter.done():
+                awaiter.cancel()
+            raise
+        except Exception as exc:  # noqa: BLE001 - surfaced via logs and the awaiter
+            log.warning("agent prompt turn failed: %s", exc)
+            # The ACP receive loop dies on framing errors (e.g. asyncio's
+            # default 64KB readline limit overrun by a big MCP tool result).
+            # When that happens the subprocess often stays alive but the
+            # connection is unusable. Demote to ENDED so the message loop
+            # evicts this session on the next prompt instead of pretending to
+            # be ACTIVE forever, and push a final TextChunk so the user sees
+            # why their session went quiet.
+            self.state = SessionState.ENDED
+            on_update = self.on_update
+            if on_update is not None:
+                with contextlib.suppress(Exception):
+                    await on_update(
+                        self.session_id,
+                        f"\n\n_agent turn failed: {exc}. Send another message to start a new session._",
+                    )
+            if awaiter is not None and not awaiter.done():
+                awaiter.set_exception(exc)
+
+    async def cancel(self) -> None:
+        assert self._conn._conn is not None
+        await self._conn._conn.cancel(session_id=self.session_id)
+        self.state = SessionState.HALTING
+
+    async def close(self) -> None:
+        """Close this session (best-effort ACP `session/close`; not every
+        backend implements it). Dropped from the connection's registry; the
+        connection itself stays open for other sessions."""
+        if self._closed:
+            return
+        self._closed = True
+        for task in list(self._turn_tasks):
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
+        self._turn_tasks.clear()
+        conn = self._conn._conn
+        if conn is not None:
+            close_fn = getattr(conn, "close_session", None)
+            if close_fn is not None:
+                with contextlib.suppress(Exception):
+                    await close_fn(session_id=self.session_id)
+        self._conn._sessions.pop(self.session_id, None)
+        self.state = SessionState.ENDED
+
+
+class AgentConnection:
+    """One ACP subprocess + stdio connection. Holds many `Session`s.
+
+    Maps onto one `claude-agent-acp` (or `opencode acp`) process. ACP itself
+    supports many sessions per connection — every method takes `session_id` —
+    so a single connection can host the main chat session and several
+    subagent sessions concurrently.
+    """
+
+    # asyncio's default StreamReader line limit is 64 KiB. ACP framing is
+    # newline-delimited JSON-RPC and a single `session/update` notification
+    # can easily exceed that once an MCP tool returns a chunky payload
+    # (`/api/prefabs` alone is ~28 KiB, plus the event-envelope wrapper, plus
+    # JSON-RPC overhead). When the line overruns, asyncio raises
+    # `LimitOverrunError`, the ACP receive loop dies, and the session goes
+    # silent without the handle noticing. 16 MiB is comfortable headroom for
+    # any single tool response we'd reasonably produce.
+    _STDIO_LIMIT = 16 * 1024 * 1024
+
+    def __init__(self, model: str | None = None) -> None:
+        self._model = model
         self._client = _ConnectorClient(self)
         self._conn: acp.ClientSideConnection | None = None
         self._proc: asyncio.subprocess.Process | None = None
         self._stderr_task: asyncio.Task | None = None
         self._exit_task: asyncio.Task | None = None
-        self._turn_tasks: set[asyncio.Task] = set()
+        self._sessions: dict[str, Session] = {}
+        self.agent_capabilities: object = None
         self._closing = False
 
     async def start(self, argv: list[str], cwd: str | None = None) -> None:
@@ -180,6 +433,7 @@ class SessionHandle:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
+            limit=self._STDIO_LIMIT,
         )
         # connect_to_agent wants the agent's stdin (to write to) and stdout
         # (to read from); it runs its own receive loop on construction.
@@ -197,21 +451,32 @@ class SessionHandle:
             client_capabilities=_client_capabilities(),
         )
         self.agent_capabilities = getattr(result, "agent_capabilities", None)
-        self.state = SessionState.ACTIVE
 
-    async def new_session(self, cwd: str, mcp_servers: list[dict]) -> str:
+    async def new_session(
+        self,
+        cwd: str,
+        mcp_servers: list[dict],
+        allowed_tools: list[str] | None = None,
+    ) -> Session:
+        """Open a new ACP session on this connection and return it.
+
+        `allowed_tools` is per-session — different sessions on the same
+        connection can have different scopes (the main chat gets `game.*`,
+        a subagent may get only `game.find_placement`).
+        """
         assert self._conn is not None
-        # The spec requires an absolute cwd.
         abs_cwd = str(Path(cwd).resolve())
         servers = [_to_mcp_server(s) for s in mcp_servers]
         result = await self._conn.new_session(cwd=abs_cwd, mcp_servers=servers)
-        self.session_id = result.session_id
+        sid = result.session_id
         if self._model:
-            await self._set_model(self.session_id, self._model)
-        return self.session_id
+            await self._set_model(sid, self._model)
+        session = Session(self, sid, allowed_tools=allowed_tools)
+        self._sessions[sid] = session
+        return session
 
     async def _set_model(self, session_id: str, model: str) -> None:
-        """Pin the session model post-handshake.
+        """Pin a session's model post-handshake.
 
         `session/set_model` is unstable and not implemented by every backend
         (opencode sets its model via argv instead), so any error here is a soft
@@ -228,41 +493,6 @@ class SessionHandle:
                 exc,
             )
 
-    async def prompt(self, session_id: str, text: str) -> None:
-        """Dispatch a prompt turn without blocking on its completion.
-
-        `ClientSideConnection.prompt` only resolves when the whole turn ends
-        (its `stop_reason` is the end-of-turn signal) while `session/update`
-        notifications stream in meanwhile. Awaiting it inline would freeze the
-        caller's message loop for the entire turn and make `/cancel`
-        unresponsive, so we run it as a background task.
-        """
-        task = asyncio.get_running_loop().create_task(self._run_turn(session_id, text))
-        self._turn_tasks.add(task)
-        task.add_done_callback(self._turn_tasks.discard)
-
-    async def _run_turn(self, session_id: str, text: str) -> None:
-        assert self._conn is not None
-        try:
-            result = await self._conn.prompt(prompt=[acp.text_block(text)], session_id=session_id)
-            log.debug("agent prompt turn ended: stop_reason=%s", getattr(result, "stop_reason", None))
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:  # noqa: BLE001 - surfaced via logs, not fatal to the loop
-            log.warning("agent prompt turn failed: %s", exc)
-
-    async def cancel(self, session_id: str) -> None:
-        assert self._conn is not None
-        await self._conn.cancel(session_id=session_id)
-        self.state = SessionState.HALTING
-
-    def _tool_allowed(self, tool_call: object) -> bool:
-        return any(
-            fnmatch.fnmatch(name, pat)
-            for name in _tool_match_names(tool_call)
-            for pat in self._allowed_tools
-        )
-
     async def _drain_stderr(self) -> None:
         assert self._proc is not None and self._proc.stderr is not None
         while True:
@@ -276,8 +506,10 @@ class SessionHandle:
         await self._proc.wait()
         if self._closing:
             return
-        # The agent died on its own; reflect that and free the connection's tasks.
-        self.state = SessionState.ENDED
+        # The agent died on its own; reflect that on every live session and
+        # free the connection's tasks.
+        for session in self._sessions.values():
+            session.state = SessionState.ENDED
         if self._conn is not None:
             with contextlib.suppress(Exception):
                 await self._conn.close()
@@ -289,11 +521,10 @@ class SessionHandle:
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
-        for task in list(self._turn_tasks):
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await task
-        self._turn_tasks.clear()
+        for session in list(self._sessions.values()):
+            with contextlib.suppress(Exception):
+                await session.close()
+        self._sessions.clear()
         self._exit_task = None
         self._stderr_task = None
         if self._conn is not None:
@@ -302,4 +533,3 @@ class SessionHandle:
         if self._proc is not None:
             with contextlib.suppress(ProcessLookupError):
                 self._proc.terminate()
-        self.state = SessionState.ENDED

@@ -14,6 +14,9 @@ def test_packaged_prompts_present():
     # repo root), not a shipped prompt — it targets this codebase, not
     # gameplay, so it doesn't get packaged with the `timberbot` wheel.
     # `connector-mode` is the mode-aware preamble prepended by `tbot watch`.
+    # `tbot serve` no longer ships a markdown — its agent identity, tool
+    # scope, and refusal rules live in code at
+    # `connector/agent_spec.py:TIMBERBOT_SPEC`.
     assert names == {"timberbot", "wirer", "auditor", "scout", "connector-mode"}
 
 

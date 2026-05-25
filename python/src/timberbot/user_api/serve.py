@@ -4,11 +4,13 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 
+from timberbot.connector.agent_spec import TIMBERBOT_SPEC, render_bootstrap_prompt
 from timberbot.user_api.protocol import (
     AgentFeedback,
     GameElicitation,
     SessionStateChange,
     TextChunk,
+    ToolAction,
     UserAdapter,
 )
 from timberbot.user_api.session_manager import SessionManager
@@ -49,11 +51,16 @@ class ServeConfig:
     wait_for_mod: bool = True
 
 
-def _bind_callbacks(handle: object, user_adapter: UserAdapter) -> None:
-    """Forward `session/update` and `game/elicitation` notifications to the user adapter."""
+def _bind_callbacks(session: object, user_adapter: UserAdapter, user_id: str) -> None:
+    """Forward `session/update` and `game/elicitation` notifications to the user adapter.
+
+    `user_id` is captured into the callbacks so the adapter can route a chunk
+    back to the right chat even if the session_id binding hasn't reached the
+    adapter yet (race between `register_chat` and the first agent reply).
+    """
 
     async def _on_update(sid: str, chunk: str) -> None:
-        await user_adapter.send(TextChunk(session_id=sid, text=chunk))
+        await user_adapter.send(TextChunk(session_id=sid, text=chunk, user_id=user_id))
 
     async def _on_elicitation(sid: str, params: dict) -> None:
         await user_adapter.send(GameElicitation(
@@ -61,14 +68,154 @@ def _bind_callbacks(handle: object, user_adapter: UserAdapter) -> None:
             question=str(params.get("question", "")),
             choices=list(params.get("choices", [])),
             correlation_id=str(params.get("correlationId", "")),
+            user_id=user_id,
         ))
 
-    handle.on_update = _on_update           # type: ignore[attr-defined]
-    handle.on_elicitation = _on_elicitation  # type: ignore[attr-defined]
+    async def _on_tool_action(sid: str, summary: str, ok: bool) -> None:
+        await user_adapter.send(ToolAction(
+            session_id=sid, summary=summary, ok=ok, user_id=user_id,
+        ))
+
+    session.on_update = _on_update           # type: ignore[attr-defined]
+    session.on_elicitation = _on_elicitation  # type: ignore[attr-defined]
+    session.on_tool_action = _on_tool_action  # type: ignore[attr-defined]
 
 
-def _handle_state(handle: object) -> str:
-    s = getattr(handle, "state", None)
+def _format_state_oneline(summary: object) -> str:
+    """One-line game-state digest for session-start previews.
+
+    Defensive against missing fields — `summary` is a pydantic Summary but we
+    treat every attribute as optional so a partial mod response (e.g. a save
+    still loading) doesn't crash the preview.
+    """
+    parts: list[str] = []
+    t = getattr(summary, "time", None)
+    if t is not None and getattr(t, "dayNumber", None) is not None:
+        parts.append(f"day {t.dayNumber}")
+        speed = getattr(t, "speed", None)
+        if speed is not None:
+            parts.append(f"{int(getattr(speed, 'value', speed))}x speed")
+    districts = getattr(summary, "districts", None) or []
+    total_pop = 0
+    for d in districts:
+        pop = getattr(d, "population", None)
+        if pop is not None:
+            total_pop += int(getattr(pop, "adults", 0) or 0) + int(getattr(pop, "children", 0) or 0)
+    if total_pop:
+        parts.append(f"pop {total_pop}")
+    alerts = getattr(summary, "alerts", None) or {}
+    if alerts:
+        n = sum(int(v or 0) for v in alerts.values())
+        if n:
+            parts.append(f"{n} alert{'s' if n != 1 else ''}")
+    weather = getattr(summary, "weather", None)
+    if weather is not None and getattr(weather, "isHazardous", False):
+        remaining = getattr(weather, "hazardousWeatherDuration", None)
+        parts.append(f"hazardous ({remaining}d left)" if remaining else "hazardous")
+    return " · ".join(parts) if parts else "no state yet"
+
+
+def _format_state_full(summary: object) -> str:
+    """Multi-line dashboard for `/state` — one section per area."""
+    lines: list[str] = []
+    settlement = getattr(summary, "settlement", None)
+    faction = getattr(summary, "faction", None)
+    t = getattr(summary, "time", None)
+    header_bits: list[str] = []
+    if settlement:
+        header_bits.append(str(settlement))
+    if faction:
+        header_bits.append(f"({faction})")
+    if t is not None and getattr(t, "dayNumber", None) is not None:
+        progress = getattr(t, "dayProgress", None)
+        progress_str = f" {progress:.0%}" if isinstance(progress, (int, float)) else ""
+        header_bits.append(f"— day {t.dayNumber}{progress_str}")
+        speed = getattr(t, "speed", None)
+        if speed is not None:
+            header_bits.append(f"@ {int(getattr(speed, 'value', speed))}x")
+    if header_bits:
+        lines.append(" ".join(header_bits))
+
+    weather = getattr(summary, "weather", None)
+    if weather is not None:
+        hazard = bool(getattr(weather, "isHazardous", False))
+        kind = "hazardous" if hazard else "temperate"
+        remaining = (
+            getattr(weather, "hazardousWeatherDuration", None) if hazard
+            else getattr(weather, "temperateWeatherDuration", None)
+        )
+        cycle = getattr(weather, "cycle", None)
+        cycle_str = f" cycle {cycle}" if cycle is not None else ""
+        remaining_str = f", {remaining}d left" if remaining is not None else ""
+        lines.append(f"Weather: {kind}{cycle_str}{remaining_str}")
+
+    science = getattr(summary, "science", None)
+    if science is not None:
+        lines.append(f"Science: {science} pts")
+
+    districts = getattr(summary, "districts", None) or []
+    if districts:
+        lines.append(f"Districts: {len(districts)}")
+        for d in districts:
+            name = getattr(d, "name", "?")
+            pop = getattr(d, "population", None)
+            housing = getattr(d, "housing", None)
+            employment = getattr(d, "employment", None)
+            wellbeing = getattr(d, "wellbeing", None)
+            bits: list[str] = []
+            if pop is not None:
+                a = int(getattr(pop, "adults", 0) or 0)
+                c = int(getattr(pop, "children", 0) or 0)
+                b = int(getattr(pop, "bots", 0) or 0)
+                bits.append(f"{a + c} pop ({a}+{c}c, {b} bot)")
+            if housing is not None:
+                occ = getattr(housing, "occupiedBeds", None)
+                total = getattr(housing, "totalBeds", None)
+                homeless = getattr(housing, "homeless", None) or 0
+                if occ is not None and total is not None:
+                    h = f" +{homeless} homeless" if homeless else ""
+                    bits.append(f"housing {occ}/{total}{h}")
+            if employment is not None:
+                vac = getattr(employment, "vacancies", None) or 0
+                unemp = getattr(employment, "unemployed", None) or 0
+                if vac or unemp:
+                    bits.append(f"jobs: {vac} vac, {unemp} idle")
+            if wellbeing is not None:
+                avg = getattr(wellbeing, "average", None)
+                crit = getattr(wellbeing, "critical", None) or 0
+                if avg is not None:
+                    crit_str = f", {crit} critical" if crit else ""
+                    bits.append(f"wellbeing {avg:.1f}{crit_str}")
+            lines.append(f"  • {name}: " + "; ".join(bits) if bits else f"  • {name}")
+
+    alerts = getattr(summary, "alerts", None) or {}
+    if alerts:
+        total = sum(int(v or 0) for v in alerts.values())
+        if total:
+            top = sorted(alerts.items(), key=lambda kv: -int(kv[1] or 0))[:5]
+            detail = ", ".join(f"{k}: {v}" for k, v in top)
+            lines.append(f"Alerts ({total}): {detail}")
+
+    buildings = getattr(summary, "buildings", None) or {}
+    if buildings:
+        top = sorted(buildings.items(), key=lambda kv: -int(kv[1] or 0))[:5]
+        lines.append("Buildings: " + ", ".join(f"{k}={v}" for k, v in top))
+
+    return "\n".join(lines) if lines else "(no state — mod returned empty summary)"
+
+
+async def _fetch_summary(client: object) -> object | None:
+    """Pull `/api/summary` off the event loop. Returns None on failure."""
+    loop = asyncio.get_running_loop()
+    try:
+        return await loop.run_in_executor(None, client.summary)  # type: ignore[attr-defined]
+    except Exception:
+        log.exception("failed to fetch /api/summary for state preview")
+        return None
+
+
+def _session_state(session: object) -> str:
+    s = getattr(session, "state", None)
     return str(getattr(s, "value", s)) if s is not None else "unknown"
 
 
@@ -136,21 +283,83 @@ async def _probe_mod_until_reachable(client: object, cfg: ServeConfig) -> None:
         attempt += 1
 
 
+def _prepare_agent_cwd() -> str:
+    """Stable, sterile directory passed to ACP `new_session(cwd=…)`.
+
+    ACP requires an absolute cwd. We keep this directory empty so the
+    agent runtime can't pick up unrelated project context (no CLAUDE.md,
+    no .claude/agents, no .opencode/agent). All identity, tool scope, and
+    behavior rules are injected via the prompt — see
+    `connector/agent_spec.py:render_bootstrap_prompt`.
+    """
+    from pathlib import Path  # noqa: PLC0415
+
+    from timberbot.config import config_dir  # noqa: PLC0415
+
+    cwd: Path = config_dir() / "serve"
+    cwd.mkdir(parents=True, exist_ok=True)
+    return str(cwd)
+
+
+def _mcp_servers_for_user(cfg: ServeConfig, user_id: str) -> list[dict]:
+    """Build the MCP server config the agent connects to.
+
+    `X-Timberbot-User-Id` is added to the SSE request headers so the MCP
+    server's delegate-family tools can find the calling user's broker entry
+    (see `game_mcp/delegation.py:SubagentBroker.lookup_by_request`).
+    """
+    return [{
+        "type": "sse",
+        "name": "game",
+        "url": f"http://{cfg.mcp_host}:{cfg.mcp_port}/sse",
+        "headers": [
+            {"name": "X-Timberbot-User-Id", "value": str(user_id)},
+        ],
+    }]
+
+
 async def _user_message_loop(
     user_adapter: UserAdapter,
     session_mgr: SessionManager,
     acp: object,
     cfg: ServeConfig,
+    client: object | None = None,
+    agent_cwd: str | None = None,
+    broker: object | None = None,
 ) -> None:
     """Drive the inbound message queue until cancelled.
 
     Shutdown is cancel-only: the TaskGroup in run_serve() cancels this
     coroutine on exit, and the finally block below closes all open
-    SessionHandles so their subprocesses are cleaned up.
+    AgentConnections so their subprocesses are cleaned up.
+
+    `client` is the TimberbotClient used to render game-state previews for
+    `/state` and on session-start. Optional so unit tests can keep
+    passing a 3-arg call shape; in production `run_serve` always supplies it.
+
+    `broker` is the `SubagentBroker` from `game_mcp.delegation` — when set,
+    each newly opened user `AgentConnection` is registered so the
+    delegate-family MCP tools can route per-user; on eviction we unregister
+    and close any live subagents.
     """
-    _handles: dict[str, object] = {}       # user_id -> SessionHandle
-    _acp_sessions: dict[str, str] = {}     # user_id -> ACP session_id
+    _connections: dict[str, object] = {}    # user_id -> AgentConnection
+    _sessions: dict[str, object] = {}       # user_id -> main Session
     register = getattr(user_adapter, "register_chat", None)
+
+    async def _evict(user_id: str) -> None:
+        """Drop a user's main session + connection. Close any subagents."""
+        _sessions.pop(user_id, None)
+        conn = _connections.pop(user_id, None)
+        if conn is not None:
+            try:
+                await conn.close()  # type: ignore[union-attr]
+            except Exception:
+                log.exception("error closing connection on eviction for user %s", user_id)
+        if broker is not None:
+            try:
+                await broker.unregister(user_id)  # type: ignore[union-attr]
+            except Exception:
+                log.exception("error unregistering broker entry for user %s", user_id)
 
     try:
         async for msg in user_adapter.messages():
@@ -161,32 +370,70 @@ async def _user_message_loop(
             try:
                 # Control commands — route to ACP session lifecycle, not prompt
                 if text in ("/cancel", "/halt"):
-                    if user_id in _handles:
-                        handle = _handles.pop(user_id)
-                        acp_sid = _acp_sessions.pop(user_id)
+                    if user_id in _sessions:
+                        session = _sessions[user_id]
+                        acp_sid = session.session_id  # type: ignore[union-attr]
                         try:
-                            await handle.cancel(acp_sid)  # type: ignore[union-attr]
+                            await session.cancel()  # type: ignore[union-attr]
                         except Exception:
                             log.exception("Error sending cancel for user %s", user_id)
                         await user_adapter.send(SessionStateChange(
                             session_id=acp_sid,
                             state="halting",
                             detail=f"acked {text}",
+                            user_id=user_id,
+                        ))
+                        await _evict(user_id)
+                    else:
+                        # Make the no-op explicit so the user gets a reply
+                        # instead of silence.
+                        await user_adapter.send(SessionStateChange(
+                            session_id="",
+                            state="no session",
+                            detail=f"nothing to {text.lstrip('/')}",
+                            user_id=user_id,
                         ))
                     continue
 
                 if text == "/status":
-                    if user_id in _handles:
+                    if user_id in _sessions:
+                        session = _sessions[user_id]
                         await user_adapter.send(SessionStateChange(
-                            session_id=_acp_sessions[user_id],
-                            state=_handle_state(_handles[user_id]),
+                            session_id=session.session_id,  # type: ignore[union-attr]
+                            state=_session_state(session),
+                            user_id=user_id,
                         ))
                     else:
                         await user_adapter.send(SessionStateChange(
                             session_id="",
                             state="no session",
                             detail=f"no agent connected yet for user {user_id}",
+                            user_id=user_id,
                         ))
+                    continue
+
+                if text == "/state":
+                    sid = _sessions[user_id].session_id if user_id in _sessions else ""  # type: ignore[union-attr]
+                    if client is None:
+                        await user_adapter.send(SessionStateChange(
+                            session_id=sid,
+                            state="info",
+                            detail="state unavailable (no game client wired)",
+                            user_id=user_id,
+                        ))
+                        continue
+                    summary = await _fetch_summary(client)
+                    body = (
+                        _format_state_full(summary)
+                        if summary is not None
+                        else "couldn't reach the mod — is the game running?"
+                    )
+                    await user_adapter.send(SessionStateChange(
+                        session_id=sid,
+                        state="info",
+                        detail=body,
+                        user_id=user_id,
+                    ))
                     continue
 
                 # Elicitation answer — rewrite to a prompt the agent can read on its next turn
@@ -195,54 +442,82 @@ async def _user_message_loop(
                     if len(parts) == 3:
                         text = f"User selected: {parts[2]} (correlationId={parts[1]})"
 
-                # Evict stale handles (the agent process died, or a previous /cancel left ENDED state)
-                if user_id in _handles and _handle_state(_handles[user_id]) in ("halting", "ended"):
-                    log.info("Evicting stale handle for user %s", user_id)
-                    _handles.pop(user_id, None)
-                    _acp_sessions.pop(user_id, None)
+                # Evict stale sessions (the agent process died, or a previous /cancel left ENDED state)
+                if user_id in _sessions and _session_state(_sessions[user_id]) in ("halting", "ended"):
+                    log.info("Evicting stale session for user %s", user_id)
+                    await _evict(user_id)
 
                 # First contact (or reconnect after eviction): bring up an ACP session
                 session_mgr.get_or_create(user_id)
-                if user_id not in _handles:
-                    handle = await acp.connect(  # type: ignore[union-attr]
+                is_new_session = user_id not in _sessions
+                if is_new_session:
+                    mcp_servers = _mcp_servers_for_user(cfg, user_id)
+                    conn = await acp.connect(  # type: ignore[union-attr]
                         binary=cfg.acp_binary, model=cfg.model,
                     )
-                    acp_session_id = await handle.new_session(
-                        cwd=".",
-                        mcp_servers=[{
-                            "type": "sse",
-                            "name": "game",
-                            "url": f"http://{cfg.mcp_host}:{cfg.mcp_port}/sse",
-                            "headers": [],
-                        }],
+                    session = await conn.new_session(  # type: ignore[union-attr]
+                        cwd=agent_cwd or ".",
+                        mcp_servers=mcp_servers,
+                        allowed_tools=cfg.allowed_tools,
                     )
-                    _bind_callbacks(handle, user_adapter)
-                    _handles[user_id] = handle
-                    _acp_sessions[user_id] = acp_session_id
+                    _bind_callbacks(session, user_adapter, user_id)
+                    _connections[user_id] = conn
+                    _sessions[user_id] = session
+                    if broker is not None:
+                        broker.register(  # type: ignore[union-attr]
+                            user_id=user_id,
+                            conn=conn,
+                            agent_cwd=agent_cwd or ".",
+                            mcp_servers=mcp_servers,
+                        )
                     if register is not None and msg.chat_id is not None:
-                        register(acp_session_id, msg.chat_id)
+                        register(session.session_id, msg.chat_id)  # type: ignore[union-attr]
+                    # Include a one-line game-state preview so the user
+                    # immediately sees the situation the agent is operating in.
+                    preview: str | None = None
+                    if client is not None:
+                        summary = await _fetch_summary(client)
+                        if summary is not None:
+                            preview = _format_state_oneline(summary)
                     await user_adapter.send(SessionStateChange(
-                        session_id=acp_session_id, state="active",
+                        session_id=session.session_id,  # type: ignore[union-attr]
+                        state="active",
+                        detail=preview,
+                        user_id=user_id,
                     ))
 
-                handle = _handles[user_id]
-                await handle.prompt(_acp_sessions[user_id], text)  # type: ignore[union-attr]
+                session = _sessions[user_id]
+                # Close out the previous turn's stream so the next agent
+                # chunk creates a fresh chat message instead of continuing
+                # to edit a placeholder that's now far above the user's
+                # latest reply. No-op if the adapter doesn't expose this.
+                reset_stream = getattr(user_adapter, "reset_stream", None)
+                if reset_stream is not None:
+                    reset_stream(session.session_id)  # type: ignore[union-attr]
+                # First turn of a new ACP session: prepend the agent spec
+                # so identity, tool scope, and refusal rules ride inside
+                # the prompt itself (ACP has no system-prompt field). The
+                # agent retains it in session memory for subsequent turns,
+                # so we only inject once per session.
+                prompt_text = text
+                if is_new_session:
+                    prompt_text = render_bootstrap_prompt(TIMBERBOT_SPEC) + "\n" + text
+                await session.prompt(prompt_text)  # type: ignore[union-attr]
             except Exception as exc:
                 log.exception("Error dispatching message for user %s", user_id)
                 try:
+                    sid = _sessions[user_id].session_id if user_id in _sessions else ""  # type: ignore[union-attr]
                     await user_adapter.send(SessionStateChange(
-                        session_id=_acp_sessions.get(user_id, ""),
+                        session_id=sid,
                         state="error",
                         detail=str(exc),
+                        user_id=user_id,
                     ))
                 except Exception:
                     log.exception("Also failed to inform user %s about the error", user_id)
     finally:
-        for handle in list(_handles.values()):
-            try:
-                await handle.close()  # type: ignore[union-attr]
-            except Exception:
-                log.exception("Error closing handle on teardown")
+        for user_id in list(_connections.keys()):
+            await _evict(user_id)
 
 
 async def run_serve(cfg: ServeConfig) -> None:
@@ -258,6 +533,7 @@ async def run_serve(cfg: ServeConfig) -> None:
     from timberbot.connector.adapters.claude_code import ClaudeCodeAdapter  # noqa: PLC0415
     from timberbot.connector.adapters.opencode import OpencodeAdapter  # noqa: PLC0415
     from timberbot.game_mcp import EventBus, EventIngestor  # noqa: PLC0415
+    from timberbot.game_mcp.delegation import SubagentBroker  # noqa: PLC0415
     from timberbot.game_mcp.server import create_mcp_server  # noqa: PLC0415
     from timberbot.user_api.telegram.bot import TelegramAdapter  # noqa: PLC0415
 
@@ -289,6 +565,7 @@ async def run_serve(cfg: ServeConfig) -> None:
     bus = EventBus()
     ws_client = TimberbotWsClient(cfg.host, cfg.ws_port, cfg.auth_token)
     ingestor = EventIngestor(ws_client, bus)
+    broker = SubagentBroker()
 
     adapter_cls = ClaudeCodeAdapter if cfg.backend == "claude" else OpencodeAdapter
     acp = ACPConnector(adapter=adapter_cls(), allowed_tools=cfg.allowed_tools)
@@ -298,8 +575,16 @@ async def run_serve(cfg: ServeConfig) -> None:
     async def _on_complaint(message: str, category: str, severity: str) -> None:
         await user_adapter.send(AgentFeedback(category=category, severity=severity, message=message))
 
-    mcp = create_mcp_server(client, bus, on_complaint=_on_complaint)
+    mcp = create_mcp_server(client, bus, on_complaint=_on_complaint, broker=broker)
     session_mgr = SessionManager()
+
+    # Sandbox cwd holding our `CLAUDE.md` scoping prompt. Passed as cwd to
+    # every ACP `new_session` so the agent loads our role/tool-scope
+    # instructions instead of picking up unrelated project context from
+    # wherever `tbot serve` was launched. Lives under the user config dir
+    # so the path is stable across restarts.
+    agent_cwd = _prepare_agent_cwd()
+    log.info("serve: agent cwd = %s", agent_cwd)
 
     async with asyncio.TaskGroup() as tg:
         tg.create_task(ingestor.run(), name="ingestor")
@@ -314,6 +599,10 @@ async def run_serve(cfg: ServeConfig) -> None:
         )
         tg.create_task(user_adapter.start(), name="telegram")
         tg.create_task(
-            _user_message_loop(user_adapter, session_mgr, acp, cfg),
+            _user_message_loop(
+                user_adapter, session_mgr, acp, cfg, client,
+                agent_cwd=str(agent_cwd),
+                broker=broker,
+            ),
             name="msg-loop",
         )

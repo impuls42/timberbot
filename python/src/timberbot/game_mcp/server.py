@@ -31,6 +31,7 @@ from pydantic import BaseModel
 
 from timberbot.api.client import TimberbotClient
 from timberbot.game_mcp.bus import EventBus
+from timberbot.game_mcp.delegation import SubagentBroker, register_delegation_tools
 from timberbot.game_mcp.models import Cursor, EventMeta
 
 log = logging.getLogger("timberbot.game_mcp.server")
@@ -67,12 +68,18 @@ def create_mcp_server(
     client: TimberbotClient,
     bus: EventBus,
     on_complaint: Callable[[str, str, str], Awaitable[None]] | None = None,
+    broker: SubagentBroker | None = None,
 ) -> fastmcp.FastMCP:
     """Create and return a configured FastMCP instance with all game tools.
 
     The returned server is not yet running — call run_http_async() on it.
     All tools are async: they offload the blocking HTTP call to a thread pool
     executor while accessing the EventBus on the event loop.
+
+    When `on_complaint` is provided, the `complain` tool is registered;
+    when `broker` is provided, the delegate-family tools are registered.
+    `tbot serve` supplies both at startup; standalone test/CLI uses can
+    omit either or both.
     """
     mcp = fastmcp.FastMCP(
         "timberbot-game",
@@ -809,5 +816,12 @@ def create_mcp_server(
         if on_complaint is not None:
             await on_complaint(message, category, severity)
         return _make_envelope(bus, cursor, result)
+
+    # ------------------------------------------------------------------
+    # Subagent delegation (Phase 1)
+    # ------------------------------------------------------------------
+
+    if broker is not None:
+        register_delegation_tools(mcp, broker)
 
     return mcp

@@ -44,6 +44,8 @@ serve = [
 ]
 dev = [
   "agent-client-protocol>=0.10",  # connector tests import `acp`
+  "fastmcp>=2.0",  # delegation tests import `fastmcp`
+  "python-telegram-bot[asyncio]>=21.0",
   "pytest>=8",
   "pytest-asyncio>=0.23",
   "pytest-httpserver>=1.0",
