@@ -1,198 +1,198 @@
 /* ============================================================
    TIMBERBORN THEME
-   Dark wood panels, gold/amber highlights, cream text
-   Inspired by the in-game UI: timber planks + brass fixtures
+   Lush forest greens: deep canopy panels, bright leaf highlights,
+   pale sage text. Inspired by the game's woodlands.
    ============================================================ */
 
 /*. palette overrides (dark mode = primary experience). */
 
 [data-md-color-scheme="slate"] {
-  /* backgrounds: dark wood tones */
-  --md-default-bg-color: #1e1610;
-  --md-default-bg-color--light: #261c14;
-  --md-default-bg-color--lighter: #2e221a;
-  --md-default-bg-color--lightest: #3a2c20;
+  /* backgrounds: deep forest tones */
+  --md-default-bg-color: #101a12;
+  --md-default-bg-color--light: #16221a;
+  --md-default-bg-color--lighter: #1c2a20;
+  --md-default-bg-color--lightest: #243826;
 
-  /* text: warm cream */
-  --md-default-fg-color: #e8dcc8;
-  --md-default-fg-color--light: #c8b898;
-  --md-default-fg-color--lighter: #a89878;
-  --md-default-fg-color--lightest: #887858;
+  /* text: pale sage */
+  --md-default-fg-color: #dce8d0;
+  --md-default-fg-color--light: #b8c8a0;
+  --md-default-fg-color--lighter: #98a880;
+  --md-default-fg-color--lightest: #788860;
 
-  /* primary: rich gold */
-  --md-primary-fg-color: #c88830;
-  --md-primary-fg-color--light: #d4a040;
-  --md-primary-fg-color--dark: #a06820;
-  --md-primary-bg-color: #1e1610;
-  --md-primary-bg-color--light: #261c14;
+  /* primary: rich leaf green */
+  --md-primary-fg-color: #4ca030;
+  --md-primary-fg-color--light: #5cb040;
+  --md-primary-fg-color--dark: #3a8020;
+  --md-primary-bg-color: #101a12;
+  --md-primary-bg-color--light: #16221a;
 
-  /* accent: bright amber */
-  --md-accent-fg-color: #f0a820;
-  --md-accent-fg-color--transparent: rgba(240, 168, 32, 0.1);
-  --md-accent-bg-color: #1e1610;
+  /* accent: bright lime */
+  --md-accent-fg-color: #80d040;
+  --md-accent-fg-color--transparent: rgba(128, 208, 64, 0.1);
+  --md-accent-bg-color: #101a12;
 
   /* code */
-  --md-code-bg-color: #16100c;
-  --md-code-fg-color: #e0d4c0;
-  --md-code-hl-color: rgba(240, 168, 32, 0.15);
+  --md-code-bg-color: #0c140e;
+  --md-code-fg-color: #d4e0c8;
+  --md-code-hl-color: rgba(128, 208, 64, 0.15);
 
   /* typeset */
-  --md-typeset-color: #e8dcc8;
-  --md-typeset-a-color: #e0b040;
+  --md-typeset-color: #dce8d0;
+  --md-typeset-a-color: #6cc848;
 
   /* footer */
-  --md-footer-bg-color: #140e0a;
-  --md-footer-bg-color--dark: #0e0a08;
-  --md-footer-fg-color: #c8b898;
-  --md-footer-fg-color--light: #a89878;
-  --md-footer-fg-color--lighter: #887858;
+  --md-footer-bg-color: #0a120c;
+  --md-footer-bg-color--dark: #060e08;
+  --md-footer-fg-color: #b8c8a0;
+  --md-footer-fg-color--light: #98a880;
+  --md-footer-fg-color--lighter: #788860;
 }
 
-/*. header: dark timber beam. */
+/*. header: deep canopy beam. */
 
 [data-md-color-scheme="slate"] .md-header {
-  background: linear-gradient(180deg, #1a1208 0%, #221810 100%);
-  border-bottom: 2px solid #3d2b1a;
+  background: linear-gradient(180deg, #0c1810 0%, #142016 100%);
+  border-bottom: 2px solid #2a3d22;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 [data-md-color-scheme="slate"] .md-header__title {
-  color: #d4a040;
+  color: #6cc048;
   font-weight: 700;
 }
 
-/*. navigation sidebar: wood panel. */
+/*. navigation sidebar: foliage panel. */
 
 [data-md-color-scheme="slate"] .md-sidebar {
-  background-color: #1a1208;
-  border-right: 1px solid #3d2b1a;
+  background-color: #0c1810;
+  border-right: 1px solid #2a3d22;
 }
 
 [data-md-color-scheme="slate"] .md-nav__link {
-  color: #c8b898;
+  color: #b8c8a0;
 }
 
 [data-md-color-scheme="slate"] .md-nav__link:hover {
-  color: #f0a820;
+  color: #80d040;
 }
 
 [data-md-color-scheme="slate"] .md-nav__link--active,
 [data-md-color-scheme="slate"] .md-nav__link--active:hover {
-  color: #f0a820;
+  color: #80d040;
   font-weight: 600;
 }
 
 [data-md-color-scheme="slate"] .md-nav__item--active > .md-nav__link {
-  color: #f0a820;
+  color: #80d040;
 }
 
 /*. search bar. */
 
 [data-md-color-scheme="slate"] .md-search__input {
-  background-color: #2a1f14;
-  color: #e8dcc8;
-  border: 1px solid #4a3322;
+  background-color: #16241a;
+  color: #dce8d0;
+  border: 1px solid #33502a;
 }
 
 [data-md-color-scheme="slate"] .md-search__input::placeholder {
-  color: #887858;
+  color: #788860;
 }
 
 /*. content area. */
 
 [data-md-color-scheme="slate"] .md-content {
-  background-color: #1e1610;
+  background-color: #101a12;
 }
 
-/* headings: gold gradient */
+/* headings: leaf gradient */
 [data-md-color-scheme="slate"] .md-typeset h1 {
-  color: #e0b040;
-  border-bottom: 2px solid #3d2b1a;
+  color: #7cc850;
+  border-bottom: 2px solid #2a3d22;
   padding-bottom: 0.4em;
 }
 
 [data-md-color-scheme="slate"] .md-typeset h2 {
-  color: #d4a040;
-  border-bottom: 1px solid #2e221a;
+  color: #6cc048;
+  border-bottom: 1px solid #1c2e22;
   padding-bottom: 0.3em;
 }
 
 [data-md-color-scheme="slate"] .md-typeset h3 {
-  color: #c89030;
+  color: #5cb038;
 }
 
-/* links: warm gold */
+/* links: fresh green */
 [data-md-color-scheme="slate"] .md-typeset a {
-  color: #e0b040;
+  color: #7cc850;
 }
 
 [data-md-color-scheme="slate"] .md-typeset a:hover {
-  color: #f0c860;
+  color: #9ce070;
 }
 
 /*. code blocks: dark heartwood. */
 
 [data-md-color-scheme="slate"] .md-typeset pre {
-  background-color: #120e0a;
-  border: 1px solid #2e221a;
+  background-color: #0a120c;
+  border: 1px solid #1c2e22;
   border-radius: 6px;
 }
 
 [data-md-color-scheme="slate"] .md-typeset code {
-  background-color: #120e0a;
-  color: #e0d4c0;
+  background-color: #0a120c;
+  color: #d4e0c8;
 }
 
-/* inline code: brass tag */
+/* inline code: leaf tag */
 [data-md-color-scheme="slate"] .md-typeset :not(pre) > code {
-  background-color: rgba(200, 136, 48, 0.1);
-  border: 1px solid rgba(200, 136, 48, 0.25);
-  color: #e0b848;
+  background-color: rgba(92, 176, 56, 0.1);
+  border: 1px solid rgba(92, 176, 56, 0.25);
+  color: #88d048;
   border-radius: 3px;
   padding: 0.1em 0.3em;
 }
 
 /* copy button */
 [data-md-color-scheme="slate"] .md-clipboard {
-  color: #887858;
+  color: #788860;
 }
 
 [data-md-color-scheme="slate"] .md-clipboard:hover {
-  color: #f0a820;
+  color: #80d040;
 }
 
 /*. tables: plank rows. */
 
 [data-md-color-scheme="slate"] .md-typeset table:not([class]) {
-  border: 1px solid #3d2b1a;
+  border: 1px solid #2a3d22;
   border-radius: 4px;
   overflow: hidden;
 }
 
 [data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
-  background-color: #2a1f14;
-  color: #d4a040;
+  background-color: #16241a;
+  color: #6cc048;
   font-weight: 700;
-  border-bottom: 2px solid #5c3d24;
+  border-bottom: 2px solid #3d5c2a;
 }
 
 [data-md-color-scheme="slate"] .md-typeset table:not([class]) td {
-  border-color: #2e221a;
+  border-color: #1c2e22;
 }
 
 [data-md-color-scheme="slate"] .md-typeset table:not([class]) tr:nth-child(even) td {
-  background-color: rgba(42, 31, 20, 0.4);
+  background-color: rgba(26, 42, 28, 0.4);
 }
 
 [data-md-color-scheme="slate"] .md-typeset table:not([class]) tr:hover td {
-  background-color: rgba(200, 136, 48, 0.08);
+  background-color: rgba(92, 176, 56, 0.08);
 }
 
 /*. admonitions: timber panels with colored trim. */
 
 [data-md-color-scheme="slate"] .md-typeset .admonition,
 [data-md-color-scheme="slate"] .md-typeset details {
-  background-color: #221810;
+  background-color: #142016;
   border-radius: 4px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
@@ -232,38 +232,38 @@
   border-color: #4488cc;
 }
 
-/* example: brass/gold */
+/* example: fresh leaf */
 [data-md-color-scheme="slate"] .md-typeset .admonition.example,
 [data-md-color-scheme="slate"] .md-typeset details.example {
-  border-color: #c88830;
+  border-color: #4ca030;
 }
 
-/*. tabs: brass fixtures. */
+/*. tabs: leaf fixtures. */
 
 [data-md-color-scheme="slate"] .md-typeset .tabbed-labels > label {
-  color: #a89878;
+  color: #98a880;
   border-bottom-color: transparent;
 }
 
 [data-md-color-scheme="slate"] .md-typeset .tabbed-labels > label:hover {
-  color: #e0b040;
+  color: #7cc850;
 }
 
 [data-md-color-scheme="slate"] .md-typeset .tabbed-labels > .tabbed-label--active {
-  color: #f0a820;
-  border-bottom-color: #f0a820;
+  color: #80d040;
+  border-bottom-color: #80d040;
 }
 
 /*. horizontal rules: plank divider. */
 
 [data-md-color-scheme="slate"] .md-typeset hr {
-  border-color: #3d2b1a;
+  border-color: #2a3d22;
 }
 
 /*. footer: dark base. */
 
 [data-md-color-scheme="slate"] .md-footer {
-  border-top: 2px solid #3d2b1a;
+  border-top: 2px solid #2a3d22;
 }
 
 /*. scrollbar: timber. */
@@ -273,27 +273,26 @@
 }
 
 [data-md-color-scheme="slate"] ::-webkit-scrollbar-track {
-  background: #1a1208;
+  background: #0c1810;
 }
 
 [data-md-color-scheme="slate"] ::-webkit-scrollbar-thumb {
-  background: #4a3322;
+  background: #33502a;
   border-radius: 4px;
 }
 
 [data-md-color-scheme="slate"] ::-webkit-scrollbar-thumb:hover {
-  background: #5c3d24;
+  background: #3d5c2a;
 }
 
 /*. back to top button. */
 
 [data-md-color-scheme="slate"] .md-top {
-  background-color: #3d2b1a;
-  color: #d4a040;
+  background-color: #2a3d22;
+  color: #6cc048;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 [data-md-color-scheme="slate"] .md-top:hover {
-  background-color: #4a3322;
+  background-color: #33502a;
 }
-
