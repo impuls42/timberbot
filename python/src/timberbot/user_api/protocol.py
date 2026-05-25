@@ -63,10 +63,36 @@ class ToolAction:
     # True for status="completed", False for "failed".
     ok: bool = True
     user_id: str | None = None
+    # When the action originated from a subagent (Phase 2), the
+    # `<slug>-<nonce>` id of that subagent. The adapter renders a
+    # `[<subagent_id>] …` prefix so the user can tell the source apart from
+    # the main agent's tool calls.
+    subagent_id: str | None = None
+
+
+@dataclass
+class SubagentStatusChange:
+    """One subagent status-machine transition surfaced to the user.
+
+    `_user_message_loop` registers the registry's `on_status_change`
+    observer to emit this for every flip (e.g. `running → completed`,
+    `running → errored`). The Telegram adapter formats a single concise
+    line per transition so the player can see fan-out progress at a glance.
+    """
+
+    user_id: str
+    subagent_id: str
+    agent: str  # the spec slug — "scout" / "wirer" / "auditor"
+    prev_status: str
+    new_status: str
+    # Free-form context, e.g. last_error="timeout after 60s" for errored,
+    # or None for clean transitions.
+    detail: str | None = None
 
 
 ConnectorMessage = (
-    TextChunk | SessionStateChange | GameElicitation | AgentFeedback | ToolAction
+    TextChunk | SessionStateChange | GameElicitation | AgentFeedback
+    | ToolAction | SubagentStatusChange
 )
 
 

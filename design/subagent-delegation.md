@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | Phase 1 implemented on 2026-05-25 — `AgentConnection`/`Session` split, `SubagentRegistry`, 7 delegate-family MCP tools, user_id header routing, eviction wiring. Phase 2 and 3 outstanding. Supersedes the materialized `.claude/agents/` approach that was reverted on 2026-05-25. |
-| Version | 0.2 |
+| Status | Phase 1 implemented on 2026-05-25 (PR #78). Phase 2 implemented on 2026-05-25 — `subagent_wait_all` + `subagent_transcript` MCP tools, per-call timeout (`ServeConfig.subagent_call_timeout_s`, default 60 s), idle-timeout sweeper (`ServeConfig.subagent_idle_timeout_s`, default 600 s), subagent `ToolAction` routing with `[<subagent_id>]` prefix, subagent status changes surfaced as `SubagentStatusChange` protocol messages, soft `/cancel` semantics (`/halt` retains the hard tear-down). Phase 3 outstanding. |
+| Version | 0.3 |
 | Scope | A code-defined fleet of specialized subagents driven by the main `tbot serve` agent through MCP tools. Multi-session ACP connection management. |
 | Out of scope | Cross-user subagent sharing; warm-pool of pre-spawned agent runtimes; per-subagent model selection (all subagents inherit the main session's model). |
 | Companion documents | *Game Connector — ACP Integration & User Interaction*; *Game Agent Event Delivery — Tool Result Augmentation* |
@@ -317,7 +317,8 @@ Heavier payload than the other tools — instructions discourage routine use.
 
 | Trigger | Behavior |
 |---|---|
-| Main user `/cancel` or `/halt` | **Phase 1:** treated as full eviction — cancel the main turn, then cancel + close every subagent for that user and tear down the `AgentConnection`. Next user message reconnects from scratch. **Phase 2 (planned):** cancel turns only; keep sessions open so the agent can revive them on its next message. The softer semantic was the original §1.3 goal but is deferred because the current `_user_message_loop` always evicts on cancel — splitting that out is a separate change. |
+| Main user `/cancel` | Cancel the in-flight main turn and every running subagent turn via `Session.cancel()`. The `AgentConnection` and all subagent sessions stay open — the next user message reuses them, preserving main-agent context and subagent run state. Errored or completed subagents in the registry remain reachable by id. |
+| Main user `/halt` | Hard tear-down. Same cancel as above, then close + unregister the user's `AgentConnection` (which closes every subagent session it hosts). Next user message reconnects from scratch with an empty registry. Use when the agent is wedged or the user explicitly wants a clean slate. |
 | Main session evicted (handle dies, ENDED state) | Cancel **and** close every subagent for that user. Next user message opens a fresh main session with an empty registry. |
 | Subagent stop_reason ≠ `end_turn` | Status moves to `completed` (with the actual stop reason recorded) for `max_tokens` / `refusal`, or `cancelled` for `cancelled`. The reply text is still buffered for retrieval. |
 | Subagent process or session crashes mid-turn | `status="errored"`, `last_error` populated. Session retained until explicit `subagent_close` so the agent can inspect what happened. |
@@ -418,17 +419,17 @@ This is a draft surface; revisit when implementing Phase 1.
 
 End of Phase 1: the main agent can `delegate`, peek, reply, wait, cancel, close. No `wait_all`, no `transcript`, no idle timeout.
 
-### 9.2 Phase 2 — quality of life
+### 9.2 Phase 2 — quality of life (shipped)
 
-| Item | Definition of done |
+| Item | Status |
 |---|---|
-| `subagent_wait_all` MCP tool | Returns a batch result for every in-flight run. |
-| `subagent_transcript` MCP tool | Returns full conversation history. |
-| Idle timeout + background sweeper | Default 600 s; configurable via `ServeConfig.subagent_idle_timeout_s`. |
-| Subagent `on_tool_action` → Telegram with `[<subagent_id>]` prefix | The user sees `[scout-a8f3] 🔧 find_placement(...)` in chat. |
-| Per-call timeout for `delegate` and `subagent_reply` | Default 60 s; configurable. Surfaces as `status: "errored", last_error: "timeout"`. |
-| Subagent status changes surface to Telegram | One concise line per state transition (`scout-a8f3 completed`, `wirer-d4e1 errored: ...`). |
-| Soft `/cancel` semantics | `/cancel` cancels every in-flight turn (main + subagents) via `Session.cancel()` without evicting the `AgentConnection` or closing subagent sessions. Required for the §1.3 "persistent across multiple main-agent turns" promise. Today's behavior tears the connection down — see §6 table row. |
+| `subagent_wait_all` MCP tool | ✅ Returns a batch of `{subagent_id, status, reply, last_error}` for every run in the registry; `timed_out=true` when at least one was still running. |
+| `subagent_transcript` MCP tool | ✅ Returns the full `(user_message, agent_reply, stop_reason)` history. Marked heavy in the tool description so the model uses it sparingly. |
+| Idle timeout + background sweeper | ✅ Default 600 s, configurable via `ServeConfig.subagent_idle_timeout_s`. Sweeper task runs every 30 s; only touches `idle`/`completed`/`errored`/`cancelled` runs — `running` is never reclaimed. |
+| Subagent `on_tool_action` → Telegram with `[<subagent_id>]` prefix | ✅ `ToolAction.subagent_id` carries the source; `TelegramAdapter._handle_tool_action` renders `[scout-a8f3] ✅ find_placement(...)`. |
+| Per-call timeout for `delegate` and `subagent_reply` | ✅ Default 60 s, configurable via `ServeConfig.subagent_call_timeout_s`. Surfaces as `status="errored", last_error="timeout after Ns"`; on timeout `_drive_turn` also propagates a `session.cancel()` so the ACP turn stops generating. |
+| Subagent status changes → Telegram | ✅ New `SubagentStatusChange` protocol message; the registry fires it via the `on_status_change` observer on every transition. Telegram adapter filters out the noisy `idle → running` and only renders terminal flips (`completed`, `errored`, `cancelled`, `closed`). |
+| Soft `/cancel` semantics | ✅ `/cancel` interrupts every in-flight turn (main + subagents) via `Session.cancel()` but keeps the `AgentConnection` + Session + registry alive. `/halt` is the hard form that still evicts. See §6 table. |
 
 ### 9.3 Phase 3 — deferred
 

@@ -1,5 +1,12 @@
-"""Delegation MCP tool family: `delegate`, `subagent_reply`, `subagent_status`,
-`subagent_wait`, `subagent_cancel`, `subagent_close`, `subagent_list`.
+"""Delegation MCP tool family.
+
+Phase 1 + Phase 2 surface:
+
+- `delegate`, `subagent_reply` — open / continue a subagent run.
+- `subagent_status`, `subagent_list` — non-blocking introspection.
+- `subagent_wait`, `subagent_wait_all` — block on one / every in-flight turn.
+- `subagent_transcript` — full conversation history for one run.
+- `subagent_cancel`, `subagent_close` — interrupt / release.
 
 The handlers run inside the FastMCP server's request context. They look up
 the calling user via the `X-Timberbot-User-Id` HTTP header on the SSE
@@ -7,15 +14,16 @@ connection (threaded through by `_user_message_loop` when it opens the
 agent's MCP server config) and route to the right per-user
 `AgentConnection` + `SubagentRegistry`.
 
-Phase 1 surface — see `design/subagent-delegation.md` §5 and §9.1 for the
-full spec. `subagent_wait_all`, `subagent_transcript`, idle timeout, and
-per-call timeout are Phase 2.
+See `design/subagent-delegation.md` §5 for the tool surface and §9 for the
+phase split.
 """
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -26,8 +34,18 @@ from timberbot.connector.agent_spec import (
     AgentSpec,
     render_subagent_bootstrap,
 )
-from timberbot.connector.session import AgentConnection
+from timberbot.connector.session import AgentConnection, Session
 from timberbot.connector.subagent import SubagentRegistry, SubagentRun, Turn
+
+# Default per-call timeout for `delegate` and `subagent_reply`. Surfaces as
+# `status="errored", last_error="timeout after Ns"`. Configurable per
+# UserState — `_user_message_loop` plumbs `ServeConfig.subagent_call_timeout_s`
+# in when it registers each user.
+DEFAULT_CALL_TIMEOUT_S = 60.0
+
+# Default idle-timeout for the sweeper task — see §6.1 of the design doc.
+# Configurable per UserState; the sweeper itself lives on `SubagentRegistry`.
+DEFAULT_IDLE_TIMEOUT_S = 600.0
 
 log = logging.getLogger("timberbot.game_mcp.delegation")
 
@@ -46,6 +64,24 @@ class UserState:
     # Same shape as the main session's so the subagent can call `game.*` tools.
     agent_cwd: str
     mcp_servers: list[dict]
+    # Per-call timeout (seconds) for one prompt turn in `delegate(wait=True)`
+    # / `subagent_reply(wait=True)` and the background turns from `wait=False`.
+    # On timeout the run is marked `errored` with `last_error="timeout after Ns"`.
+    call_timeout_s: float = DEFAULT_CALL_TIMEOUT_S
+    # Factory invoked by the registry when a new subagent session is opened.
+    # Returns the (on_tool_action, on_status_change) callbacks the session
+    # should fire. Lets `_user_message_loop` wire subagent events into
+    # Telegram with a `[<subagent_id>]` prefix without the registry having
+    # to know about the user-API layer.
+    bind_subagent_callbacks: Callable[
+        [SubagentRun, Session], Awaitable[None] | None,
+    ] | None = None
+    # Status-change observer fired on every `SubagentRun.status` transition.
+    # `(run, prev_status, new_status, detail)`. Lets the serve loop emit a
+    # `SubagentStatusChange` protocol message into Telegram.
+    on_status_change: Callable[
+        [SubagentRun, str, str, str | None], Awaitable[None] | None,
+    ] | None = None
 
 
 class SubagentBroker:
@@ -67,20 +103,38 @@ class SubagentBroker:
         conn: AgentConnection,
         agent_cwd: str,
         mcp_servers: list[dict],
+        *,
+        call_timeout_s: float = DEFAULT_CALL_TIMEOUT_S,
+        idle_timeout_s: float = DEFAULT_IDLE_TIMEOUT_S,
+        bind_subagent_callbacks: Callable[
+            [SubagentRun, Session], Awaitable[None] | None,
+        ] | None = None,
+        on_status_change: Callable[
+            [SubagentRun, str, str, str | None], Awaitable[None] | None,
+        ] | None = None,
     ) -> SubagentRegistry:
-        registry = SubagentRegistry()
-        self._users[user_id] = UserState(
+        registry = SubagentRegistry(idle_timeout_s=idle_timeout_s)
+        state = UserState(
             conn=conn,
             registry=registry,
             agent_cwd=agent_cwd,
             mcp_servers=mcp_servers,
+            call_timeout_s=call_timeout_s,
+            bind_subagent_callbacks=bind_subagent_callbacks,
+            on_status_change=on_status_change,
         )
+        # Hook the registry's status emitter to the user-supplied observer so
+        # every `run.status` transition surfaces via `SubagentStatusChange`.
+        registry.on_status_change = on_status_change  # type: ignore[assignment]
+        self._users[user_id] = state
+        registry.start_idle_sweeper()
         return registry
 
     async def unregister(self, user_id: str) -> None:
         state = self._users.pop(user_id, None)
         if state is not None:
             await state.registry.close_all()
+            await state.registry.stop_idle_sweeper()
 
     def get(self, user_id: str) -> UserState | None:
         return self._users.get(user_id)
@@ -163,12 +217,27 @@ def _drain_background_turn(task: asyncio.Task[str]) -> None:
     log.warning("background subagent turn failed: %s", exc)
 
 
-async def _drive_turn(run: SubagentRun, user_message: str, prompt_text: str) -> str:
-    """Run one prompt turn on `run.session` and record it in the transcript."""
-    run.status = "running"
+async def _drive_turn(
+    run: SubagentRun,
+    user_message: str,
+    prompt_text: str,
+    *,
+    timeout_s: float,
+) -> str:
+    """Run one prompt turn on `run.session` and record it in the transcript.
+
+    `timeout_s` bounds the prompt — if the model takes longer the turn is
+    cancelled, the run transitions to `errored` with `last_error="timeout"`,
+    and the underlying `session.prompt_awaitable` task is cancelled so the
+    session goes back to idle.
+    """
+    run.set_status("running")
     started = time.monotonic()
     try:
-        reply = await run.session.prompt_awaitable(prompt_text)
+        reply = await asyncio.wait_for(
+            run.session.prompt_awaitable(prompt_text),
+            timeout=timeout_s,
+        )
         stop_reason = run.session.current_stop_reason or "end_turn"
         run.transcript.append(Turn(
             user_message=user_message,
@@ -177,16 +246,27 @@ async def _drive_turn(run: SubagentRun, user_message: str, prompt_text: str) -> 
             started_at=started,
             ended_at=time.monotonic(),
         ))
-        run.status = "completed"
+        run.set_status("completed")
         run.touch()
         return reply
+    except asyncio.TimeoutError:
+        run.last_error = f"timeout after {timeout_s:g}s"
+        run.set_status("errored", detail=run.last_error)
+        run.touch()
+        # The wait_for cancellation already propagated to prompt_awaitable.
+        # Tell the agent runtime so it stops the underlying ACP turn too —
+        # otherwise the model would keep generating into a session nobody
+        # is reading from.
+        with contextlib.suppress(Exception):
+            await run.session.cancel()
+        raise
     except asyncio.CancelledError:
-        run.status = "cancelled"
+        run.set_status("cancelled")
         run.touch()
         raise
     except Exception as exc:  # noqa: BLE001 - surfaced as run.last_error
-        run.status = "errored"
         run.last_error = str(exc)
+        run.set_status("errored", detail=run.last_error)
         run.touch()
         raise
 
@@ -232,11 +312,17 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
             spec, state.conn,
             cwd=state.agent_cwd, mcp_servers=state.mcp_servers,
         )
+        if state.bind_subagent_callbacks is not None:
+            result = state.bind_subagent_callbacks(run, run.session)
+            if asyncio.iscoroutine(result):
+                await result
         prompt_text = render_subagent_bootstrap(spec) + "\n" + task
 
         if wait:
             try:
-                reply = await _drive_turn(run, task, prompt_text)
+                reply = await _drive_turn(
+                    run, task, prompt_text, timeout_s=state.call_timeout_s,
+                )
             except asyncio.CancelledError:
                 # A concurrent `subagent_cancel` aborted this turn. `_drive_turn`
                 # already set status="cancelled" before re-raising. Surface that
@@ -249,10 +335,13 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
                     "cancelled": True,
                 }
             except Exception as exc:  # noqa: BLE001
+                # Prefer `run.last_error` — `_drive_turn` writes a concrete
+                # message there (e.g. "timeout after 60s"), whereas some
+                # exceptions like `asyncio.TimeoutError` stringify as empty.
                 return {
                     "subagent_id": run.subagent_id,
                     "status": run.status,
-                    "error": str(exc),
+                    "error": run.last_error or str(exc) or type(exc).__name__,
                 }
             return {
                 "subagent_id": run.subagent_id,
@@ -269,11 +358,11 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         # the duplication is intentional so a `subagent_status` racing this
         # return always sees "running", never an interim "idle".
         run.turn_task = asyncio.create_task(
-            _drive_turn(run, task, prompt_text),
+            _drive_turn(run, task, prompt_text, timeout_s=state.call_timeout_s),
             name=f"subagent-turn-{run.subagent_id}",
         )
         run.turn_task.add_done_callback(_drain_background_turn)
-        run.status = "running"
+        run.set_status("running")
         return {"subagent_id": run.subagent_id, "status": "running"}
 
     @mcp.tool
@@ -312,7 +401,9 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
 
         if wait:
             try:
-                reply = await _drive_turn(run, message, message)
+                reply = await _drive_turn(
+                    run, message, message, timeout_s=state.call_timeout_s,
+                )
             except asyncio.CancelledError:
                 # Concurrent `subagent_cancel` — see the matching branch in
                 # `delegate(wait=True)` for the full rationale.
@@ -325,7 +416,7 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
                 return {
                     "subagent_id": subagent_id,
                     "status": run.status,
-                    "error": str(exc),
+                    "error": run.last_error or str(exc) or type(exc).__name__,
                 }
             return {
                 "subagent_id": subagent_id,
@@ -335,11 +426,11 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
             }
 
         run.turn_task = asyncio.create_task(
-            _drive_turn(run, message, message),
+            _drive_turn(run, message, message, timeout_s=state.call_timeout_s),
             name=f"subagent-turn-{subagent_id}",
         )
         run.turn_task.add_done_callback(_drain_background_turn)
-        run.status = "running"
+        run.set_status("running")
         return {"subagent_id": subagent_id, "status": "running"}
 
     @mcp.tool
@@ -428,3 +519,83 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         if state is None:
             return {"error": "no Timberbot user bound to this MCP session"}
         return {"subagents": [_summary(r) for r in state.registry.list()]}
+
+    @mcp.tool
+    async def subagent_wait_all(timeout: float = 60.0) -> dict[str, Any]:
+        """Block until every in-flight subagent reaches a non-running state.
+
+        Returns the result of every run currently in the registry — including
+        idle / completed / errored ones — in the order they finish (or the
+        order they were already done at call time). `timed_out=True` means
+        at least one turn was still running when the overall timeout fired.
+        Pairs with `delegate(..., wait=False)` for fan-out workflows: fire
+        several delegations early in your turn, then collect with one
+        `subagent_wait_all` instead of polling each via `subagent_wait`.
+        """
+        state = broker.lookup_by_request()
+        if state is None:
+            return {"error": "no Timberbot user bound to this MCP session"}
+
+        runs = state.registry.list()
+        if not runs:
+            return {"results": [], "timed_out": False}
+
+        in_flight = [r for r in runs if r.turn_task is not None and not r.turn_task.done()]
+        timed_out = False
+        if in_flight:
+            tasks = [asyncio.shield(r.turn_task) for r in in_flight]  # type: ignore[arg-type]
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*tasks, return_exceptions=True),
+                    timeout=timeout,
+                )
+            except asyncio.TimeoutError:
+                timed_out = True
+            except asyncio.CancelledError:
+                # Cancellation here means the wait_all caller's MCP request
+                # was aborted, not the runs themselves. Surface what we have.
+                pass
+
+        results = []
+        for r in state.registry.list():
+            results.append({
+                "subagent_id": r.subagent_id,
+                "agent": r.spec.slug,
+                "status": r.status,
+                "stop_reason": _last_stop_reason(r),
+                "reply": _last_reply(r),
+                "last_error": r.last_error,
+            })
+        return {"results": results, "timed_out": timed_out}
+
+    @mcp.tool
+    async def subagent_transcript(subagent_id: str) -> dict[str, Any]:
+        """Return the full conversation history of one subagent.
+
+        Heavier than the other introspection tools — every `(user_message,
+        agent_reply)` pair plus its `stop_reason`. Intended for edge cases
+        where the main agent needs to re-read what was discussed (e.g. after
+        a context reset, or to extract structured data from an earlier turn).
+        Prefer `subagent_status` / `subagent_list` for quick checks.
+        """
+        state = broker.lookup_by_request()
+        if state is None:
+            return {"error": "no Timberbot user bound to this MCP session"}
+        run = state.registry.get(subagent_id)
+        if run is None:
+            return {"error": f"unknown subagent_id: {subagent_id!r}"}
+        return {
+            "subagent_id": subagent_id,
+            "agent": run.spec.slug,
+            "status": run.status,
+            "turns": [
+                {
+                    "user_message": t.user_message,
+                    "agent_reply": t.agent_reply,
+                    "stop_reason": t.stop_reason,
+                    "started_at": t.started_at,
+                    "ended_at": t.ended_at,
+                }
+                for t in run.transcript
+            ],
+        }

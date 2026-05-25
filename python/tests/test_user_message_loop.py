@@ -235,8 +235,11 @@ async def test_second_message_reuses_session(cfg: ServeConfig) -> None:
     assert acp.session.prompts[1] == "second"
 
 
-async def test_prompt_after_cancel_reconnects(cfg: ServeConfig) -> None:
-    """After /cancel, the next /prompt must reconnect, not reuse the cancelled session."""
+async def test_prompt_after_soft_cancel_reuses_session(cfg: ServeConfig) -> None:
+    """Phase 2: `/cancel` is the soft semantic — it interrupts the in-flight
+    turn but keeps the AgentConnection + Session alive so the next user
+    message reuses them (preserving conversation context and any subagents).
+    The hard tear-down lives on `/halt`."""
     adapter = _FakeAdapter([
         UserMessage(user_id="u1", text="first", chat_id=42),
         UserMessage(user_id="u1", text="/cancel", chat_id=42),
@@ -251,15 +254,40 @@ async def test_prompt_after_cancel_reconnects(cfg: ServeConfig) -> None:
 
     await _user_message_loop(adapter, SessionManager(), acp, ServeConfig(telegram_token="fake"))
 
-    assert acp.connect.await_count == 2, "should reconnect after /cancel"
-    # Both sessions are fresh, so both first prompts carry the bootstrap.
+    assert acp.connect.await_count == 1, "soft /cancel must not reconnect"
+    # The same session handled both prompts; only the first carries the bootstrap.
     assert session1.prompts[0].endswith("first")
+    assert session1.cancelled is True
+    assert session1.prompts[1] == "second"
+
+
+async def test_prompt_after_halt_reconnects(cfg: ServeConfig) -> None:
+    """Phase 2: `/halt` is the hard tear-down — it cancels AND evicts the
+    AgentConnection. The next user message reconnects from scratch with a
+    fresh bootstrap-prefixed first prompt."""
+    adapter = _FakeAdapter([
+        UserMessage(user_id="u1", text="first", chat_id=42),
+        UserMessage(user_id="u1", text="/halt", chat_id=42),
+        UserMessage(user_id="u1", text="second", chat_id=42),
+    ])
+    session1 = _FakeSession("acp-sess-1")
+    session2 = _FakeSession("acp-sess-2")
+    conn1 = _FakeConnection(session1)
+    conn2 = _FakeConnection(session2)
+    acp = MagicMock()
+    acp.connect = AsyncMock(side_effect=[conn1, conn2])
+
+    await _user_message_loop(adapter, SessionManager(), acp, ServeConfig(telegram_token="fake"))
+
+    assert acp.connect.await_count == 2, "should reconnect after /halt"
     assert session1.cancelled is True
     assert session2.prompts[0].endswith("second")
 
 
-async def test_status_after_cancel_says_no_session(cfg: ServeConfig) -> None:
-    """After /cancel the session is evicted, so /status sees no session."""
+async def test_status_after_cancel_remains_active(cfg: ServeConfig) -> None:
+    """After soft /cancel the session is reused, so /status still reports the
+    same session as active. (Pre-Phase 2 this said 'no session' because
+    cancel evicted; the soft semantic flipped that.)"""
     adapter = _FakeAdapter([
         UserMessage(user_id="u1", text="first", chat_id=42),
         UserMessage(user_id="u1", text="/cancel", chat_id=42),
@@ -270,8 +298,9 @@ async def test_status_after_cancel_says_no_session(cfg: ServeConfig) -> None:
     await _user_message_loop(adapter, SessionManager(), acp, cfg)
 
     states = [m for m in adapter.sent if isinstance(m, SessionStateChange)]
-    # active (connect) → halting (cancel ack) → no session (status)
-    assert states[-1].state == "no session"
+    # active (connect) → halting (cancel ack) → active (status; soft cancel
+    # restored the state).
+    assert states[-1].state == "active"
 
 
 async def test_stale_ended_session_is_evicted(cfg: ServeConfig) -> None:
@@ -417,11 +446,13 @@ async def test_main_bootstrap_contains_delegation_block(cfg: ServeConfig) -> Non
 
 
 async def test_bootstrap_re_injected_after_session_eviction(cfg: ServeConfig) -> None:
-    """After /cancel evicts the session, the next turn opens a fresh ACP
-    session — and that new session must again carry the bootstrap."""
+    """After /halt evicts the session, the next turn opens a fresh ACP
+    session — and that new session must again carry the bootstrap. (Pre-
+    Phase-2 the same was true for /cancel; the soft semantic now keeps the
+    session, so we use /halt to trigger the reconnect.)"""
     adapter = _FakeAdapter([
         UserMessage(user_id="u1", text="first", chat_id=42),
-        UserMessage(user_id="u1", text="/cancel", chat_id=42),
+        UserMessage(user_id="u1", text="/halt", chat_id=42),
         UserMessage(user_id="u1", text="second", chat_id=42),
     ])
     session1 = _FakeSession("acp-sess-1")
@@ -476,31 +507,62 @@ async def test_prompt_error_emits_error_state_to_user(cfg: ServeConfig) -> None:
     assert "agent crashed" in (errors[0].detail or "")
 
 
-async def test_broker_registered_on_session_open_and_unregistered_on_evict(cfg: ServeConfig) -> None:
-    """The subagent broker tracks per-user (conn, registry) pairs — it must be
-    registered when a user's main session opens and unregistered when /cancel
-    evicts it."""
+class _RecordingBroker:
+    """Test double for `SubagentBroker` — only records the surface
+    `_user_message_loop` touches."""
+
+    def __init__(self) -> None:
+        self.registered: list[str] = []
+        self.unregistered: list[str] = []
+
+    def register(self, user_id, conn, agent_cwd, mcp_servers, **_):
+        self.registered.append(user_id)
+
+    async def unregister(self, user_id):
+        self.unregistered.append(user_id)
+
+    def get(self, user_id):
+        # Loop calls this on `/cancel` to enumerate live subagents; the
+        # recording fake has none so returning None is fine.
+        return None
+
+
+async def test_broker_registered_on_session_open_and_unregistered_on_halt(cfg: ServeConfig) -> None:
+    """The broker tracks per-user (conn, registry) pairs — registered when
+    the user's main session opens and unregistered when `/halt` tears the
+    connection down. (Phase 2 soft `/cancel` keeps the registration.)"""
     adapter = _FakeAdapter([
         UserMessage(user_id="u1", text="first", chat_id=42),
-        UserMessage(user_id="u1", text="/cancel", chat_id=42),
+        UserMessage(user_id="u1", text="/halt", chat_id=42),
     ])
     acp = _FakeACP()
-
-    class _RecordingBroker:
-        def __init__(self) -> None:
-            self.registered: list[str] = []
-            self.unregistered: list[str] = []
-
-        def register(self, user_id, conn, agent_cwd, mcp_servers):
-            self.registered.append(user_id)
-
-        async def unregister(self, user_id):
-            self.unregistered.append(user_id)
-
     broker = _RecordingBroker()
     await _user_message_loop(adapter, SessionManager(), acp, cfg, broker=broker)
 
     assert broker.registered == ["u1"]
+    assert broker.unregistered == ["u1"]
+
+
+async def test_broker_not_re_registered_on_soft_cancel(cfg: ServeConfig) -> None:
+    """Phase 2: `/cancel` must keep the broker registration alive — the
+    user's subagents (and AgentConnection) survive across the cancel. The
+    loop's normal teardown still unregisters at shutdown, so we observe
+    the soft-cancel guarantee via the register count: exactly one
+    registration covering both the pre-cancel and post-cancel turns."""
+    adapter = _FakeAdapter([
+        UserMessage(user_id="u1", text="first", chat_id=42),
+        UserMessage(user_id="u1", text="/cancel", chat_id=42),
+        UserMessage(user_id="u1", text="second", chat_id=42),
+    ])
+    acp = _FakeACP()
+    broker = _RecordingBroker()
+    await _user_message_loop(adapter, SessionManager(), acp, cfg, broker=broker)
+
+    assert broker.registered == ["u1"], (
+        f"soft /cancel must not re-register; got {broker.registered}"
+    )
+    # One unregister at loop teardown is expected; the assertion above is
+    # what guarantees soft-cancel didn't trigger an eviction-and-reconnect cycle.
     assert broker.unregistered == ["u1"]
 
 

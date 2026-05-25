@@ -192,3 +192,68 @@ async def test_close_all_drops_every_run():
     assert len(reg) == 0
     # All sessions on the connection should have been closed too.
     assert all(s.closed for s in conn._sessions.values()) if conn._sessions else True
+
+
+# --- Phase 2: status observer + idle sweeper ---------------------------
+
+
+@pytest.mark.asyncio
+async def test_set_status_fires_observer():
+    """`SubagentRun.set_status` invokes the observer with (prev, new, detail)."""
+    reg = SubagentRegistry()
+    conn = _FakeAgentConnection()
+    observed: list = []
+
+    async def observer(run, prev, new, detail):
+        observed.append((run.subagent_id, prev, new, detail))
+
+    reg.on_status_change = observer
+    run = await reg.open(SCOUT_SPEC, conn, cwd="/tmp", mcp_servers=[])
+    run.set_status("running")
+    run.set_status("completed")
+    # Idempotent — same status twice fires once.
+    run.set_status("completed")
+    # Give the observer tasks a chance to run.
+    import asyncio
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    statuses = [(prev, new) for (_, prev, new, _) in observed]
+    assert ("idle", "running") in statuses
+    assert ("running", "completed") in statuses
+    assert statuses.count(("completed", "completed")) == 0
+
+
+@pytest.mark.asyncio
+async def test_idle_sweeper_closes_stale_completed_runs():
+    """The sweeper closes runs whose status is sweepable AND last_active_at
+    is past the idle threshold. Running runs are immune."""
+    import time as _time
+    reg = SubagentRegistry(idle_timeout_s=0.01)
+    conn = _FakeAgentConnection()
+    stale = await reg.open(SCOUT_SPEC, conn, cwd="/tmp", mcp_servers=[])
+    stale.set_status("completed")
+    stale.last_active_at = _time.monotonic() - 100.0  # ancient
+    fresh = await reg.open(WIRER_SPEC, conn, cwd="/tmp", mcp_servers=[])
+    fresh.set_status("running")
+    fresh.last_active_at = _time.monotonic() - 100.0
+
+    await reg._sweep_once()
+
+    assert stale.subagent_id not in reg, "stale completed run should be swept"
+    assert fresh.subagent_id in reg, "running run must survive the sweep"
+
+
+@pytest.mark.asyncio
+async def test_start_and_stop_idle_sweeper():
+    """The sweeper task starts/stops cleanly, doesn't leak across calls."""
+    reg = SubagentRegistry(idle_timeout_s=600.0)
+    reg.start_idle_sweeper()
+    assert reg._sweeper_task is not None
+    # Double-start is a no-op.
+    first = reg._sweeper_task
+    reg.start_idle_sweeper()
+    assert reg._sweeper_task is first
+
+    await reg.stop_idle_sweeper()
+    assert reg._sweeper_task is None
