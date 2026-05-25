@@ -187,8 +187,10 @@ A single global object `subagent_registries: dict[user_id, SubagentRegistry]` li
         │ closed   │   │ errored  │   (set on subprocess crash / ACP error;
         └──────────┘   └──────────┘    subagent_close moves it to "closed")
 
-cancelled is reachable from running on subagent_cancel; it acts like completed
-for follow-up purposes (the agent may issue a fresh subagent_reply).
+cancelled is reachable from running OR idle on subagent_cancel; it acts like
+completed for follow-up purposes (the agent may issue a fresh subagent_reply).
+subagent_cancel on a run that is already completed or errored is a no-op:
+the registry preserves the terminal status rather than overwriting it.
 ```
 
 ---
@@ -409,7 +411,7 @@ This is a draft surface; revisit when implementing Phase 1.
 | `Session.prompt_awaitable(text) -> str` | Returns collected `AgentMessageChunk` text on `stop_reason=end_turn`. Per-session future tracked. |
 | Per-session `allowed_tools` enforcement | Subagent attempting an out-of-allowlist tool gets denied via `request_permission`, verified by test. |
 | `SubagentRegistry`, `SubagentRun`, ID generation | Unit-tested registry: open / get / close / list / collision retry. |
-| Six MCP tools: `delegate`, `subagent_reply`, `subagent_status`, `subagent_wait`, `subagent_cancel`, `subagent_close`, `subagent_list` | Each tool's `{result}` shape matches §5. |
+| Seven MCP tools: `delegate`, `subagent_reply`, `subagent_status`, `subagent_wait`, `subagent_cancel`, `subagent_close`, `subagent_list` | Each tool's `{result}` shape matches §5. |
 | `user_id` mapping via FastMCP session-id table | Verified by integration test (or stubbed at first). |
 | Main bootstrap §"Delegation" block | Rendered into the bootstrap prompt; the §8.1 text. |
 | Eviction wiring | When the main handle is evicted, cancel + close every subagent for that user. |

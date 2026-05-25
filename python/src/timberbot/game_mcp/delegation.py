@@ -237,6 +237,17 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         if wait:
             try:
                 reply = await _drive_turn(run, task, prompt_text)
+            except asyncio.CancelledError:
+                # A concurrent `subagent_cancel` aborted this turn. `_drive_turn`
+                # already set status="cancelled" before re-raising. Surface that
+                # cleanly to the caller instead of letting CancelledError escape
+                # to the MCP framework (Py 3.11+ raises that as BaseException,
+                # which our generic `except Exception` below would miss).
+                return {
+                    "subagent_id": run.subagent_id,
+                    "status": run.status,
+                    "cancelled": True,
+                }
             except Exception as exc:  # noqa: BLE001
                 return {
                     "subagent_id": run.subagent_id,
@@ -302,6 +313,14 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         if wait:
             try:
                 reply = await _drive_turn(run, message, message)
+            except asyncio.CancelledError:
+                # Concurrent `subagent_cancel` — see the matching branch in
+                # `delegate(wait=True)` for the full rationale.
+                return {
+                    "subagent_id": subagent_id,
+                    "status": run.status,
+                    "cancelled": True,
+                }
             except Exception as exc:  # noqa: BLE001
                 return {
                     "subagent_id": subagent_id,

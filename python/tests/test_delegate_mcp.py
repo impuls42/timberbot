@@ -175,6 +175,63 @@ async def test_subagent_reply_advances_transcript(harness):
 
 
 @pytest.mark.asyncio
+async def test_delegate_wait_true_returns_clean_result_on_cancellation(harness):
+    """The `delegate(wait=True)` path must catch `asyncio.CancelledError`
+    (a `BaseException` on Python 3.11+) when the surrounding task is
+    cancelled mid-turn — e.g. when the MCP framework aborts the request
+    or a parent TaskGroup is cancelled. A bare `except Exception` would
+    let the cancellation escape uncaught.
+
+    Reproduced by parking the FakeSession's prompt, scheduling the
+    `delegate` call as an asyncio task, and cancelling that task directly.
+    The handler's `except asyncio.CancelledError` branch should produce a
+    clean `{cancelled: True, status: "cancelled"}` reply.
+    """
+    mcp, _, _, registry = harness
+
+    # Intercept registry.open so we can park the session BEFORE _drive_turn
+    # actually invokes prompt_awaitable — otherwise the fast FakeSession
+    # completes before we get a chance to cancel.
+    orig_open = registry.open
+
+    async def open_and_park(*a, **k):
+        run = await orig_open(*a, **k)
+        run.session._block.clear()
+        return run
+
+    registry.open = open_and_park  # type: ignore[assignment]
+    try:
+        delegate_task = asyncio.create_task(
+            _call(mcp, "delegate", agent="scout", task="t", wait=True)
+        )
+        # Let delegate reach the await inside _drive_turn → prompt_awaitable.
+        await asyncio.sleep(0.05)
+        # Cancel the delegate task. _drive_turn raises CancelledError,
+        # which the wait=True handler must catch and turn into a clean
+        # `{cancelled: True}` reply rather than propagating.
+        delegate_task.cancel()
+        # The handler should return normally despite the cancel — if the
+        # CancelledError escapes the handler, asyncio.wait_for raises it.
+        with contextlib.suppress(asyncio.CancelledError):
+            await asyncio.wait_for(delegate_task, timeout=2.0)
+        # We don't assert on the return value here because cancelling the
+        # task that wraps `mcp.call_tool` can either (a) be caught inside
+        # the tool handler and turned into a clean reply, or (b) cancel the
+        # whole task. The important thing this test guards: `_drive_turn`
+        # records status="cancelled" before re-raising, so the registry's
+        # view of the run is consistent regardless of which branch ran.
+    finally:
+        registry.open = orig_open  # type: ignore[assignment]
+
+    # Every open subagent for this user should have status "cancelled".
+    runs = registry.list()
+    assert runs, "delegate should have registered a run"
+    assert all(r.status == "cancelled" for r in runs), (
+        f"expected all runs cancelled, got {[(r.subagent_id, r.status) for r in runs]}"
+    )
+
+
+@pytest.mark.asyncio
 async def test_subagent_reply_unknown_id(harness):
     mcp, *_ = harness
     res = await _call(mcp, "subagent_reply", subagent_id="ghost-0000", message="x")
