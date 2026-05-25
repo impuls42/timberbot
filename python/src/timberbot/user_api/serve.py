@@ -36,7 +36,7 @@ class ServeConfig:
     mcp_port: int = 8091
     backend: str = "claude"
     model: str = "claude-opus-4-7"
-    acp_binary: str = "claude"
+    acp_binary: str = "claude-agent-acp"
     allowed_tools: list[str] = field(default_factory=lambda: ["game.*"])
     telegram_token: str = ""
     telegram_allowed_users: list[int] = field(default_factory=list)
@@ -208,7 +208,12 @@ async def _user_message_loop(
                     )
                     acp_session_id = await handle.new_session(
                         cwd=".",
-                        mcp_servers=[{"name": "game", "url": f"http://{cfg.mcp_host}:{cfg.mcp_port}/sse"}],
+                        mcp_servers=[{
+                            "type": "sse",
+                            "name": "game",
+                            "url": f"http://{cfg.mcp_host}:{cfg.mcp_port}/sse",
+                            "headers": [],
+                        }],
                     )
                     _bind_callbacks(handle, user_adapter)
                     _handles[user_id] = handle

@@ -47,7 +47,8 @@ def serve(
     Args:
         backend: ACP runtime backend (claude or opencode; default: claude).
         model: Model identifier passed to the backend.
-        acp_binary: Path or name of the agent CLI to spawn (default: matches backend).
+        acp_binary: Path or name of the agent CLI to spawn (default:
+            claude-agent-acp for the claude backend, opencode for opencode).
         telegram_token: Telegram bot token (also: TBOT_TELEGRAM_TOKEN env).
         mcp_port: Port for the game MCP HTTP/SSE server (default: 8091).
         mcp_host: Bind address for the game MCP server (default: 127.0.0.1).
@@ -87,6 +88,11 @@ def serve(
         print(f"error: unknown backend {backend!r}; expected 'claude' or 'opencode'", file=sys.stderr)
         return 1
 
+    # The claude backend now spawns Zed's standalone ACP bridge
+    # (`claude-agent-acp`); `claude` itself no longer has an `--acp` mode.
+    # opencode still exposes `opencode acp`, so its binary matches the backend.
+    default_binary = "claude-agent-acp" if backend == "claude" else backend
+
     if "allowed_users" in tg_data:
         raw = tg_data["allowed_users"]
         if not isinstance(raw, list):
@@ -118,7 +124,7 @@ def serve(
         mcp_port=mcp_port or int(cfg_data.get("mcp_port", 8091)),
         backend=backend,
         model=model or cfg_data.get("model", "claude-opus-4-7"),
-        acp_binary=acp_binary or cfg_data.get("acp_binary", backend),
+        acp_binary=acp_binary or cfg_data.get("acp_binary", default_binary),
         telegram_token=token,
         telegram_allowed_users=allowed_users,
         allowed_tools=cfg_data.get("allowed_tools", ["game.*"]),

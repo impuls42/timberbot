@@ -22,7 +22,7 @@ class ACPConnector:
         transport = SubprocessTransport(argv, cwd=self._cwd)
         await transport.start()
 
-        handle = SessionHandle(transport, self._allowed_tools)
+        handle = SessionHandle(transport, self._allowed_tools, model=model)
         asyncio.get_running_loop().create_task(handle.read_loop())
 
         await handle.initialize()
