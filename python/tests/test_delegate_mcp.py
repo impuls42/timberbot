@@ -582,6 +582,38 @@ async def test_idle_sweeper_skips_running_runs(harness):
     await run.turn_task
 
 
+@pytest.mark.asyncio
+async def test_subagent_status_touches_last_active_at(harness):
+    """Polling `subagent_status` resets the sweeper clock — the design-doc
+    §6.1 promise that an actively-consulted run isn't reclaimed."""
+    mcp, _, _, registry = harness
+    opened = await _call(mcp, "delegate", agent="scout", task="t", wait=True)
+    sid = opened["subagent_id"]
+    run = registry.get(sid)
+    assert run is not None
+
+    import time as _time
+    run.last_active_at = _time.monotonic() - 10_000.0
+    await _call(mcp, "subagent_status", subagent_id=sid)
+    # last_active_at should be near now, NOT the ancient value we set.
+    assert run.last_active_at > _time.monotonic() - 5.0
+
+
+@pytest.mark.asyncio
+async def test_subagent_wait_touches_last_active_at(harness):
+    """`subagent_wait` likewise keeps the run fresh against the sweeper."""
+    mcp, _, _, registry = harness
+    opened = await _call(mcp, "delegate", agent="scout", task="t", wait=True)
+    sid = opened["subagent_id"]
+    run = registry.get(sid)
+    assert run is not None
+
+    import time as _time
+    run.last_active_at = _time.monotonic() - 10_000.0
+    await _call(mcp, "subagent_wait", subagent_id=sid, timeout=1.0)
+    assert run.last_active_at > _time.monotonic() - 5.0
+
+
 # --- broker → user_id routing ------------------------------------------
 
 

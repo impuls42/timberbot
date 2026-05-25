@@ -442,6 +442,10 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         run = state.registry.get(subagent_id)
         if run is None:
             return {"error": f"unknown subagent_id: {subagent_id!r}"}
+        # An actively-polled run is by definition "in use" — touch
+        # last_active_at so the idle sweeper doesn't reclaim a subagent the
+        # main agent is still consulting. Matches design doc §6.1.
+        run.touch()
         return _summary(run)
 
     @mcp.tool
@@ -460,6 +464,9 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         run = state.registry.get(subagent_id)
         if run is None:
             return {"error": f"unknown subagent_id: {subagent_id!r}"}
+        # The caller is actively waiting on this run — keep it alive against
+        # the idle sweeper. Same rationale as `subagent_status` above.
+        run.touch()
 
         if run.turn_task is not None and not run.turn_task.done():
             try:
@@ -553,8 +560,11 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
                 timed_out = True
             except asyncio.CancelledError:
                 # Cancellation here means the wait_all caller's MCP request
-                # was aborted, not the runs themselves. Surface what we have.
-                pass
+                # was aborted, not the runs themselves. The underlying runs
+                # may still be in flight, so report timed_out=True — same
+                # signal as the explicit `wait_for` timeout — rather than
+                # implying everything is settled.
+                timed_out = True
 
         results = []
         for r in state.registry.list():
