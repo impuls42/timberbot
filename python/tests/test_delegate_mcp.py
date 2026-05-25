@@ -445,6 +445,175 @@ async def test_subagent_cancel_does_not_log_cancellederror(harness, caplog):
     assert "background subagent turn failed" not in caplog.text
 
 
+# --- Phase 2: wait_all / transcript / timeout / sweeper ----------------
+
+
+@pytest.mark.asyncio
+async def test_subagent_wait_all_collects_running_and_done(harness):
+    mcp, _, _, registry = harness
+    a = await _call(mcp, "delegate", agent="scout", task="a", wait=True)
+    b = await _call(mcp, "delegate", agent="wirer", task="b")  # wait=False
+    # Park `b` so wait_all sees it in flight.
+    run_b = registry.get(b["subagent_id"])
+    assert run_b is not None
+    run_b.session._block.clear()
+
+    async def release_b_soon():
+        await asyncio.sleep(0.05)
+        run_b.session._block.set()
+
+    asyncio.create_task(release_b_soon())
+    res = await _call(mcp, "subagent_wait_all", timeout=2.0)
+    assert res["timed_out"] is False
+    ids = {r["subagent_id"] for r in res["results"]}
+    assert a["subagent_id"] in ids
+    assert b["subagent_id"] in ids
+    # Both should have replies recorded.
+    for r in res["results"]:
+        assert r["status"] in ("completed", "errored")
+        assert r["reply"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_subagent_wait_all_times_out(harness):
+    mcp, _, _, registry = harness
+    opened = await _call(mcp, "delegate", agent="scout", task="t")
+    run = registry.get(opened["subagent_id"])
+    assert run is not None
+    run.session._block.clear()
+    res = await _call(mcp, "subagent_wait_all", timeout=0.05)
+    assert res["timed_out"] is True
+    # Cleanup so the never-resolving turn doesn't leak.
+    run.session._block.set()
+    await run.turn_task
+
+
+@pytest.mark.asyncio
+async def test_subagent_wait_all_empty_registry(harness):
+    mcp, *_ = harness
+    res = await _call(mcp, "subagent_wait_all", timeout=1.0)
+    assert res == {"results": [], "timed_out": False}
+
+
+@pytest.mark.asyncio
+async def test_subagent_transcript_returns_turns(harness):
+    mcp, *_ = harness
+    opened = await _call(mcp, "delegate", agent="scout", task="first", wait=True)
+    sid = opened["subagent_id"]
+    await _call(mcp, "subagent_reply", subagent_id=sid, message="second", wait=True)
+    res = await _call(mcp, "subagent_transcript", subagent_id=sid)
+    assert res["agent"] == "scout"
+    assert res["status"] == "completed"
+    turns = res["turns"]
+    assert [t["user_message"] for t in turns] == ["first", "second"]
+    assert all(t["agent_reply"] == "ok" for t in turns)
+    assert all(t["stop_reason"] == "end_turn" for t in turns)
+
+
+@pytest.mark.asyncio
+async def test_subagent_transcript_unknown_id(harness):
+    mcp, *_ = harness
+    res = await _call(mcp, "subagent_transcript", subagent_id="ghost-0000")
+    assert "error" in res
+
+
+@pytest.mark.asyncio
+async def test_delegate_wait_true_per_call_timeout(harness):
+    """A delegate(wait=True) that exceeds the configured timeout should
+    return errored, not block forever."""
+    mcp, broker, _, registry = harness
+    # Tight timeout so the test runs fast.
+    broker._users["u1"].call_timeout_s = 0.05
+
+    # Park the session so the prompt never completes within the timeout.
+    orig_open = registry.open
+
+    async def open_and_park(*a, **k):
+        run = await orig_open(*a, **k)
+        run.session._block.clear()
+        return run
+
+    registry.open = open_and_park  # type: ignore[assignment]
+    try:
+        res = await _call(mcp, "delegate", agent="scout", task="t", wait=True)
+    finally:
+        registry.open = orig_open  # type: ignore[assignment]
+
+    assert res["status"] == "errored"
+    assert "timeout" in res["error"]
+
+
+@pytest.mark.asyncio
+async def test_idle_sweeper_closes_old_runs(harness):
+    """Sweeper closes idle/completed runs whose last_active_at is past the
+    threshold. Forced by mutating `last_active_at` so the test runs in ms."""
+    mcp, _, _, registry = harness
+    opened = await _call(mcp, "delegate", agent="scout", task="t", wait=True)
+    sid = opened["subagent_id"]
+    run = registry.get(sid)
+    assert run is not None and run.status == "completed"
+
+    # Make the run look ancient and call the sweeper directly (the
+    # background task fires every 30s in production).
+    import time as _time
+    run.last_active_at = _time.monotonic() - 10_000.0
+    await registry._sweep_once()
+
+    assert sid not in registry, "sweeper should have closed the stale run"
+
+
+@pytest.mark.asyncio
+async def test_idle_sweeper_skips_running_runs(harness):
+    """Running runs are never reclaimed regardless of last_active_at."""
+    mcp, _, _, registry = harness
+    opened = await _call(mcp, "delegate", agent="scout", task="t")
+    sid = opened["subagent_id"]
+    run = registry.get(sid)
+    assert run is not None
+    run.session._block.clear()  # hold the turn open
+
+    import time as _time
+    run.last_active_at = _time.monotonic() - 10_000.0
+    await registry._sweep_once()
+    assert sid in registry, "sweeper must not touch running subagents"
+
+    # Cleanup.
+    run.session._block.set()
+    await run.turn_task
+
+
+@pytest.mark.asyncio
+async def test_subagent_status_touches_last_active_at(harness):
+    """Polling `subagent_status` resets the sweeper clock — the design-doc
+    §6.1 promise that an actively-consulted run isn't reclaimed."""
+    mcp, _, _, registry = harness
+    opened = await _call(mcp, "delegate", agent="scout", task="t", wait=True)
+    sid = opened["subagent_id"]
+    run = registry.get(sid)
+    assert run is not None
+
+    import time as _time
+    run.last_active_at = _time.monotonic() - 10_000.0
+    await _call(mcp, "subagent_status", subagent_id=sid)
+    # last_active_at should be near now, NOT the ancient value we set.
+    assert run.last_active_at > _time.monotonic() - 5.0
+
+
+@pytest.mark.asyncio
+async def test_subagent_wait_touches_last_active_at(harness):
+    """`subagent_wait` likewise keeps the run fresh against the sweeper."""
+    mcp, _, _, registry = harness
+    opened = await _call(mcp, "delegate", agent="scout", task="t", wait=True)
+    sid = opened["subagent_id"]
+    run = registry.get(sid)
+    assert run is not None
+
+    import time as _time
+    run.last_active_at = _time.monotonic() - 10_000.0
+    await _call(mcp, "subagent_wait", subagent_id=sid, timeout=1.0)
+    assert run.last_active_at > _time.monotonic() - 5.0
+
+
 # --- broker → user_id routing ------------------------------------------
 
 

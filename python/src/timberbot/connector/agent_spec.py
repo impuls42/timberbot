@@ -299,23 +299,32 @@ iterate with across multiple of your own turns:
 - `auditor` — read-only state inspection. Filters and summarizes.
 
 **Start one** with `mcp__game__delegate(agent="<slug>", task="<initial instructions>")`.
-Returns a `subagent_id` immediately; the subagent is running in the background.
+Returns a `subagent_id` immediately; the subagent runs in the background.
 
 **Follow up** with `mcp__game__subagent_reply(subagent_id=…, message=…)` — the
 subagent sees this as the user's next message and replies with full prior
 context.
 
-**Pick up results** with `mcp__game__subagent_wait(subagent_id=…)` — blocks
-on one until its turn ends or `timeout` seconds pass.
+**Pick up results** with `mcp__game__subagent_wait(subagent_id=…)` (blocks
+on one) or `mcp__game__subagent_wait_all(timeout=…)` (blocks until every
+in-flight turn finishes). Prefer `wait_all` when you fanned out multiple
+delegations and want them as a batch.
 
-**Inspect** with `mcp__game__subagent_status` (cheap peek) or
-`mcp__game__subagent_list` (all your active subagents).
+**Inspect** with `mcp__game__subagent_status` (cheap peek),
+`mcp__game__subagent_list` (all your active subagents), or
+`mcp__game__subagent_transcript(subagent_id=…)` (full turn history — heavy,
+use only when you need to re-read what was discussed).
 
 **Stop** with `mcp__game__subagent_cancel` (interrupt current turn, keep
 session) or `mcp__game__subagent_close` (dismiss the subagent permanently).
 
-Prefer fanning out several `delegate(...)` calls when tasks are independent,
-then collecting them one at a time with `subagent_wait`. Sequential
+Each turn has a built-in timeout — long-running calls surface as
+`status="errored", last_error="timeout after Ns"`. Idle subagents auto-close
+after a configured inactivity window; check `subagent_list` if you're not
+sure whether a run is still around.
+
+Prefer fanning out several `delegate(..., wait=False)` calls when tasks are
+independent, then collecting them with one `subagent_wait_all`. Sequential
 `delegate(..., wait=True)` calls waste opportunity for parallelism."""
 
 

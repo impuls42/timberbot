@@ -9,6 +9,7 @@ from timberbot.user_api.protocol import (
     AgentFeedback,
     GameElicitation,
     SessionStateChange,
+    SubagentStatusChange,
     TextChunk,
     ToolAction,
     UserAdapter,
@@ -49,6 +50,15 @@ class ServeConfig:
     # When False, the probe fails fast with `ModUnreachableError` — kept
     # for scripts and CI flows that want a clean exit if the mod is down.
     wait_for_mod: bool = True
+    # Phase 2 — bounds the per-turn `delegate(...)` / `subagent_reply(...)`
+    # call before it transitions the run to `errored` with
+    # `last_error="timeout after Ns"`. 60s matches what the main agent's
+    # own turns settle in for typical game-state queries.
+    subagent_call_timeout_s: float = 60.0
+    # Phase 2 — how long an idle / completed / errored / cancelled run
+    # stays in the registry before the background sweeper closes it.
+    # 600s = 10 min, the §6.1 design-doc default.
+    subagent_idle_timeout_s: float = 600.0
 
 
 def _bind_callbacks(session: object, user_adapter: UserAdapter, user_id: str) -> None:
@@ -79,6 +89,55 @@ def _bind_callbacks(session: object, user_adapter: UserAdapter, user_id: str) ->
     session.on_update = _on_update           # type: ignore[attr-defined]
     session.on_elicitation = _on_elicitation  # type: ignore[attr-defined]
     session.on_tool_action = _on_tool_action  # type: ignore[attr-defined]
+
+
+def _make_subagent_session_binder(user_adapter: UserAdapter, user_id: str):
+    """Return a callback the registry invokes for every new subagent session.
+
+    Wires `on_tool_action` so the subagent's write-tool calls surface in
+    Telegram with a `[<subagent_id>] …` prefix. Streaming text (`on_update`)
+    is intentionally NOT routed — the design surfaces only status flips and
+    tool actions for subagents, keeping the chat from drowning in fan-out
+    chatter.
+    """
+
+    def _bind(run, session):  # type: ignore[no-untyped-def]
+        sid = run.subagent_id
+
+        async def _on_tool_action(_acp_sid: str, summary: str, ok: bool) -> None:
+            await user_adapter.send(ToolAction(
+                session_id=session.session_id,
+                summary=summary,
+                ok=ok,
+                user_id=user_id,
+                subagent_id=sid,
+            ))
+
+        session.on_tool_action = _on_tool_action
+
+    return _bind
+
+
+def _make_status_observer(user_adapter: UserAdapter, user_id: str):
+    """Return a status-change observer the registry hands to each new run.
+
+    Fired on every `SubagentRun.status` transition; emits a
+    `SubagentStatusChange` so the Telegram adapter can render a single
+    concise line for the terminal transitions (the adapter filters the
+    noisy `idle → running` flips out itself).
+    """
+
+    async def _observe(run, prev_status: str, new_status: str, detail: str | None) -> None:
+        await user_adapter.send(SubagentStatusChange(
+            user_id=user_id,
+            subagent_id=run.subagent_id,
+            agent=run.spec.slug,
+            prev_status=prev_status,
+            new_status=new_status,
+            detail=detail,
+        ))
+
+    return _observe
 
 
 def _format_state_oneline(summary: object) -> str:
@@ -368,7 +427,13 @@ async def _user_message_loop(
             log.debug("User %s: %r", user_id, text)
 
             try:
-                # Control commands — route to ACP session lifecycle, not prompt
+                # Control commands — route to ACP session lifecycle, not prompt.
+                # `/cancel` is the soft cancel: interrupt the in-flight turn
+                # (main + every running subagent for that user) without
+                # tearing the AgentConnection down. Next user message reuses
+                # the same session — main agent retains conversation memory,
+                # subagent runs stay reachable by id. `/halt` is the hard
+                # form: cancel and evict the whole connection.
                 if text in ("/cancel", "/halt"):
                     if user_id in _sessions:
                         session = _sessions[user_id]
@@ -377,13 +442,43 @@ async def _user_message_loop(
                             await session.cancel()  # type: ignore[union-attr]
                         except Exception:
                             log.exception("Error sending cancel for user %s", user_id)
+                        # Cancel every in-flight subagent turn too — they
+                        # share the user's main connection and the user
+                        # expects "stop everything" to mean all of it.
+                        if broker is not None:
+                            state = broker.get(user_id)  # type: ignore[union-attr]
+                            if state is not None:
+                                for run in state.registry.list():
+                                    if (
+                                        run.turn_task is not None
+                                        and not run.turn_task.done()
+                                    ):
+                                        try:
+                                            await state.registry.cancel(run.subagent_id)
+                                        except Exception:
+                                            log.exception(
+                                                "error cancelling subagent %s",
+                                                run.subagent_id,
+                                            )
                         await user_adapter.send(SessionStateChange(
                             session_id=acp_sid,
                             state="halting",
                             detail=f"acked {text}",
                             user_id=user_id,
                         ))
-                        await _evict(user_id)
+                        if text == "/halt":
+                            await _evict(user_id)
+                        else:
+                            # Soft cancel: the session was put into HALTING
+                            # by `session.cancel()`. We want subsequent
+                            # messages to keep reusing it, so the next-turn
+                            # path needs to see it as ACTIVE. Flip back so
+                            # the stale-session check doesn't auto-evict.
+                            try:
+                                from timberbot.connector.session import SessionState  # noqa: PLC0415
+                                session.state = SessionState.ACTIVE  # type: ignore[union-attr]
+                            except Exception:
+                                log.exception("error restoring session state for user %s", user_id)
                     else:
                         # Make the no-op explicit so the user gets a reply
                         # instead of silence.
@@ -469,6 +564,14 @@ async def _user_message_loop(
                             conn=conn,
                             agent_cwd=agent_cwd or ".",
                             mcp_servers=mcp_servers,
+                            call_timeout_s=cfg.subagent_call_timeout_s,
+                            idle_timeout_s=cfg.subagent_idle_timeout_s,
+                            bind_subagent_callbacks=_make_subagent_session_binder(
+                                user_adapter, user_id,
+                            ),
+                            on_status_change=_make_status_observer(
+                                user_adapter, user_id,
+                            ),
                         )
                     if register is not None and msg.chat_id is not None:
                         register(session.session_id, msg.chat_id)  # type: ignore[union-attr]

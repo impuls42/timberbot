@@ -17,6 +17,7 @@ from timberbot.user_api.protocol import (
     ConnectorMessage,
     GameElicitation,
     SessionStateChange,
+    SubagentStatusChange,
     TextChunk,
     ToolAction,
     UserMessage,
@@ -57,6 +58,8 @@ class TelegramAdapter:
             await self._handle_feedback(msg)
         elif isinstance(msg, ToolAction):
             await self._handle_tool_action(msg)
+        elif isinstance(msg, SubagentStatusChange):
+            await self._handle_subagent_status(msg)
 
     def _resolve_chat(self, session_id: str, user_id: str | None) -> int | None:
         """Resolve an outgoing message's target chat.
@@ -140,13 +143,43 @@ class TelegramAdapter:
         Distinct from `_handle_text_chunk` because these aren't part of the
         agent's streaming reply — they're standalone "the bot did X" events
         that should land as their own message between turns, not be edited
-        into the running stream buffer.
+        into the running stream buffer. Subagent actions get a
+        `[<subagent_id>] …` prefix so the user can tell which agent ran.
         """
         chat_id = self._resolve_chat(msg.session_id, msg.user_id)
         if chat_id is None:
             log.warning("No chat_id for session %s; dropping tool action", msg.session_id)
             return
-        await self._app.bot.send_message(chat_id=chat_id, text=msg.summary)
+        text = (
+            f"[{msg.subagent_id}] {msg.summary}" if msg.subagent_id else msg.summary
+        )
+        await self._app.bot.send_message(chat_id=chat_id, text=text)
+
+    async def _handle_subagent_status(self, msg: SubagentStatusChange) -> None:
+        """One concise line per subagent status transition.
+
+        Skips the noisy `idle → running` / `running → idle` flips and
+        surfaces the ones that signal real progress (`completed`, `errored`,
+        `cancelled`, `closed`). The user gets a fan-out view without seeing
+        every internal scheduler tick.
+        """
+        # Filter out the not-very-informative transitions. Status-change
+        # observers fire on every flip; we only want to talk about terminal
+        # states.
+        if msg.new_status not in ("completed", "errored", "cancelled", "closed"):
+            return
+        chat_id = self._chat_by_user.get(msg.user_id)
+        if chat_id is None:
+            log.debug("no chat_id for user %s; dropping subagent status", msg.user_id)
+            return
+        verb = msg.new_status
+        text = f"[{msg.subagent_id}] {verb}"
+        if msg.detail:
+            text = f"{text}: {msg.detail}"
+        try:
+            await self._app.bot.send_message(chat_id=chat_id, text=text)
+        except Exception:
+            log.warning("Failed to deliver subagent status to chat_id %s", chat_id)
 
     def reset_stream(self, session_id: str) -> None:
         """Drop the streaming buffer for a session so the next chunk starts

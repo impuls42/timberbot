@@ -10,16 +10,18 @@ one registry per user_id alongside the user's `AgentConnection`. The
 `delegate(...)` MCP tool reads the calling user via `USER_BY_MCP_SESSION`
 (see `user_api/serve.py`) and operates on that registry.
 
-Phase 1 covers: open, get, close, list, status state machine, ID collision
-retry. Idle-timeout sweeping is deferred to Phase 2 (see
-`design/subagent-delegation.md` §6.1).
+Phase 1: open, get, close, list, status state machine, ID collision retry.
+Phase 2 (this file): idle-timeout sweeper task and a status-change observer
+the serve loop hooks for Telegram surfacing.
 """
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import secrets
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -61,6 +63,12 @@ class SubagentRun:
     # blocks on it, `subagent_cancel` cancels it, and the eviction path
     # cancels every run's task on main-session teardown.
     turn_task: asyncio.Task[str] | None = None
+    # Optional observer invoked on every status transition (prev, new, detail).
+    # The registry binds this to its own `on_status_change` so the serve loop
+    # can surface status flips via `SubagentStatusChange` protocol messages.
+    _on_status_change: Callable[
+        [SubagentRun, str, str, str | None], Awaitable[None] | None,
+    ] | None = field(default=None, repr=False, compare=False)
 
     @property
     def turns_completed(self) -> int:
@@ -68,6 +76,46 @@ class SubagentRun:
 
     def touch(self) -> None:
         self.last_active_at = time.monotonic()
+
+    def set_status(self, new_status: SubagentStatus, detail: str | None = None) -> None:
+        """Transition `status` and fire `_on_status_change` if it differs.
+
+        Synchronous setter that schedules the observer (which may be a
+        coroutine) on the running loop. Idempotent — assigning the same
+        status doesn't refire.
+        """
+        prev = self.status
+        if prev == new_status:
+            return
+        self.status = new_status
+        observer = self._on_status_change
+        if observer is None:
+            return
+        try:
+            result = observer(self, prev, new_status, detail)
+        except Exception:  # noqa: BLE001 - observer errors must not break the turn
+            log.exception("subagent status observer raised for %s", self.subagent_id)
+            return
+        if asyncio.iscoroutine(result):
+            # Fire-and-forget — we don't await observers from inside
+            # set_status (which is called from sync paths like cancel()
+            # too).
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                # No loop running (test / shutdown). Drop the awaitable.
+                result.close()
+                return
+            task = loop.create_task(result, name=f"subagent-status-{self.subagent_id}")
+            task.add_done_callback(_swallow_observer_exc)
+
+
+def _swallow_observer_exc(task: asyncio.Task[None]) -> None:
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        log.warning("subagent status observer task failed: %s", exc)
 
 
 def _make_subagent_id(slug: str, existing: set[str], retries: int = 3) -> str:
@@ -82,18 +130,36 @@ def _make_subagent_id(slug: str, existing: set[str], retries: int = 3) -> str:
     )
 
 
+# Statuses eligible for the idle sweeper. Running turns are never reclaimed.
+_SWEEPABLE: frozenset[str] = frozenset(
+    ("idle", "completed", "errored", "cancelled"),
+)
+
+
 class SubagentRegistry:
     """Per-user dict of live `SubagentRun`s.
 
-    Phase 1 keeps the API minimal: open, get, list, close. Phase 2 will add
-    an idle sweeper task that closes runs whose `last_active_at` is past the
-    configured timeout. The registry doesn't own the `AgentConnection` — the
+    Idle sweeper (`start_idle_sweeper`) periodically closes runs whose
+    `last_active_at` is older than `idle_timeout_s` AND whose status is in
+    `_SWEEPABLE`. The registry doesn't own the `AgentConnection` — the
     serve loop does — so opening a run requires the caller to pass the
     connection in.
     """
 
-    def __init__(self) -> None:
+    # How often the sweeper wakes up to check. Independent of the per-run
+    # idle threshold, which lives in `idle_timeout_s`.
+    _SWEEP_INTERVAL_S: float = 30.0
+
+    def __init__(self, idle_timeout_s: float = 600.0) -> None:
         self._runs: dict[str, SubagentRun] = {}
+        self.idle_timeout_s = idle_timeout_s
+        # Status-change observer (prev, new, detail) — bound on each run
+        # via SubagentRun._on_status_change. The serve loop sets this so
+        # status flips emit a SubagentStatusChange protocol message.
+        self.on_status_change: Callable[
+            [SubagentRun, str, str, str | None], Awaitable[None] | None,
+        ] | None = None
+        self._sweeper_task: asyncio.Task[None] | None = None
 
     def __contains__(self, subagent_id: str) -> bool:
         return subagent_id in self._runs
@@ -132,7 +198,12 @@ class SubagentRegistry:
         session = await conn.new_session(
             cwd=cwd, mcp_servers=mcp_servers, allowed_tools=scope,
         )
-        run = SubagentRun(subagent_id=sid, spec=spec, session=session)
+        run = SubagentRun(
+            subagent_id=sid,
+            spec=spec,
+            session=session,
+            _on_status_change=self.on_status_change,
+        )
         self._runs[sid] = run
         log.info(
             "subagent registered: %s spec=%s session=%s",
@@ -151,7 +222,7 @@ class SubagentRegistry:
             await run.session.close()
         except Exception:  # noqa: BLE001 - close is best-effort
             log.exception("error closing subagent %s session", subagent_id)
-        run.status = "closed"
+        run.set_status("closed")
 
     async def cancel(self, subagent_id: str) -> SubagentRun | None:
         """Cancel the in-flight turn; keep the session open.
@@ -174,11 +245,65 @@ class SubagentRegistry:
         # last_error), and re-stamping "cancelled" would be a lie. Only
         # mark cancelled when the run was still in motion.
         if run.status not in ("completed", "errored"):
-            run.status = "cancelled"
+            run.set_status("cancelled")
         run.touch()
         return run
 
     async def close_all(self) -> None:
         """Cancel + close every run. Used on main-handle eviction."""
         for sid in list(self._runs.keys()):
+            await self.close(sid)
+
+    # --- idle sweeper ----------------------------------------------------
+
+    def start_idle_sweeper(self) -> None:
+        """Spawn the periodic sweeper task. No-op if already running.
+
+        Safe to call from `SubagentBroker.register`; the task is bound to
+        the current event loop and lives until `stop_idle_sweeper` is
+        called or it gets cancelled by TaskGroup teardown.
+        """
+        if self._sweeper_task is not None and not self._sweeper_task.done():
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop (test / setup). Caller can re-invoke once
+            # the loop is up.
+            return
+        self._sweeper_task = loop.create_task(
+            self._idle_sweep_loop(), name="subagent-idle-sweeper",
+        )
+
+    async def stop_idle_sweeper(self) -> None:
+        """Cancel the sweeper task and wait for it to wind down."""
+        task = self._sweeper_task
+        self._sweeper_task = None
+        if task is None or task.done():
+            return
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await task
+
+    async def _idle_sweep_loop(self) -> None:
+        try:
+            while True:
+                await asyncio.sleep(self._SWEEP_INTERVAL_S)
+                await self._sweep_once()
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - keep the sweeper alive
+            log.exception("subagent idle sweeper crashed; will restart on next register")
+
+    async def _sweep_once(self) -> None:
+        """Close every run whose status is sweepable and last_active_at is
+        older than the configured timeout. Running turns are never reclaimed.
+        """
+        cutoff = time.monotonic() - self.idle_timeout_s
+        stale = [
+            r.subagent_id for r in list(self._runs.values())
+            if r.status in _SWEEPABLE and r.last_active_at < cutoff
+        ]
+        for sid in stale:
+            log.info("subagent idle-sweeper closing %s (timeout=%.0fs)", sid, self.idle_timeout_s)
             await self.close(sid)
