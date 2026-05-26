@@ -5,12 +5,11 @@ A `SubagentRun` is one delegation: a code-defined `AgentSpec`, the ACP
 and a status state machine (idle → running → completed | errored | cancelled
 → closed).
 
-`SubagentRegistry` is per-dialog — Timberbot's main `_user_message_loop`
-keeps one registry per dialog alongside the dialog's `AgentConnection`.
-The `delegate(...)` MCP tool reads the calling dialog from the
-`X-Timberbot-Dialog-Id` SSE header (see
-`game_mcp/delegation.py:SubagentBroker.lookup_by_request`) and operates
-on that registry.
+`SubagentRegistry` is single-dialog — `tbot serve` binds to one Telegram
+chat at startup and the broker holds exactly one registry. The
+`delegate(...)` MCP tool retrieves it via
+`SubagentBroker.lookup_by_request()` (a plain getter in single-dialog
+mode; see `game_mcp/delegation.py`) and operates on that registry.
 
 Phase 1: open, get, close, list, status state machine, ID collision retry.
 Phase 2 (this file): idle-timeout sweeper task and a status-change observer
