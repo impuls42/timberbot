@@ -104,6 +104,13 @@ def _make_subagent_session_binder(user_adapter: UserAdapter, dialog_id: str):
     subagent gets its own streaming buffer keyed by session_id (see
     `TelegramAdapter._stream_key`) so its reply doesn't mix into the
     main agent's text.
+
+    `on_elicitation` is deliberately NOT wired here. Elicitation is a
+    player-input round-trip — the game asks a question, the player picks
+    an answer, the answer feeds back. Subagents are task-focused workers
+    the main agent dispatches; they shouldn't ask the player questions
+    on their own. A subagent-triggered elicitation is silently dropped
+    today; route it here if that ever becomes a real use case.
     """
 
     def _bind(run, session):  # type: ignore[no-untyped-def]

@@ -93,11 +93,11 @@ def harness() -> tuple[fastmcp.FastMCP, SubagentBroker, _FakeAgentConnection, Su
     broker = SubagentBroker()
     conn = _FakeAgentConnection()
     registry = SubagentRegistry()
-    broker._dialogs["u1"] = UserState(
+    broker._dialogs["1001"] = UserState(
         conn=conn, registry=registry, agent_cwd="/tmp", mcp_servers=[],
     )
     # Stub the HTTP lookup so we don't need a real Starlette request.
-    broker.lookup_by_request = lambda: broker._dialogs["u1"]  # type: ignore[assignment]
+    broker.lookup_by_request = lambda: broker._dialogs["1001"]  # type: ignore[assignment]
     register_delegation_tools(mcp, broker)
     return mcp, broker, conn, registry
 
@@ -523,7 +523,7 @@ async def test_delegate_wait_true_per_call_timeout(harness):
     return errored, not block forever."""
     mcp, broker, _, registry = harness
     # Tight timeout so the test runs fast.
-    broker._dialogs["u1"].call_timeout_s = 0.05
+    broker._dialogs["1001"].call_timeout_s = 0.05
 
     # Park the session so the prompt never completes within the timeout.
     orig_open = registry.open
@@ -619,10 +619,30 @@ async def test_drive_turn_pushes_subagent_event_on_completion(harness):
 
 
 @pytest.mark.asyncio
+async def test_close_pushes_closed_event(harness):
+    """`SubagentRegistry.close` must push a `closed` event so the main agent
+    sees the disposal via `meta.subagent_events` rather than having to poll
+    `subagent_list` to discover the run is gone."""
+    mcp, _, _, registry = harness
+    opened = await _call(mcp, "delegate", agent="scout", task="t", wait=True)
+    sid = opened["subagent_id"]
+    # Drop the `turn_completed` event from the previous delegate call so we
+    # observe only the close event.
+    registry.drain_events()
+
+    await _call(mcp, "subagent_close", subagent_id=sid)
+    events = registry.drain_events()
+    assert len(events) == 1
+    assert events[0]["kind"] == "closed"
+    assert events[0]["status"] == "closed"
+    assert events[0]["subagent_id"] == sid
+
+
+@pytest.mark.asyncio
 async def test_drive_turn_pushes_event_on_timeout(harness):
     """A timed-out turn lands as `turn_errored` with `last_error` populated."""
     mcp, broker, _, registry = harness
-    broker._dialogs["u1"].call_timeout_s = 0.05
+    broker._dialogs["1001"].call_timeout_s = 0.05
 
     orig_open = registry.open
     async def open_and_park(*a, **k):

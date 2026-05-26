@@ -201,6 +201,13 @@ class TelegramAdapter:
         # states.
         if msg.new_status not in ("completed", "errored", "cancelled", "closed"):
             return
+        # SubagentStatusChange carries no `session_id` — it's a registry-
+        # level event, not tied to an ACP session the adapter has bound
+        # via `register_chat`. So we go straight from `dialog_id` to
+        # chat_id rather than routing through `_resolve_chat`. Same end
+        # state in the deterministic-dialog_id world (dialog_id IS the
+        # canonical chat id); we just skip the session-binding probe the
+        # other handlers do as a first step.
         try:
             chat_id = int(msg.dialog_id)
         except (TypeError, ValueError):

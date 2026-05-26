@@ -229,6 +229,12 @@ class SubagentRegistry:
         except Exception:  # noqa: BLE001 - close is best-effort
             log.exception("error closing subagent %s session", subagent_id)
         run.set_status("closed")
+        # Push a `closed` SubagentEvent so the main agent learns about the
+        # disposal via `meta.subagent_events` instead of having to poll
+        # `subagent_status` / `subagent_list`. The run is already off
+        # `_runs` here, but `push_event` only reads `run.spec` and
+        # `run.transcript`, both of which are still readable.
+        self.push_event(run, kind="closed")
 
     async def cancel(self, subagent_id: str) -> SubagentRun | None:
         """Cancel the in-flight turn; keep the session open.
