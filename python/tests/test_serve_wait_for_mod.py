@@ -154,7 +154,7 @@ def test_serve_cli_threads_no_wait_into_config(monkeypatch):
         return 0
 
     monkeypatch.setattr(serve_mod, "serve_config", lambda: {})
-    monkeypatch.setattr(serve_mod, "serve_telegram_config", lambda: {})
+    monkeypatch.setattr(serve_mod, "serve_telegram_config", lambda: {"dialog_id": "42"})
     monkeypatch.setattr(serve_mod, "resolve_telegram_token", lambda *_: "fake-token")
     monkeypatch.setattr(serve_mod, "resolve_endpoint", lambda *_a, **_kw: ("127.0.0.1", 8085))
     monkeypatch.setattr(serve_mod, "resolve_auth_token", lambda *_a, **_kw: None)

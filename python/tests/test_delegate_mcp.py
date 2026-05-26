@@ -87,17 +87,16 @@ class _FakeAgentConnection:
 
 @pytest.fixture
 def harness() -> tuple[fastmcp.FastMCP, SubagentBroker, _FakeAgentConnection, SubagentRegistry]:
-    """A FastMCP server with delegation tools registered and a stubbed broker
-    whose lookup_by_request returns a fixed `UserState`."""
+    """A FastMCP server with delegation tools registered, the broker
+    bound to a single fake `UserState`. In single-dialog mode
+    `lookup_by_request()` is a plain getter — no HTTP context needed."""
     mcp = fastmcp.FastMCP("test-delegate")
     broker = SubagentBroker()
     conn = _FakeAgentConnection()
     registry = SubagentRegistry()
-    broker._dialogs["1001"] = UserState(
+    broker._state = UserState(
         conn=conn, registry=registry, agent_cwd="/tmp", mcp_servers=[],
     )
-    # Stub the HTTP lookup so we don't need a real Starlette request.
-    broker.lookup_by_request = lambda: broker._dialogs["1001"]  # type: ignore[assignment]
     register_delegation_tools(mcp, broker)
     return mcp, broker, conn, registry
 
@@ -523,7 +522,7 @@ async def test_delegate_wait_true_per_call_timeout(harness):
     return errored, not block forever."""
     mcp, broker, _, registry = harness
     # Tight timeout so the test runs fast.
-    broker._dialogs["1001"].call_timeout_s = 0.05
+    broker._state.call_timeout_s = 0.05
 
     # Park the session so the prompt never completes within the timeout.
     orig_open = registry.open
@@ -642,7 +641,7 @@ async def test_close_pushes_closed_event(harness):
 async def test_drive_turn_pushes_event_on_timeout(harness):
     """A timed-out turn lands as `turn_errored` with `last_error` populated."""
     mcp, broker, _, registry = harness
-    broker._dialogs["1001"].call_timeout_s = 0.05
+    broker._state.call_timeout_s = 0.05
 
     orig_open = registry.open
     async def open_and_park(*a, **k):
@@ -675,20 +674,23 @@ async def test_subagent_wait_touches_last_active_at(harness):
     assert run.last_active_at > _time.monotonic() - 5.0
 
 
-# --- broker → dialog_id routing ----------------------------------------
+# --- broker bind / unbind ----------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_broker_register_then_lookup_by_dialog_id():
-    """The broker.register / get pair is the surface `tbot serve` calls."""
+async def test_broker_bind_then_state_then_unbind():
+    """The `bind` / `state` / `unbind` triple is the surface `tbot serve` calls."""
     broker = SubagentBroker()
     conn = _FakeAgentConnection()
-    reg = broker.register(
-        dialog_id="alice", conn=conn, agent_cwd="/tmp", mcp_servers=[],
+    reg = broker.bind(
+        conn=conn, agent_cwd="/tmp", mcp_servers=[],
     )
     assert isinstance(reg, SubagentRegistry)
-    state = broker.get("alice")
-    assert state is not None and state.conn is conn
+    bound = broker.state()
+    assert bound is not None and bound.conn is conn
+    # `lookup_by_request` returns the same state — no HTTP context required.
+    assert broker.lookup_by_request() is bound
 
-    await broker.unregister("alice")
-    assert broker.get("alice") is None
+    await broker.unbind()
+    assert broker.state() is None
+    assert broker.lookup_by_request() is None

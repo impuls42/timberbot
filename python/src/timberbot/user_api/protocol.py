@@ -45,14 +45,14 @@ class GameElicitation:
 
 @dataclass
 class AgentFeedback:
+    """Agent-emitted bug/missing-feature notification.
+
+    In single-dialog mode the bot is bound to one chat at startup, so
+    feedback always routes there — no dialog_id field needed.
+    """
     category: str
     severity: str
     message: str
-    # Optional originating dialog — when set, the adapter targets only that
-    # dialog instead of broadcasting. Carried for multi-dialog-ready
-    # routing; the `complain` MCP tool can't yet discover its calling
-    # dialog, so this is wired but unused by `_on_complaint`.
-    dialog_id: str | None = None
 
 
 @dataclass

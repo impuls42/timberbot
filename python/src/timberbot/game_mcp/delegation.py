@@ -1,6 +1,6 @@
 """Delegation MCP tool family.
 
-Phase 1 + Phase 2 surface:
+Surface:
 
 - `delegate`, `subagent_reply` — open / continue a subagent run.
 - `subagent_status`, `subagent_list` — non-blocking introspection.
@@ -8,11 +8,11 @@ Phase 1 + Phase 2 surface:
 - `subagent_transcript` — full conversation history for one run.
 - `subagent_cancel`, `subagent_close` — interrupt / release.
 
-The handlers run inside the FastMCP server's request context. They look up
-the calling dialog via the `X-Timberbot-Dialog-Id` HTTP header on the SSE
-connection (threaded through by `_user_message_loop` when it opens the
-agent's MCP server config) and route to the right per-dialog
-`AgentConnection` + `SubagentRegistry`.
+`tbot serve` binds the broker to a single dialog at startup, so the
+broker holds exactly one `UserState` and `lookup_by_request()` is a
+plain getter — no per-request HTTP routing, no dialog→state lookup
+table. The tool handlers retrieve that state and operate on the
+dialog's `AgentConnection` + `SubagentRegistry`.
 
 See `design/subagent-delegation.md` §5 for the tool surface and §9 for the
 phase split.
@@ -49,18 +49,10 @@ DEFAULT_IDLE_TIMEOUT_S = 600.0
 
 log = logging.getLogger("timberbot.game_mcp.delegation")
 
-# Header used to pin a FastMCP request to its originating Timberbot
-# dialog (chat). Set on the SSE MCP server config when the dialog's main
-# ACP session is opened (see `user_api/serve.py:_user_message_loop`).
-# The dialog id is deterministic — for Telegram it's `str(chat.id)`, so
-# the broker can always route an inbound MCP tool call back to the
-# specific dialog that triggered it.
-DIALOG_ID_HEADER = "X-Timberbot-Dialog-Id"
-
 
 @dataclass
 class UserState:
-    """Per-user serve state the delegation tools need at request time."""
+    """The single-dialog serve state the delegation tools need at request time."""
     conn: AgentConnection
     registry: SubagentRegistry
     # The cwd + mcp_servers list to pass when opening a subagent session.
@@ -88,21 +80,20 @@ class UserState:
 
 
 class SubagentBroker:
-    """Process-global table of per-dialog state, looked up by HTTP header.
+    """Single-dialog state holder for the delegate-family MCP tools.
 
-    Populated by `_user_message_loop` when a dialog's `AgentConnection` is
-    opened, and cleared when that handle is evicted. The MCP tool handlers
-    call `lookup_by_request()` to find the calling dialog — which works
-    because `tbot serve` adds `X-Timberbot-Dialog-Id: <dialog>` to the
-    SSE MCP server config it hands to the ACP agent.
+    `tbot serve` calls `bind(...)` once at startup, after which
+    `lookup_by_request()` (called by every tool handler) returns the
+    bound `UserState`. `unbind()` runs on teardown to close any live
+    subagent sessions. No per-request HTTP routing — there's only one
+    dialog the bot is bound to, so the lookup is a plain getter.
     """
 
     def __init__(self) -> None:
-        self._dialogs: dict[str, UserState] = {}
+        self._state: UserState | None = None
 
-    def register(
+    def bind(
         self,
-        dialog_id: str,
         conn: AgentConnection,
         agent_cwd: str,
         mcp_servers: list[dict],
@@ -117,7 +108,10 @@ class SubagentBroker:
         ] | None = None,
     ) -> SubagentRegistry:
         registry = SubagentRegistry(idle_timeout_s=idle_timeout_s)
-        state = UserState(
+        # Hook the registry's status emitter to the user-supplied observer so
+        # every `run.status` transition surfaces via `SubagentStatusChange`.
+        registry.on_status_change = on_status_change  # type: ignore[assignment]
+        self._state = UserState(
             conn=conn,
             registry=registry,
             agent_cwd=agent_cwd,
@@ -126,48 +120,30 @@ class SubagentBroker:
             bind_subagent_callbacks=bind_subagent_callbacks,
             on_status_change=on_status_change,
         )
-        # Hook the registry's status emitter to the user-supplied observer so
-        # every `run.status` transition surfaces via `SubagentStatusChange`.
-        registry.on_status_change = on_status_change  # type: ignore[assignment]
-        self._dialogs[dialog_id] = state
         registry.start_idle_sweeper()
         return registry
 
-    async def unregister(self, dialog_id: str) -> None:
-        state = self._dialogs.pop(dialog_id, None)
+    async def unbind(self) -> None:
+        state = self._state
+        self._state = None
         if state is not None:
             await state.registry.close_all()
             await state.registry.stop_idle_sweeper()
 
-    def get(self, dialog_id: str) -> UserState | None:
-        return self._dialogs.get(dialog_id)
+    def state(self) -> UserState | None:
+        return self._state
 
     def lookup_by_request(self) -> UserState | None:
-        """Read `X-Timberbot-Dialog-Id` from the current HTTP request and
-        return that dialog's state, or None if no header / no match.
+        """Return the bound UserState, or None if `bind()` hasn't been
+        called yet (only happens in tests or before `tbot serve` finishes
+        startup wiring).
 
-        Logs a warning on every miss so a misconfigured caller (no HTTP
-        request context, missing header, unknown dialog) is visible in
-        the serve log rather than silently falling through to the tool's
-        `"no Timberbot dialog bound"` error reply.
+        Single-dialog mode collapses what used to be a header-based
+        lookup table into a plain getter. The MCP tool handlers' "no
+        Timberbot dialog bound" error path stays for the corner case
+        where a tool is called before `bind()` completes.
         """
-        from fastmcp.server.dependencies import get_http_request  # noqa: PLC0415
-        try:
-            req = get_http_request()
-        except Exception as exc:  # noqa: BLE001 - no request bound (test stub, etc.)
-            log.warning("delegate-family tool called outside HTTP request context: %s", exc)
-            return None
-        dialog_id = req.headers.get(DIALOG_ID_HEADER) if req is not None else None
-        if not dialog_id:
-            log.warning(
-                "delegate-family tool called without %s header — cannot route",
-                DIALOG_ID_HEADER,
-            )
-            return None
-        state = self._dialogs.get(dialog_id)
-        if state is None:
-            log.warning("delegate-family tool: no registered dialog %r", dialog_id)
-        return state
+        return self._state
 
 
 # ---------------------------------------------------------------------------

@@ -38,22 +38,18 @@ async def _ack(update: Update) -> None:
 
 def make_handlers(
     queue: asyncio.Queue,  # type: ignore[type-arg]
-    allowed_dialogs: set[int] | None = None,
+    dialog_id: str,
 ) -> dict:  # type: ignore[type-arg]
     """Build the inbound handler set.
 
-    `allowed_dialogs` is the allowlist of Telegram chat ids that may talk
-    to the bot. The dialog (chat) — not the individual Telegram user — is
-    the deterministic routing key: it's set on every Update and gives the
-    bot a stable handle to reply to. None or empty set means "open to any
-    chat that finds the bot" (still gated by Telegram's discoverability).
+    `dialog_id` is the configured chat id (stringified). The
+    TelegramAdapter already gates command + text Updates by
+    `filters.Chat(chat_id=…)`, so handlers don't need to re-check —
+    except for callback queries, which Telegram doesn't filter the same
+    way, so the callback handler verifies `update.effective_chat.id`
+    against the configured chat explicitly.
     """
-    allowed: set[int] = allowed_dialogs if allowed_dialogs is not None else set()
-
-    def _dialog_allowed(chat_id: int | None) -> bool:
-        if not allowed:
-            return True
-        return chat_id is not None and chat_id in allowed
+    expected_chat_id = int(dialog_id)
 
     async def _enqueue(update: Update, text: str) -> None:
         chat = update.effective_chat
@@ -116,8 +112,11 @@ def make_handlers(
         chat = update.effective_chat
         if query is None or query.data is None or chat is None:
             return
-        if not _dialog_allowed(chat.id):
-            log.info("Dropping callback from non-allowed dialog %s", chat.id)
+        # Callback queries bypass the adapter's `filters.Chat`; recheck
+        # here so a callback from any other chat (e.g. an inline keyboard
+        # forwarded elsewhere) doesn't smuggle commands through.
+        if chat.id != expected_chat_id:
+            log.info("Dropping callback from non-bound dialog %s", chat.id)
             await query.answer()
             return
         await query.answer()
