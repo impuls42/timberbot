@@ -319,9 +319,23 @@ use only when you need to re-read what was discussed).
 session) or `mcp__game__subagent_close` (dismiss the subagent permanently).
 
 Each turn has a built-in timeout — long-running calls surface as
-`status="errored", last_error="timeout after Ns"`. Idle subagents auto-close
-after a configured inactivity window; check `subagent_list` if you're not
-sure whether a run is still around.
+`status="errored", last_error="timeout after Ns"`.
+
+**Idle window.** Subagents that sit untouched past the configured idle
+threshold (default 10 min) get auto-closed by the registry sweeper —
+their id becomes invalid. To keep one alive across a long pause, poll it
+with `subagent_status` (the poll refreshes its activity timestamp).
+When you're done with a subagent, call `subagent_close` explicitly so
+the system isn't holding context for runs you don't intend to revive —
+don't rely on the sweeper to clean up after you.
+
+**Reading subagent output.** Every `mcp__game__*` tool response includes
+`meta.subagent_events` alongside the existing game events. Each entry
+records a subagent turn that ended since your last call (the agent's
+reply text, status, stop_reason). Scan it the same way you scan
+`meta.events` — it's where async subagent results land between your own
+turns. For the full transcript or to inspect an active run, use
+`subagent_transcript` or `subagent_status`.
 
 Prefer fanning out several `delegate(..., wait=False)` calls when tasks are
 independent, then collecting them with one `subagent_wait_all`. Sequential

@@ -43,7 +43,12 @@ class ServeConfig:
     acp_binary: str = "claude-agent-acp"
     allowed_tools: list[str] = field(default_factory=lambda: ["game.*"])
     telegram_token: str = ""
-    telegram_allowed_users: list[int] = field(default_factory=list)
+    # Allowlist of Telegram chat ids permitted to talk to the bot. The
+    # dialog (chat) — not the individual user — is the deterministic
+    # routing key, so this gates by chat. An empty list means "any chat
+    # that finds the bot" (the prior `telegram_allowed_users` semantic
+    # was per-user; see `cli/commands/serve.py` for the config-load shim).
+    telegram_allowed_dialogs: list[int] = field(default_factory=list)
     # When True (default), the startup ping probe retries forever with
     # exp_backoff until the mod responds. Lets `tbot serve` be launched
     # before the game so the player can start them in either order.
@@ -61,16 +66,16 @@ class ServeConfig:
     subagent_idle_timeout_s: float = 600.0
 
 
-def _bind_callbacks(session: object, user_adapter: UserAdapter, user_id: str) -> None:
+def _bind_callbacks(session: object, user_adapter: UserAdapter, dialog_id: str) -> None:
     """Forward `session/update` and `game/elicitation` notifications to the user adapter.
 
-    `user_id` is captured into the callbacks so the adapter can route a chunk
-    back to the right chat even if the session_id binding hasn't reached the
-    adapter yet (race between `register_chat` and the first agent reply).
+    `dialog_id` rides on every outbound message so the adapter can resolve
+    the target chat directly from the dialog handle — no fallback table
+    needed.
     """
 
     async def _on_update(sid: str, chunk: str) -> None:
-        await user_adapter.send(TextChunk(session_id=sid, text=chunk, user_id=user_id))
+        await user_adapter.send(TextChunk(session_id=sid, text=chunk, dialog_id=dialog_id))
 
     async def _on_elicitation(sid: str, params: dict) -> None:
         await user_adapter.send(GameElicitation(
@@ -78,12 +83,12 @@ def _bind_callbacks(session: object, user_adapter: UserAdapter, user_id: str) ->
             question=str(params.get("question", "")),
             choices=list(params.get("choices", [])),
             correlation_id=str(params.get("correlationId", "")),
-            user_id=user_id,
+            dialog_id=dialog_id,
         ))
 
     async def _on_tool_action(sid: str, summary: str, ok: bool) -> None:
         await user_adapter.send(ToolAction(
-            session_id=sid, summary=summary, ok=ok, user_id=user_id,
+            session_id=sid, summary=summary, ok=ok, dialog_id=dialog_id,
         ))
 
     session.on_update = _on_update           # type: ignore[attr-defined]
@@ -91,34 +96,43 @@ def _bind_callbacks(session: object, user_adapter: UserAdapter, user_id: str) ->
     session.on_tool_action = _on_tool_action  # type: ignore[attr-defined]
 
 
-def _make_subagent_session_binder(user_adapter: UserAdapter, user_id: str):
+def _make_subagent_session_binder(user_adapter: UserAdapter, dialog_id: str):
     """Return a callback the registry invokes for every new subagent session.
 
-    Wires `on_tool_action` so the subagent's write-tool calls surface in
-    Telegram with a `[<subagent_id>] …` prefix. Streaming text (`on_update`)
-    is intentionally NOT routed — the design surfaces only status flips and
-    tool actions for subagents, keeping the chat from drowning in fan-out
-    chatter.
+    Wires `on_update` and `on_tool_action` so subagent text and write-tool
+    calls surface in Telegram under a `[<subagent_id>]` header. Each
+    subagent gets its own streaming buffer keyed by session_id (see
+    `TelegramAdapter._stream_key`) so its reply doesn't mix into the
+    main agent's text.
     """
 
     def _bind(run, session):  # type: ignore[no-untyped-def]
         sid = run.subagent_id
+
+        async def _on_update(_acp_sid: str, chunk: str) -> None:
+            await user_adapter.send(TextChunk(
+                session_id=session.session_id,
+                text=chunk,
+                dialog_id=dialog_id,
+                subagent_id=sid,
+            ))
 
         async def _on_tool_action(_acp_sid: str, summary: str, ok: bool) -> None:
             await user_adapter.send(ToolAction(
                 session_id=session.session_id,
                 summary=summary,
                 ok=ok,
-                user_id=user_id,
+                dialog_id=dialog_id,
                 subagent_id=sid,
             ))
 
+        session.on_update = _on_update
         session.on_tool_action = _on_tool_action
 
     return _bind
 
 
-def _make_status_observer(user_adapter: UserAdapter, user_id: str):
+def _make_status_observer(user_adapter: UserAdapter, dialog_id: str):
     """Return a status-change observer the registry hands to each new run.
 
     Fired on every `SubagentRun.status` transition; emits a
@@ -129,7 +143,7 @@ def _make_status_observer(user_adapter: UserAdapter, user_id: str):
 
     async def _observe(run, prev_status: str, new_status: str, detail: str | None) -> None:
         await user_adapter.send(SubagentStatusChange(
-            user_id=user_id,
+            dialog_id=dialog_id,
             subagent_id=run.subagent_id,
             agent=run.spec.slug,
             prev_status=prev_status,
@@ -360,19 +374,19 @@ def _prepare_agent_cwd() -> str:
     return str(cwd)
 
 
-def _mcp_servers_for_user(cfg: ServeConfig, user_id: str) -> list[dict]:
+def _mcp_servers_for_dialog(cfg: ServeConfig, dialog_id: str) -> list[dict]:
     """Build the MCP server config the agent connects to.
 
-    `X-Timberbot-User-Id` is added to the SSE request headers so the MCP
-    server's delegate-family tools can find the calling user's broker entry
-    (see `game_mcp/delegation.py:SubagentBroker.lookup_by_request`).
+    `X-Timberbot-Dialog-Id` rides in the SSE request headers so the MCP
+    server's delegate-family tools can find the calling dialog's broker
+    entry (see `game_mcp/delegation.py:SubagentBroker.lookup_by_request`).
     """
     return [{
         "type": "sse",
         "name": "game",
         "url": f"http://{cfg.mcp_host}:{cfg.mcp_port}/sse",
         "headers": [
-            {"name": "X-Timberbot-User-Id", "value": str(user_id)},
+            {"name": "X-Timberbot-Dialog-Id", "value": str(dialog_id)},
         ],
     }]
 
@@ -397,56 +411,56 @@ async def _user_message_loop(
     passing a 3-arg call shape; in production `run_serve` always supplies it.
 
     `broker` is the `SubagentBroker` from `game_mcp.delegation` — when set,
-    each newly opened user `AgentConnection` is registered so the
-    delegate-family MCP tools can route per-user; on eviction we unregister
-    and close any live subagents.
+    each newly opened `AgentConnection` is registered so the delegate-family
+    MCP tools can route per-dialog; on eviction we unregister and close any
+    live subagents.
     """
-    _connections: dict[str, object] = {}    # user_id -> AgentConnection
-    _sessions: dict[str, object] = {}       # user_id -> main Session
+    _connections: dict[str, object] = {}    # dialog_id -> AgentConnection
+    _sessions: dict[str, object] = {}       # dialog_id -> main Session
     register = getattr(user_adapter, "register_chat", None)
 
-    async def _evict(user_id: str) -> None:
-        """Drop a user's main session + connection. Close any subagents."""
-        _sessions.pop(user_id, None)
-        conn = _connections.pop(user_id, None)
+    async def _evict(dialog_id: str) -> None:
+        """Drop a dialog's main session + connection. Close any subagents."""
+        _sessions.pop(dialog_id, None)
+        conn = _connections.pop(dialog_id, None)
         if conn is not None:
             try:
                 await conn.close()  # type: ignore[union-attr]
             except Exception:
-                log.exception("error closing connection on eviction for user %s", user_id)
+                log.exception("error closing connection on eviction for dialog %s", dialog_id)
         if broker is not None:
             try:
-                await broker.unregister(user_id)  # type: ignore[union-attr]
+                await broker.unregister(dialog_id)  # type: ignore[union-attr]
             except Exception:
-                log.exception("error unregistering broker entry for user %s", user_id)
+                log.exception("error unregistering broker entry for dialog %s", dialog_id)
 
     try:
         async for msg in user_adapter.messages():
-            user_id = msg.user_id
+            dialog_id = msg.dialog_id
             text = msg.text
-            log.debug("User %s: %r", user_id, text)
+            log.debug("Dialog %s: %r", dialog_id, text)
 
             try:
                 # Control commands — route to ACP session lifecycle, not prompt.
                 # `/cancel` is the soft cancel: interrupt the in-flight turn
-                # (main + every running subagent for that user) without
+                # (main + every running subagent in this dialog) without
                 # tearing the AgentConnection down. Next user message reuses
                 # the same session — main agent retains conversation memory,
                 # subagent runs stay reachable by id. `/halt` is the hard
                 # form: cancel and evict the whole connection.
                 if text in ("/cancel", "/halt"):
-                    if user_id in _sessions:
-                        session = _sessions[user_id]
+                    if dialog_id in _sessions:
+                        session = _sessions[dialog_id]
                         acp_sid = session.session_id  # type: ignore[union-attr]
                         try:
                             await session.cancel()  # type: ignore[union-attr]
                         except Exception:
-                            log.exception("Error sending cancel for user %s", user_id)
+                            log.exception("Error sending cancel for dialog %s", dialog_id)
                         # Cancel every in-flight subagent turn too — they
-                        # share the user's main connection and the user
-                        # expects "stop everything" to mean all of it.
+                        # share the dialog's main connection and "stop
+                        # everything" means all of it.
                         if broker is not None:
-                            state = broker.get(user_id)  # type: ignore[union-attr]
+                            state = broker.get(dialog_id)  # type: ignore[union-attr]
                             if state is not None:
                                 for run in state.registry.list():
                                     if (
@@ -464,10 +478,10 @@ async def _user_message_loop(
                             session_id=acp_sid,
                             state="halting",
                             detail=f"acked {text}",
-                            user_id=user_id,
+                            dialog_id=dialog_id,
                         ))
                         if text == "/halt":
-                            await _evict(user_id)
+                            await _evict(dialog_id)
                         else:
                             # Soft cancel: the session was put into HALTING
                             # by `session.cancel()`. We want subsequent
@@ -478,7 +492,7 @@ async def _user_message_loop(
                                 from timberbot.connector.session import SessionState  # noqa: PLC0415
                                 session.state = SessionState.ACTIVE  # type: ignore[union-attr]
                             except Exception:
-                                log.exception("error restoring session state for user %s", user_id)
+                                log.exception("error restoring session state for dialog %s", dialog_id)
                     else:
                         # Make the no-op explicit so the user gets a reply
                         # instead of silence.
@@ -486,35 +500,35 @@ async def _user_message_loop(
                             session_id="",
                             state="no session",
                             detail=f"nothing to {text.lstrip('/')}",
-                            user_id=user_id,
+                            dialog_id=dialog_id,
                         ))
                     continue
 
                 if text == "/status":
-                    if user_id in _sessions:
-                        session = _sessions[user_id]
+                    if dialog_id in _sessions:
+                        session = _sessions[dialog_id]
                         await user_adapter.send(SessionStateChange(
                             session_id=session.session_id,  # type: ignore[union-attr]
                             state=_session_state(session),
-                            user_id=user_id,
+                            dialog_id=dialog_id,
                         ))
                     else:
                         await user_adapter.send(SessionStateChange(
                             session_id="",
                             state="no session",
-                            detail=f"no agent connected yet for user {user_id}",
-                            user_id=user_id,
+                            detail=f"no agent connected yet for dialog {dialog_id}",
+                            dialog_id=dialog_id,
                         ))
                     continue
 
                 if text == "/state":
-                    sid = _sessions[user_id].session_id if user_id in _sessions else ""  # type: ignore[union-attr]
+                    sid = _sessions[dialog_id].session_id if dialog_id in _sessions else ""  # type: ignore[union-attr]
                     if client is None:
                         await user_adapter.send(SessionStateChange(
                             session_id=sid,
                             state="info",
                             detail="state unavailable (no game client wired)",
-                            user_id=user_id,
+                            dialog_id=dialog_id,
                         ))
                         continue
                     summary = await _fetch_summary(client)
@@ -527,7 +541,7 @@ async def _user_message_loop(
                         session_id=sid,
                         state="info",
                         detail=body,
-                        user_id=user_id,
+                        dialog_id=dialog_id,
                     ))
                     continue
 
@@ -538,15 +552,15 @@ async def _user_message_loop(
                         text = f"User selected: {parts[2]} (correlationId={parts[1]})"
 
                 # Evict stale sessions (the agent process died, or a previous /cancel left ENDED state)
-                if user_id in _sessions and _session_state(_sessions[user_id]) in ("halting", "ended"):
-                    log.info("Evicting stale session for user %s", user_id)
-                    await _evict(user_id)
+                if dialog_id in _sessions and _session_state(_sessions[dialog_id]) in ("halting", "ended"):
+                    log.info("Evicting stale session for dialog %s", dialog_id)
+                    await _evict(dialog_id)
 
                 # First contact (or reconnect after eviction): bring up an ACP session
-                session_mgr.get_or_create(user_id)
-                is_new_session = user_id not in _sessions
+                session_mgr.get_or_create(dialog_id)
+                is_new_session = dialog_id not in _sessions
                 if is_new_session:
-                    mcp_servers = _mcp_servers_for_user(cfg, user_id)
+                    mcp_servers = _mcp_servers_for_dialog(cfg, dialog_id)
                     conn = await acp.connect(  # type: ignore[union-attr]
                         binary=cfg.acp_binary, model=cfg.model,
                     )
@@ -555,22 +569,22 @@ async def _user_message_loop(
                         mcp_servers=mcp_servers,
                         allowed_tools=cfg.allowed_tools,
                     )
-                    _bind_callbacks(session, user_adapter, user_id)
-                    _connections[user_id] = conn
-                    _sessions[user_id] = session
+                    _bind_callbacks(session, user_adapter, dialog_id)
+                    _connections[dialog_id] = conn
+                    _sessions[dialog_id] = session
                     if broker is not None:
                         broker.register(  # type: ignore[union-attr]
-                            user_id=user_id,
+                            dialog_id=dialog_id,
                             conn=conn,
                             agent_cwd=agent_cwd or ".",
                             mcp_servers=mcp_servers,
                             call_timeout_s=cfg.subagent_call_timeout_s,
                             idle_timeout_s=cfg.subagent_idle_timeout_s,
                             bind_subagent_callbacks=_make_subagent_session_binder(
-                                user_adapter, user_id,
+                                user_adapter, dialog_id,
                             ),
                             on_status_change=_make_status_observer(
-                                user_adapter, user_id,
+                                user_adapter, dialog_id,
                             ),
                         )
                     if register is not None and msg.chat_id is not None:
@@ -586,10 +600,10 @@ async def _user_message_loop(
                         session_id=session.session_id,  # type: ignore[union-attr]
                         state="active",
                         detail=preview,
-                        user_id=user_id,
+                        dialog_id=dialog_id,
                     ))
 
-                session = _sessions[user_id]
+                session = _sessions[dialog_id]
                 # Close out the previous turn's stream so the next agent
                 # chunk creates a fresh chat message instead of continuing
                 # to edit a placeholder that's now far above the user's
@@ -607,20 +621,20 @@ async def _user_message_loop(
                     prompt_text = render_bootstrap_prompt(TIMBERBOT_SPEC) + "\n" + text
                 await session.prompt(prompt_text)  # type: ignore[union-attr]
             except Exception as exc:
-                log.exception("Error dispatching message for user %s", user_id)
+                log.exception("Error dispatching message for dialog %s", dialog_id)
                 try:
-                    sid = _sessions[user_id].session_id if user_id in _sessions else ""  # type: ignore[union-attr]
+                    sid = _sessions[dialog_id].session_id if dialog_id in _sessions else ""  # type: ignore[union-attr]
                     await user_adapter.send(SessionStateChange(
                         session_id=sid,
                         state="error",
                         detail=str(exc),
-                        user_id=user_id,
+                        dialog_id=dialog_id,
                     ))
                 except Exception:
-                    log.exception("Also failed to inform user %s about the error", user_id)
+                    log.exception("Also failed to inform dialog %s about the error", dialog_id)
     finally:
-        for user_id in list(_connections.keys()):
-            await _evict(user_id)
+        for dialog_id in list(_connections.keys()):
+            await _evict(dialog_id)
 
 
 async def run_serve(cfg: ServeConfig) -> None:
@@ -673,7 +687,7 @@ async def run_serve(cfg: ServeConfig) -> None:
     adapter_cls = ClaudeCodeAdapter if cfg.backend == "claude" else OpencodeAdapter
     acp = ACPConnector(adapter=adapter_cls(), allowed_tools=cfg.allowed_tools)
 
-    user_adapter = TelegramAdapter(cfg.telegram_token, allowed_users=cfg.telegram_allowed_users)
+    user_adapter = TelegramAdapter(cfg.telegram_token, allowed_dialogs=cfg.telegram_allowed_dialogs)
 
     async def _on_complaint(message: str, category: str, severity: str) -> None:
         await user_adapter.send(AgentFeedback(category=category, severity=severity, message=message))

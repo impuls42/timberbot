@@ -95,7 +95,7 @@ def cfg() -> ServeConfig:
 
 
 async def test_first_prompt_connects_wires_callbacks_and_dispatches(cfg: ServeConfig) -> None:
-    adapter = _FakeAdapter([UserMessage(user_id="u1", text="hello agent", chat_id=42)])
+    adapter = _FakeAdapter([UserMessage(dialog_id="u1", text="hello agent", chat_id=42)])
     acp = _FakeACP()
 
     await _user_message_loop(adapter, SessionManager(), acp, cfg)
@@ -112,7 +112,7 @@ async def test_first_prompt_connects_wires_callbacks_and_dispatches(cfg: ServeCo
 
 
 async def test_on_update_callback_routes_chunk_to_adapter(cfg: ServeConfig) -> None:
-    adapter = _FakeAdapter([UserMessage(user_id="u1", text="hi", chat_id=42)])
+    adapter = _FakeAdapter([UserMessage(dialog_id="u1", text="hi", chat_id=42)])
     acp = _FakeACP()
     await _user_message_loop(adapter, SessionManager(), acp, cfg)
 
@@ -120,11 +120,11 @@ async def test_on_update_callback_routes_chunk_to_adapter(cfg: ServeConfig) -> N
     await acp.session.on_update("acp-sess-1", "Hello back!")  # type: ignore[misc]
 
     chunks = [m for m in adapter.sent if isinstance(m, TextChunk)]
-    assert chunks == [TextChunk(session_id="acp-sess-1", text="Hello back!", user_id="u1")]
+    assert chunks == [TextChunk(session_id="acp-sess-1", text="Hello back!", dialog_id="u1")]
 
 
 async def test_on_elicitation_callback_routes_to_adapter(cfg: ServeConfig) -> None:
-    adapter = _FakeAdapter([UserMessage(user_id="u1", text="start", chat_id=42)])
+    adapter = _FakeAdapter([UserMessage(dialog_id="u1", text="start", chat_id=42)])
     acp = _FakeACP()
     await _user_message_loop(adapter, SessionManager(), acp, cfg)
 
@@ -144,8 +144,8 @@ async def test_on_elicitation_callback_routes_to_adapter(cfg: ServeConfig) -> No
 
 async def test_cancel_command_invokes_session_cancel_not_prompt(cfg: ServeConfig) -> None:
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="hi", chat_id=42),
-        UserMessage(user_id="u1", text="/cancel", chat_id=42),
+        UserMessage(dialog_id="u1", text="hi", chat_id=42),
+        UserMessage(dialog_id="u1", text="/cancel", chat_id=42),
     ])
     acp = _FakeACP()
 
@@ -163,8 +163,8 @@ async def test_cancel_command_invokes_session_cancel_not_prompt(cfg: ServeConfig
 
 async def test_halt_command_also_cancels(cfg: ServeConfig) -> None:
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="hi", chat_id=42),
-        UserMessage(user_id="u1", text="/halt", chat_id=42),
+        UserMessage(dialog_id="u1", text="hi", chat_id=42),
+        UserMessage(dialog_id="u1", text="/halt", chat_id=42),
     ])
     acp = _FakeACP()
 
@@ -174,7 +174,7 @@ async def test_halt_command_also_cancels(cfg: ServeConfig) -> None:
 
 
 async def test_status_when_no_session(cfg: ServeConfig) -> None:
-    adapter = _FakeAdapter([UserMessage(user_id="u1", text="/status", chat_id=42)])
+    adapter = _FakeAdapter([UserMessage(dialog_id="u1", text="/status", chat_id=42)])
     acp = _FakeACP()
 
     await _user_message_loop(adapter, SessionManager(), acp, cfg)
@@ -188,8 +188,8 @@ async def test_status_when_no_session(cfg: ServeConfig) -> None:
 
 async def test_status_when_session_active(cfg: ServeConfig) -> None:
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="hi", chat_id=42),
-        UserMessage(user_id="u1", text="/status", chat_id=42),
+        UserMessage(dialog_id="u1", text="hi", chat_id=42),
+        UserMessage(dialog_id="u1", text="/status", chat_id=42),
     ])
     acp = _FakeACP()
 
@@ -203,8 +203,8 @@ async def test_status_when_session_active(cfg: ServeConfig) -> None:
 
 async def test_elicitation_choice_rewritten_as_prompt(cfg: ServeConfig) -> None:
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="hi", chat_id=42),
-        UserMessage(user_id="u1", text="choice:elic-1:Yes", chat_id=42),
+        UserMessage(dialog_id="u1", text="hi", chat_id=42),
+        UserMessage(dialog_id="u1", text="choice:elic-1:Yes", chat_id=42),
     ])
     acp = _FakeACP()
 
@@ -218,8 +218,8 @@ async def test_elicitation_choice_rewritten_as_prompt(cfg: ServeConfig) -> None:
 
 async def test_second_message_reuses_session(cfg: ServeConfig) -> None:
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="first", chat_id=42),
-        UserMessage(user_id="u1", text="second", chat_id=42),
+        UserMessage(dialog_id="u1", text="first", chat_id=42),
+        UserMessage(dialog_id="u1", text="second", chat_id=42),
     ])
     acp = _FakeACP()
     # Track that connect is only awaited once.
@@ -241,9 +241,9 @@ async def test_prompt_after_soft_cancel_reuses_session(cfg: ServeConfig) -> None
     message reuses them (preserving conversation context and any subagents).
     The hard tear-down lives on `/halt`."""
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="first", chat_id=42),
-        UserMessage(user_id="u1", text="/cancel", chat_id=42),
-        UserMessage(user_id="u1", text="second", chat_id=42),
+        UserMessage(dialog_id="u1", text="first", chat_id=42),
+        UserMessage(dialog_id="u1", text="/cancel", chat_id=42),
+        UserMessage(dialog_id="u1", text="second", chat_id=42),
     ])
     session1 = _FakeSession("acp-sess-1")
     session2 = _FakeSession("acp-sess-2")
@@ -266,9 +266,9 @@ async def test_prompt_after_halt_reconnects(cfg: ServeConfig) -> None:
     AgentConnection. The next user message reconnects from scratch with a
     fresh bootstrap-prefixed first prompt."""
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="first", chat_id=42),
-        UserMessage(user_id="u1", text="/halt", chat_id=42),
-        UserMessage(user_id="u1", text="second", chat_id=42),
+        UserMessage(dialog_id="u1", text="first", chat_id=42),
+        UserMessage(dialog_id="u1", text="/halt", chat_id=42),
+        UserMessage(dialog_id="u1", text="second", chat_id=42),
     ])
     session1 = _FakeSession("acp-sess-1")
     session2 = _FakeSession("acp-sess-2")
@@ -289,9 +289,9 @@ async def test_status_after_cancel_remains_active(cfg: ServeConfig) -> None:
     same session as active. (Pre-Phase 2 this said 'no session' because
     cancel evicted; the soft semantic flipped that.)"""
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="first", chat_id=42),
-        UserMessage(user_id="u1", text="/cancel", chat_id=42),
-        UserMessage(user_id="u1", text="/status", chat_id=42),
+        UserMessage(dialog_id="u1", text="first", chat_id=42),
+        UserMessage(dialog_id="u1", text="/cancel", chat_id=42),
+        UserMessage(dialog_id="u1", text="/status", chat_id=42),
     ])
     acp = _FakeACP()
 
@@ -306,8 +306,8 @@ async def test_status_after_cancel_remains_active(cfg: ServeConfig) -> None:
 async def test_stale_ended_session_is_evicted(cfg: ServeConfig) -> None:
     """If the session's state is ENDED (e.g. agent process died), the next prompt reconnects."""
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="first", chat_id=42),
-        UserMessage(user_id="u1", text="second", chat_id=42),
+        UserMessage(dialog_id="u1", text="first", chat_id=42),
+        UserMessage(dialog_id="u1", text="second", chat_id=42),
     ])
     session1 = _FakeSession("acp-sess-1")
     session1.state = "ended"  # simulate agent dying after the first prompt completed
@@ -326,7 +326,7 @@ async def test_stale_ended_session_is_evicted(cfg: ServeConfig) -> None:
 
 async def test_cancel_without_session_replies_no_session(cfg: ServeConfig) -> None:
     """/cancel before any prompt now sends a 'no session' reply instead of going silent."""
-    adapter = _FakeAdapter([UserMessage(user_id="u1", text="/cancel", chat_id=42)])
+    adapter = _FakeAdapter([UserMessage(dialog_id="u1", text="/cancel", chat_id=42)])
     acp = _FakeACP()
 
     await _user_message_loop(adapter, SessionManager(), acp, cfg)
@@ -334,12 +334,12 @@ async def test_cancel_without_session_replies_no_session(cfg: ServeConfig) -> No
     states = [m for m in adapter.sent if isinstance(m, SessionStateChange)]
     assert states, "user must see a reply even when there's nothing to cancel"
     assert states[0].state == "no session"
-    assert states[0].user_id == "u1"
+    assert states[0].dialog_id == "u1"
 
 
 async def test_state_command_uses_client_summary(cfg: ServeConfig) -> None:
     """`/state` queries TimberbotClient.summary() and sends the formatted dashboard."""
-    adapter = _FakeAdapter([UserMessage(user_id="u1", text="/state", chat_id=42)])
+    adapter = _FakeAdapter([UserMessage(dialog_id="u1", text="/state", chat_id=42)])
     acp = _FakeACP()
 
     class _FakeSummary:
@@ -366,12 +366,12 @@ async def test_state_command_uses_client_summary(cfg: ServeConfig) -> None:
     assert "day 7" in body
     assert "hazardous" in body
     assert "Science: 42" in body
-    assert infos[0].user_id == "u1"
+    assert infos[0].dialog_id == "u1"
 
 
 async def test_state_command_without_client_explains(cfg: ServeConfig) -> None:
     """`/state` when no game client was wired says so instead of going silent."""
-    adapter = _FakeAdapter([UserMessage(user_id="u1", text="/state", chat_id=42)])
+    adapter = _FakeAdapter([UserMessage(dialog_id="u1", text="/state", chat_id=42)])
     acp = _FakeACP()
 
     await _user_message_loop(adapter, SessionManager(), acp, cfg)
@@ -382,7 +382,7 @@ async def test_state_command_without_client_explains(cfg: ServeConfig) -> None:
 
 async def test_active_state_change_includes_preview_when_client_present(cfg: ServeConfig) -> None:
     """Session-active replies carry a one-line game-state preview as detail."""
-    adapter = _FakeAdapter([UserMessage(user_id="u1", text="hi", chat_id=42)])
+    adapter = _FakeAdapter([UserMessage(dialog_id="u1", text="hi", chat_id=42)])
     acp = _FakeACP()
 
     class _FakeSummary:
@@ -414,8 +414,8 @@ async def test_first_prompt_carries_agent_spec_bootstrap(cfg: ServeConfig) -> No
     from timberbot.connector.agent_spec import TIMBERBOT_SPEC
 
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="hi colony", chat_id=42),
-        UserMessage(user_id="u1", text="and again", chat_id=42),
+        UserMessage(dialog_id="u1", text="hi colony", chat_id=42),
+        UserMessage(dialog_id="u1", text="and again", chat_id=42),
     ])
     acp = _FakeACP()
 
@@ -433,7 +433,7 @@ async def test_first_prompt_carries_agent_spec_bootstrap(cfg: ServeConfig) -> No
 
 async def test_main_bootstrap_contains_delegation_block(cfg: ServeConfig) -> None:
     """Phase 1 §Delegation: the main bootstrap mentions the delegate-family tools."""
-    adapter = _FakeAdapter([UserMessage(user_id="u1", text="hi", chat_id=42)])
+    adapter = _FakeAdapter([UserMessage(dialog_id="u1", text="hi", chat_id=42)])
     acp = _FakeACP()
 
     await _user_message_loop(adapter, SessionManager(), acp, cfg)
@@ -451,9 +451,9 @@ async def test_bootstrap_re_injected_after_session_eviction(cfg: ServeConfig) ->
     Phase-2 the same was true for /cancel; the soft semantic now keeps the
     session, so we use /halt to trigger the reconnect.)"""
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="first", chat_id=42),
-        UserMessage(user_id="u1", text="/halt", chat_id=42),
-        UserMessage(user_id="u1", text="second", chat_id=42),
+        UserMessage(dialog_id="u1", text="first", chat_id=42),
+        UserMessage(dialog_id="u1", text="/halt", chat_id=42),
+        UserMessage(dialog_id="u1", text="second", chat_id=42),
     ])
     session1 = _FakeSession("acp-sess-1")
     session2 = _FakeSession("acp-sess-2")
@@ -480,8 +480,8 @@ async def test_reset_stream_called_before_each_prompt(cfg: ServeConfig) -> None:
             self.resets.append(session_id)
 
     adapter = _AdapterWithReset([
-        UserMessage(user_id="u1", text="first", chat_id=42),
-        UserMessage(user_id="u1", text="second", chat_id=42),
+        UserMessage(dialog_id="u1", text="first", chat_id=42),
+        UserMessage(dialog_id="u1", text="second", chat_id=42),
     ])
     acp = _FakeACP()
 
@@ -493,7 +493,7 @@ async def test_reset_stream_called_before_each_prompt(cfg: ServeConfig) -> None:
 
 async def test_prompt_error_emits_error_state_to_user(cfg: ServeConfig) -> None:
     """If session.prompt() raises, the user gets a SessionStateChange(state='error')."""
-    adapter = _FakeAdapter([UserMessage(user_id="u1", text="hi", chat_id=42)])
+    adapter = _FakeAdapter([UserMessage(dialog_id="u1", text="hi", chat_id=42)])
     session = _FakeSession()
     session.prompt = AsyncMock(side_effect=RuntimeError("agent crashed"))  # type: ignore[method-assign]
     conn = _FakeConnection(session)
@@ -515,13 +515,13 @@ class _RecordingBroker:
         self.registered: list[str] = []
         self.unregistered: list[str] = []
 
-    def register(self, user_id, conn, agent_cwd, mcp_servers, **_):
-        self.registered.append(user_id)
+    def register(self, dialog_id, conn, agent_cwd, mcp_servers, **_):
+        self.registered.append(dialog_id)
 
-    async def unregister(self, user_id):
-        self.unregistered.append(user_id)
+    async def unregister(self, dialog_id):
+        self.unregistered.append(dialog_id)
 
-    def get(self, user_id):
+    def get(self, dialog_id):
         # Loop calls this on `/cancel` to enumerate live subagents; the
         # recording fake has none so returning None is fine.
         return None
@@ -532,8 +532,8 @@ async def test_broker_registered_on_session_open_and_unregistered_on_halt(cfg: S
     the user's main session opens and unregistered when `/halt` tears the
     connection down. (Phase 2 soft `/cancel` keeps the registration.)"""
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="first", chat_id=42),
-        UserMessage(user_id="u1", text="/halt", chat_id=42),
+        UserMessage(dialog_id="u1", text="first", chat_id=42),
+        UserMessage(dialog_id="u1", text="/halt", chat_id=42),
     ])
     acp = _FakeACP()
     broker = _RecordingBroker()
@@ -550,9 +550,9 @@ async def test_broker_not_re_registered_on_soft_cancel(cfg: ServeConfig) -> None
     the soft-cancel guarantee via the register count: exactly one
     registration covering both the pre-cancel and post-cancel turns."""
     adapter = _FakeAdapter([
-        UserMessage(user_id="u1", text="first", chat_id=42),
-        UserMessage(user_id="u1", text="/cancel", chat_id=42),
-        UserMessage(user_id="u1", text="second", chat_id=42),
+        UserMessage(dialog_id="u1", text="first", chat_id=42),
+        UserMessage(dialog_id="u1", text="/cancel", chat_id=42),
+        UserMessage(dialog_id="u1", text="second", chat_id=42),
     ])
     acp = _FakeACP()
     broker = _RecordingBroker()
@@ -566,10 +566,11 @@ async def test_broker_not_re_registered_on_soft_cancel(cfg: ServeConfig) -> None
     assert broker.unregistered == ["u1"]
 
 
-async def test_mcp_server_config_carries_user_id_header(cfg: ServeConfig) -> None:
-    """`_user_message_loop` must thread `X-Timberbot-User-Id: <user>` into the
-    SSE MCP server config so the delegate-family tool handlers can route."""
-    adapter = _FakeAdapter([UserMessage(user_id="u1", text="hi", chat_id=42)])
+async def test_mcp_server_config_carries_dialog_id_header(cfg: ServeConfig) -> None:
+    """`_user_message_loop` must thread `X-Timberbot-Dialog-Id: <dialog>`
+    into the SSE MCP server config so the delegate-family tool handlers
+    can route requests back to the right dialog."""
+    adapter = _FakeAdapter([UserMessage(dialog_id="u1", text="hi", chat_id=42)])
     acp = _FakeACP()
     captured_mcp_servers: list[list[dict]] = []
 
@@ -584,4 +585,4 @@ async def test_mcp_server_config_carries_user_id_header(cfg: ServeConfig) -> Non
 
     assert captured_mcp_servers, "new_session must have been called"
     headers = captured_mcp_servers[0][0]["headers"]
-    assert {"name": "X-Timberbot-User-Id", "value": "u1"} in headers
+    assert {"name": "X-Timberbot-Dialog-Id", "value": "u1"} in headers

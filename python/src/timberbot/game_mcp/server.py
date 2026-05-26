@@ -42,10 +42,27 @@ log = logging.getLogger("timberbot.game_mcp.server")
 # ---------------------------------------------------------------------------
 
 
-def _make_envelope(bus: EventBus, cursor: int, result: Any) -> dict[str, Any]:
-    """Build the standard EventEnvelope dict for a tool response."""
+def _make_envelope(
+    bus: EventBus,
+    cursor: int,
+    result: Any,
+    broker: SubagentBroker | None = None,
+) -> dict[str, Any]:
+    """Build the standard EventEnvelope dict for a tool response.
+
+    When `broker` is set the envelope also drains any pending subagent
+    events for the calling dialog (looked up via the same HTTP header the
+    delegate-family tools use) into `meta.subagent_events`, so the main
+    agent picks up async subagent activity in the same place it scans for
+    game events.
+    """
     events, hw, truncated, dropped = bus.events_since(cursor)
     adv = bus.advisory(events)
+    subagent_events: list[dict] = []
+    if broker is not None:
+        state = broker.lookup_by_request()
+        if state is not None:
+            subagent_events = state.registry.drain_events()
     return {
         "result": result.model_dump(mode="json") if isinstance(result, BaseModel) else result,
         "meta": EventMeta(
@@ -55,6 +72,7 @@ def _make_envelope(bus: EventBus, cursor: int, result: Any) -> dict[str, Any]:
             events_dropped=dropped,
             advisory=adv,
             hint=bus.hint(adv),
+            subagent_events=subagent_events,
         ).model_dump(mode="json"),
     }
 
@@ -106,7 +124,7 @@ def create_mcp_server(
         Use at the start of a turn or after a thinking pause to catch up on
         world changes before deciding your next move.
         """
-        return _make_envelope(bus, cursor, {})
+        return _make_envelope(bus, cursor, {}, broker=broker)
 
     # ------------------------------------------------------------------
     # Read tools — query game state
@@ -117,42 +135,42 @@ def create_mcp_server(
         """Colony overview: population, key resources, time, weather."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.summary)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def time(cursor: int = 0) -> dict[str, Any]:
         """Current game time: cycle, day, season, daytime flag."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.time)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def weather(cursor: int = 0) -> dict[str, Any]:
         """Current weather: temperature, drought/badtide status, forecast."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.weather)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def population(cursor: int = 0) -> dict[str, Any]:
         """Population counts: adults, children, homeless, total."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.population)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def resources(cursor: int = 0) -> dict[str, Any]:
         """All resource stocks: [{good, stock, capacity}]."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.resources)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def districts(cursor: int = 0) -> dict[str, Any]:
         """All districts: [{name, population, ...}]."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.districts)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def buildings(
@@ -174,7 +192,7 @@ def create_mcp_server(
                 id=id, name=name, x=x, y=y, radius=radius,
             )
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def trees(
@@ -193,7 +211,7 @@ def create_mcp_server(
                 limit=limit, offset=offset, name=name, x=x, y=y, radius=radius,
             )
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def crops(
@@ -212,7 +230,7 @@ def create_mcp_server(
                 limit=limit, offset=offset, name=name, x=x, y=y, radius=radius,
             )
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def gatherables(
@@ -231,7 +249,7 @@ def create_mcp_server(
                 limit=limit, offset=offset, name=name, x=x, y=y, radius=radius,
             )
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def beavers(
@@ -253,84 +271,84 @@ def create_mcp_server(
                 id=id, name=name, x=x, y=y, radius=radius,
             )
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def workhours(cursor: int = 0) -> dict[str, Any]:
         """Work schedule: {endHours, areWorkingHours, hoursPassedToday}."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.workhours)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def science(cursor: int = 0) -> dict[str, Any]:
         """Science points and unlockable buildings: {points, unlockables}."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.science)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def wellbeing(cursor: int = 0) -> dict[str, Any]:
         """Population wellbeing by category: {beavers, categories}."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.wellbeing)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def notifications(cursor: int = 0) -> dict[str, Any]:
         """Game notification history."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.notifications)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def alerts(cursor: int = 0) -> dict[str, Any]:
         """Active alerts: unstaffed, unpowered, unreachable buildings."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.alerts)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def distribution(cursor: int = 0) -> dict[str, Any]:
         """Distribution settings per district."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.distribution)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def prefabs(cursor: int = 0) -> dict[str, Any]:
         """Available building templates: [{name, sizeX, sizeY, sizeZ}]."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.prefabs)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def power(cursor: int = 0) -> dict[str, Any]:
         """Power networks: [{id, supply, demand, buildings}]."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.power)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def speed(cursor: int = 0) -> dict[str, Any]:
         """Current game speed: {speed: 0-3}."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.speed)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def tree_clusters(cursor: int = 0) -> dict[str, Any]:
         """Top clusters of grown trees, sorted by count."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.tree_clusters)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def food_clusters(cursor: int = 0) -> dict[str, Any]:
         """Food-producing area clusters."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.food_clusters)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def find_placement(
@@ -353,7 +371,7 @@ def create_mcp_server(
             if radius:
                 kw["radius"] = radius
         result = await loop.run_in_executor(None, lambda: client.find_placement(**kw))
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def find_planting(
@@ -373,14 +391,14 @@ def create_mcp_server(
                 crop=crop, id=id, x1=x1, y1=y1, x2=x2, y2=y2, z=z,
             )
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def building_range(cursor: int = 0, id: int = 0) -> dict[str, Any]:
         """Get work range tiles for a building (farmhouse, lumberjack, forester)."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, lambda: client.building_range(id=id))
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def brain(cursor: int = 0, goal: str = "") -> dict[str, Any]:
@@ -389,14 +407,14 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.brain(goal=goal or None)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def list_locations(cursor: int = 0) -> dict[str, Any]:
         """Named locations stored in agent memory: {name: {x, y, z, note}}."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, client.list_locations)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     # ------------------------------------------------------------------
     # Write tools — mutate game state
@@ -407,21 +425,21 @@ def create_mcp_server(
         """Set game speed. 0=pause, 1=normal, 2=fast, 3=fastest."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, lambda: client.set_speed(speed))
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def pause_building(cursor: int = 0, id: int = 0) -> dict[str, Any]:
         """Pause a building. Get id from buildings()."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, lambda: client.pause_building(id))
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def unpause_building(cursor: int = 0, id: int = 0) -> dict[str, Any]:
         """Resume a paused building."""
         loop = loop_getter()
         result = await loop.run_in_executor(None, lambda: client.unpause_building(id))
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def set_priority(
@@ -432,7 +450,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.set_priority(id=id, priority=priority, type=type)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def set_haul_priority(
@@ -443,7 +461,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.set_haul_priority(id=id, prioritized=prioritized)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def set_recipe(cursor: int = 0, id: int = 0, recipe: str = "") -> dict[str, Any]:
@@ -452,7 +470,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.set_recipe(id=id, recipe=recipe)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def set_farmhouse_action(
@@ -463,7 +481,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.set_farmhouse_action(id=id, action=action)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def set_plantable_priority(
@@ -474,7 +492,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.set_plantable_priority(id=id, plantable=plantable)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def set_workers(cursor: int = 0, id: int = 0, count: int = 1) -> dict[str, Any]:
@@ -483,7 +501,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.set_workers(id=id, count=count)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def set_floodgate(
@@ -494,7 +512,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.set_floodgate(id=id, height=height)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def set_workhours(cursor: int = 0, end_hours: int = 18) -> dict[str, Any]:
@@ -503,7 +521,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.set_workhours(end_hours=end_hours)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def set_distribution(
@@ -521,7 +539,7 @@ def create_mcp_server(
                 import_option=import_option, export_threshold=export_threshold,
             )
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def set_storage(
@@ -532,7 +550,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.set_storage(id=id, good=good, mode=mode)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def set_clutch(
@@ -543,7 +561,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.set_clutch(id=id, engaged=engaged)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def unlock_building(cursor: int = 0, building: str = "") -> dict[str, Any]:
@@ -552,7 +570,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.unlock_building(building=building)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def migrate(
@@ -568,7 +586,7 @@ def create_mcp_server(
                 from_district=from_district, to_district=to_district, count=count,
             )
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def place_building(
@@ -586,7 +604,7 @@ def create_mcp_server(
                 prefab=prefab, x=x, y=y, z=z, orientation=orientation,
             )
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def demolish_building(cursor: int = 0, id: int = 0) -> dict[str, Any]:
@@ -595,7 +613,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.demolish_building(id=id)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def demolish_crop(cursor: int = 0, id: int = 0) -> dict[str, Any]:
@@ -604,7 +622,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.demolish_crop(id=id)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def mark_trees(
@@ -620,7 +638,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.mark_trees(x1=x1, y1=y1, x2=x2, y2=y2, z=z)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def clear_trees(
@@ -636,7 +654,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.clear_trees(x1=x1, y1=y1, x2=x2, y2=y2, z=z)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def plant_crop(
@@ -653,7 +671,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.plant_crop(x1=x1, y1=y1, x2=x2, y2=y2, z=z, crop=crop)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def clear_planting(
@@ -669,7 +687,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.clear_planting(x1=x1, y1=y1, x2=x2, y2=y2, z=z)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def place_path(
@@ -688,7 +706,7 @@ def create_mcp_server(
                 x1=x1, y1=y1, x2=x2, y2=y2, style=style, sections=sections,
             )
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     # ------------------------------------------------------------------
     # Automation
@@ -706,7 +724,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.link(source_id=source_id, target_id=target_id, input=input)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def unlink(cursor: int = 0, id: int = 0, input: str = "a") -> dict[str, Any]:
@@ -715,7 +733,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.unlink(id=id, input=input)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def configure_automation(
@@ -726,7 +744,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.configure_automation(id=id, property=property, value=value)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def rename_automation(
@@ -737,7 +755,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.rename_automation(id=id, name=name)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     # ------------------------------------------------------------------
     # Memory tools (agent brain)
@@ -757,7 +775,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.set_location(name=name, x=x, y=y, z=z, note=note or None)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def remove_location(cursor: int = 0, name: str = "") -> dict[str, Any]:
@@ -766,7 +784,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.remove_location(name=name)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def add_task(cursor: int = 0, action: str = "") -> dict[str, Any]:
@@ -775,7 +793,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.add_task(action=action)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def update_task(
@@ -789,7 +807,7 @@ def create_mcp_server(
         result = await loop.run_in_executor(
             None, lambda: client.update_task(id=id, status=status, error=error or None)
         )
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     @mcp.tool
     async def complain(
@@ -815,7 +833,7 @@ def create_mcp_server(
             log.info("agent_message failed (game not ready?): %s — feedback still stored", exc)
         if on_complaint is not None:
             await on_complaint(message, category, severity)
-        return _make_envelope(bus, cursor, result)
+        return _make_envelope(bus, cursor, result, broker=broker)
 
     # ------------------------------------------------------------------
     # Subagent delegation (Phase 1)

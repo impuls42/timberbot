@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | Phase 1 implemented on 2026-05-25 (PR #78). Phase 2 implemented on 2026-05-25 — `subagent_wait_all` + `subagent_transcript` MCP tools, per-call timeout (`ServeConfig.subagent_call_timeout_s`, default 60 s), idle-timeout sweeper (`ServeConfig.subagent_idle_timeout_s`, default 600 s), subagent `ToolAction` routing with `[<subagent_id>]` prefix, subagent status changes surfaced as `SubagentStatusChange` protocol messages, soft `/cancel` semantics (`/halt` retains the hard tear-down). Phase 3 outstanding. |
-| Version | 0.3 |
+| Status | Phase 1 implemented on 2026-05-25 (PR #78). Phase 2 implemented on 2026-05-25 (PR #79). Phase 2 follow-up on 2026-05-26 — dialog-id routing replaces the per-user allowlist (the Telegram chat id is the deterministic delivery handle), subagent text streams to Telegram under a `[<subagent_id>]` header, subagent turn-end events ride in `meta.subagent_events` alongside game events so the main agent can pick them up without polling, idle-window behavior rule in the bootstrap. Phase 3 outstanding. |
+| Version | 0.4 |
 | Scope | A code-defined fleet of specialized subagents driven by the main `tbot serve` agent through MCP tools. Multi-session ACP connection management. |
 | Out of scope | Cross-user subagent sharing; warm-pool of pre-spawned agent runtimes; per-subagent model selection (all subagents inherit the main session's model). |
 | Companion documents | *Game Connector — ACP Integration & User Interaction*; *Game Agent Event Delivery — Tool Result Augmentation* |
@@ -132,7 +132,7 @@ class SubagentRun:
         "errored", "cancelled", "closed",
     ]
     transcript: list[Turn]                 # all (user_msg, agent_reply) pairs
-    current_turn: asyncio.Future[str] | None   # set while a turn is in flight
+    turn_task: asyncio.Task[str] | None    # set while a turn is in flight
     last_error: str | None
     created_at: float                      # monotonic
     last_active_at: float
@@ -197,7 +197,24 @@ the registry preserves the terminal status rather than overwriting it.
 
 ## 5. MCP tool surface
 
-All tools live in the `game` MCP server (`game_mcp/server.py`) and return the standard `{result, meta}` envelope. The shapes below describe the `result` block; `meta` is unchanged from existing tools.
+All tools live in the `game` MCP server (`game_mcp/server.py`) and return the standard `{result, meta}` envelope. The shapes below describe the `result` block.
+
+**Subagent events ride in `meta`.** As of Phase 2 follow-up, every `mcp__game__*` tool response includes `meta.subagent_events` next to the existing `meta.events` (game events). Each entry records a subagent turn-end that landed since this dialog's last MCP call:
+
+```jsonc
+{
+  "subagent_id": "scout-a8f3",
+  "agent": "scout",
+  "kind": "turn_completed",  // | turn_errored | turn_cancelled | closed
+  "status": "completed",
+  "stop_reason": "end_turn",
+  "reply_excerpt": "Best candidate: (66, 70, 4) facing south. …",
+  "last_error": null,
+  "timestamp": 1779712390.0
+}
+```
+
+The excerpt is trimmed to ~400 chars; for the full reply, call `subagent_transcript`. This lets the main agent fan out (`delegate(..., wait=False)`) and then *consume the results passively* by reading any next tool response's `meta` — no polling required.
 
 ### 5.1 `delegate(agent: str, task: str, wait: bool = False)`
 
@@ -329,38 +346,43 @@ Heavier payload than the other tools — instructions discourage routine use.
 
 ### 6.1 Idle timeout
 
-Each `SubagentRun` records `last_active_at` (updated on every `delegate`, `subagent_reply`, `subagent_wait`, `subagent_status` *for the targeted run*). A background task in the registry walks all runs every 30 s; any run whose status is `idle | completed | errored` and whose `last_active_at` is older than `SUBAGENT_IDLE_TIMEOUT` (default **600 s** = 10 minutes) is closed.
+Each `SubagentRun` records `last_active_at` (updated on every `delegate`, `subagent_reply`, `subagent_wait`, `subagent_status` *for the targeted run* — polling refreshes the clock). A background task in the registry walks all runs every 30 s; any run whose status is `idle | completed | errored | cancelled` and whose `last_active_at` is older than `SUBAGENT_IDLE_TIMEOUT` (default **600 s** = 10 minutes) is closed.
 
 Configurable per-serve via `ServeConfig.subagent_idle_timeout_s`. Running sessions are never auto-closed, regardless of `last_active_at`.
 
+**Bootstrap awareness.** The main agent's bootstrap §Delegation block tells the model: long pauses can sweep idle subagents out from under it, calling `subagent_status` (or any other read of the targeted run) refreshes the clock, and it should call `subagent_close` explicitly when it's done with a run instead of leaving the sweeper to clean up. Combined with `meta.subagent_events`, the model has both push and pull paths for subagent state without having to actively poll.
+
 ---
 
-## 7. The `user_id` discovery problem
+## 7. The `dialog_id` discovery problem
 
-The `delegate` MCP tool handler runs inside the FastMCP server in a request context that knows the SSE session id but not the Timberbot `user_id`. We need to map one to the other so the handler can pick the right `AgentConnection` and `SubagentRegistry`.
+The `delegate` MCP tool handler runs inside the FastMCP server in a request context that knows the SSE session id but not the originating Timberbot dialog. We need to map one to the other so the handler can pick the right `AgentConnection` and `SubagentRegistry`.
 
-**Approach (a) — explicit mapping table.** When `_user_message_loop` opens the main ACP session, it also records `mcp_session_id → user_id` in a process-global map. The `delegate` handler reads its FastMCP request context, pulls the SSE session id, and looks it up.
+**Dialog id, not user id.** The deterministic delivery handle for a chat is the *dialog* (chat) id — for Telegram, `str(chat.id)`. The bot always has it on every inbound message (it's set on every `Update`), so the same id can route an outbound reply back to the same chat with no fallback table. Per-user routing was the original idea (matching the `telegram_allowed_users` allowlist), but the user id never directly tells you which chat to reply to: the bot only learns the chat id when the user actually messages it. Switching the canonical key from "Telegram user id" to "Telegram chat id" eliminates that gap.
 
-Sketch:
+**Implementation.** When `_user_message_loop` opens a new main session for a dialog, it adds the dialog id as an HTTP header on the SSE MCP server config:
 
 ```python
-# at MCP server creation
-USER_BY_MCP_SESSION: dict[str, str] = {}
-
-# at main-session open in _user_message_loop
-mcp_session_id = await register_user_with_mcp(client, mcp, user_id)
-USER_BY_MCP_SESSION[mcp_session_id] = user_id
-
-# in the delegate tool handler
-def _calling_user_id(ctx: fastmcp.Context) -> str:
-    return USER_BY_MCP_SESSION[ctx.session_id]
+# in _mcp_servers_for_dialog
+return [{
+    "type": "sse",
+    "name": "game",
+    "url": f"http://{cfg.mcp_host}:{cfg.mcp_port}/sse",
+    "headers": [
+        {"name": "X-Timberbot-Dialog-Id", "value": str(dialog_id)},
+    ],
+}]
 ```
 
-The cleanest place to register is at `new_session(mcp_servers=...)` time — when the MCP client (the agent runtime) first connects, FastMCP emits a connect hook with the session id. We bind it to the user_id that triggered the `new_session` call.
+`SubagentBroker.lookup_by_request()` reads the same header off the current FastMCP HTTP request and returns the matching `UserState`. The header is set per-MCP-connection (which lives for the duration of the main ACP session), so every tool call inside that connection — main agent or subagent — carries the right dialog id automatically.
 
-Risks: a stale entry if the MCP session outlives the user's main agent session. Mitigation: drop the entry on `Session.close()`.
+**Allowlisting.** `ServeConfig.telegram_allowed_dialogs` is a list of chat ids permitted to talk to the bot. Group chats work without extra wiring (the chat id covers every member). The CLI also accepts the legacy `[serve.telegram] allowed_users` key for back-compat — values are treated as chat ids, which matches the 1:1 DM case (where `user_id == chat_id`).
 
-(b) — passing `user_id` as an explicit MCP tool argument — and (c) — running a separate MCP server per user — are both possible but worse, the first because it leaks identity into the prompt, the second because it multiplies the moving parts.
+**Why not also key the broker by FastMCP session id?** That option was considered (and described in earlier revisions of this doc); the HTTP header is the same idea expressed more directly. It works because the broker's lookup happens *inside the request* — `get_http_request()` already has the SSE headers in scope.
+
+Risks: a stale entry if the MCP session outlives the dialog's main ACP session. Mitigation: dropped on `SubagentBroker.unregister(dialog_id)` which fires during eviction.
+
+(b) — passing the dialog id as an explicit MCP tool argument — and (c) — running a separate MCP server per dialog — are both possible but worse, the first because it leaks identity into the prompt, the second because it multiplies the moving parts.
 
 ---
 

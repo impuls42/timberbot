@@ -1,4 +1,8 @@
-"""Tests for the Telegram allowlist: handler-level allow/deny + warning on empty list."""
+"""Tests for the Telegram allowlist: handler-level allow/deny + warning on empty list.
+
+The allowlist gates on Telegram *chat* id (not user id) since the dialog
+is the deterministic routing key — see protocol.UserMessage.dialog_id.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -54,37 +58,39 @@ class _FakeUpdate:
         self.callback_query = callback_query
 
 
-async def test_callback_handler_drops_disallowed_user() -> None:
+async def test_callback_handler_drops_disallowed_dialog() -> None:
     queue: asyncio.Queue = asyncio.Queue()
-    handlers = make_handlers(queue, allowed_users={42})
+    handlers = make_handlers(queue, allowed_dialogs={42})
     query = _FakeQuery(user_id=999, data="choice:abc:Yes")
-    update = _FakeUpdate(callback_query=query)
+    # chat_id 999 is NOT in the allowlist {42}
+    update = _FakeUpdate(chat_id=999, callback_query=query)
 
     await handlers["choice_callback"](update, MagicMock())
 
-    assert queue.empty(), "disallowed user's callback should not enqueue UserMessage"
+    assert queue.empty(), "disallowed dialog's callback should not enqueue UserMessage"
     assert query.answered is True, "should still answer the callback to dismiss the Telegram spinner"
 
 
-async def test_callback_handler_allows_listed_user() -> None:
+async def test_callback_handler_allows_listed_dialog() -> None:
     queue: asyncio.Queue = asyncio.Queue()
-    handlers = make_handlers(queue, allowed_users={42})
-    query = _FakeQuery(user_id=42, data="choice:abc:Yes")
-    update = _FakeUpdate(user_id=42, callback_query=query)
+    handlers = make_handlers(queue, allowed_dialogs={42})
+    query = _FakeQuery(user_id=999, data="choice:abc:Yes")
+    update = _FakeUpdate(chat_id=42, callback_query=query)
 
     await handlers["choice_callback"](update, MagicMock())
 
-    assert not queue.empty(), "allowed user should produce a UserMessage"
+    assert not queue.empty(), "allowed dialog should produce a UserMessage"
     msg = await queue.get()
     assert msg.text == "choice:abc:Yes"
-    assert msg.user_id == "42"
+    # dialog_id == str(chat_id), independent of which Telegram user posted.
+    assert msg.dialog_id == "42"
 
 
 async def test_callback_handler_no_allowlist_allows_anyone() -> None:
     queue: asyncio.Queue = asyncio.Queue()
-    handlers = make_handlers(queue, allowed_users=set())
+    handlers = make_handlers(queue, allowed_dialogs=set())
     query = _FakeQuery(user_id=12345, data="choice:abc:Yes")
-    update = _FakeUpdate(user_id=12345, callback_query=query)
+    update = _FakeUpdate(chat_id=12345, callback_query=query)
 
     await handlers["choice_callback"](update, MagicMock())
 
@@ -96,8 +102,8 @@ def test_telegram_adapter_warns_when_allowlist_empty(caplog: pytest.LogCaptureFi
     from timberbot.user_api.telegram.bot import TelegramAdapter
 
     with caplog.at_level(logging.WARNING, logger="timberbot.user_api"):
-        TelegramAdapter(token="1:fake", allowed_users=None)
-    assert any("no allowed_users configured" in r.getMessage() for r in caplog.records)
+        TelegramAdapter(token="1:fake", allowed_dialogs=None)
+    assert any("no allowed_dialogs configured" in r.getMessage() for r in caplog.records)
 
 
 def test_telegram_adapter_silent_with_allowlist(caplog: pytest.LogCaptureFixture) -> None:
@@ -105,5 +111,5 @@ def test_telegram_adapter_silent_with_allowlist(caplog: pytest.LogCaptureFixture
     from timberbot.user_api.telegram.bot import TelegramAdapter
 
     with caplog.at_level(logging.WARNING, logger="timberbot.user_api"):
-        TelegramAdapter(token="1:fake", allowed_users=[123, 456])
-    assert not any("no allowed_users configured" in r.getMessage() for r in caplog.records)
+        TelegramAdapter(token="1:fake", allowed_dialogs=[123, 456])
+    assert not any("no allowed_dialogs configured" in r.getMessage() for r in caplog.records)

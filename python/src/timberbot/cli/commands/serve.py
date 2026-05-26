@@ -93,27 +93,46 @@ def serve(
     # opencode still exposes `opencode acp`, so its binary matches the backend.
     default_binary = "claude-agent-acp" if backend == "claude" else backend
 
-    if "allowed_users" in tg_data:
-        raw = tg_data["allowed_users"]
-        if not isinstance(raw, list):
+    # `allowed_dialogs` is the dialog-id (chat-id) allowlist that replaced
+    # the `allowed_users` (per-Telegram-user) field. We honor both keys so
+    # existing config files keep working — `allowed_users` values are
+    # treated as Telegram chat ids for the bot's purposes (the common case
+    # is a 1:1 DM where user_id == chat_id anyway).
+    raw_dialogs = None
+    deprecated_key: str | None = None
+    if "allowed_dialogs" in tg_data:
+        raw_dialogs = tg_data["allowed_dialogs"]
+    elif "allowed_users" in tg_data:
+        raw_dialogs = tg_data["allowed_users"]
+        deprecated_key = "allowed_users"
+    if raw_dialogs is None:
+        allowed_dialogs: list[int] = []
+    else:
+        if not isinstance(raw_dialogs, list):
             print(
-                "error: [serve.telegram] allowed_users must be a list of integers "
-                "(Telegram user IDs); got "
-                f"{type(raw).__name__}. Refusing to start with a misconfigured allowlist.",
+                "error: [serve.telegram] allowed_dialogs must be a list of integers "
+                "(Telegram chat IDs); got "
+                f"{type(raw_dialogs).__name__}. Refusing to start with a misconfigured allowlist.",
                 file=sys.stderr,
             )
             return 1
         try:
-            allowed_users = [int(u) for u in raw]
+            allowed_dialogs = [int(u) for u in raw_dialogs]
         except (TypeError, ValueError):
             print(
-                "error: [serve.telegram] allowed_users must contain integers "
-                "(Telegram user IDs). Refusing to start with a misconfigured allowlist.",
+                "error: [serve.telegram] allowed_dialogs must contain integers "
+                "(Telegram chat IDs). Refusing to start with a misconfigured allowlist.",
                 file=sys.stderr,
             )
             return 1
-    else:
-        allowed_users = []
+        if deprecated_key is not None:
+            print(
+                f"warning: [serve.telegram] {deprecated_key} is deprecated; "
+                "use `allowed_dialogs` (a list of Telegram chat IDs) instead. "
+                "The two are interchangeable for direct messages — for group "
+                "chats, switch to the chat IDs you want the bot to serve.",
+                file=sys.stderr,
+            )
 
     cfg = ServeConfig(
         host=host,
@@ -126,7 +145,7 @@ def serve(
         model=model or cfg_data.get("model", "claude-opus-4-7"),
         acp_binary=acp_binary or cfg_data.get("acp_binary", default_binary),
         telegram_token=token,
-        telegram_allowed_users=allowed_users,
+        telegram_allowed_dialogs=allowed_dialogs,
         allowed_tools=cfg_data.get("allowed_tools", ["game.*"]),
         wait_for_mod=not no_wait,
     )

@@ -93,11 +93,11 @@ def harness() -> tuple[fastmcp.FastMCP, SubagentBroker, _FakeAgentConnection, Su
     broker = SubagentBroker()
     conn = _FakeAgentConnection()
     registry = SubagentRegistry()
-    broker._users["u1"] = UserState(
+    broker._dialogs["u1"] = UserState(
         conn=conn, registry=registry, agent_cwd="/tmp", mcp_servers=[],
     )
     # Stub the HTTP lookup so we don't need a real Starlette request.
-    broker.lookup_by_request = lambda: broker._users["u1"]  # type: ignore[assignment]
+    broker.lookup_by_request = lambda: broker._dialogs["u1"]  # type: ignore[assignment]
     register_delegation_tools(mcp, broker)
     return mcp, broker, conn, registry
 
@@ -149,12 +149,12 @@ async def test_delegate_wait_true_returns_reply(harness):
 
 
 @pytest.mark.asyncio
-async def test_delegate_no_user_bound_returns_error(harness):
+async def test_delegate_no_dialog_bound_returns_error(harness):
     mcp, broker, *_ = harness
     broker.lookup_by_request = lambda: None  # type: ignore[assignment]
     res = await _call(mcp, "delegate", agent="scout", task="hi")
     assert "error" in res
-    assert "no Timberbot user" in res["error"]
+    assert "no Timberbot dialog" in res["error"]
 
 
 # --- subagent_reply -----------------------------------------------------
@@ -523,7 +523,7 @@ async def test_delegate_wait_true_per_call_timeout(harness):
     return errored, not block forever."""
     mcp, broker, _, registry = harness
     # Tight timeout so the test runs fast.
-    broker._users["u1"].call_timeout_s = 0.05
+    broker._dialogs["u1"].call_timeout_s = 0.05
 
     # Park the session so the prompt never completes within the timeout.
     orig_open = registry.open
@@ -600,6 +600,47 @@ async def test_subagent_status_touches_last_active_at(harness):
 
 
 @pytest.mark.asyncio
+async def test_drive_turn_pushes_subagent_event_on_completion(harness):
+    """Every subagent turn-end appends a `SubagentEvent` to the registry's
+    pending-events queue, which game-MCP envelopes drain into
+    `meta.subagent_events`. wait=True flow: event lands during the call."""
+    mcp, _, _, registry = harness
+    await _call(mcp, "delegate", agent="scout", task="t", wait=True)
+    events = registry.drain_events()
+    assert len(events) == 1
+    e = events[0]
+    assert e["kind"] == "turn_completed"
+    assert e["status"] == "completed"
+    assert e["agent"] == "scout"
+    assert e["stop_reason"] == "end_turn"
+    assert e["reply_excerpt"] == "ok"
+    # Second drain is empty — queue clears after each read.
+    assert registry.drain_events() == []
+
+
+@pytest.mark.asyncio
+async def test_drive_turn_pushes_event_on_timeout(harness):
+    """A timed-out turn lands as `turn_errored` with `last_error` populated."""
+    mcp, broker, _, registry = harness
+    broker._dialogs["u1"].call_timeout_s = 0.05
+
+    orig_open = registry.open
+    async def open_and_park(*a, **k):
+        run = await orig_open(*a, **k)
+        run.session._block.clear()
+        return run
+    registry.open = open_and_park  # type: ignore[assignment]
+    try:
+        await _call(mcp, "delegate", agent="scout", task="t", wait=True)
+    finally:
+        registry.open = orig_open  # type: ignore[assignment]
+
+    events = registry.drain_events()
+    assert events and events[-1]["kind"] == "turn_errored"
+    assert "timeout" in (events[-1]["last_error"] or "")
+
+
+@pytest.mark.asyncio
 async def test_subagent_wait_touches_last_active_at(harness):
     """`subagent_wait` likewise keeps the run fresh against the sweeper."""
     mcp, _, _, registry = harness
@@ -614,16 +655,16 @@ async def test_subagent_wait_touches_last_active_at(harness):
     assert run.last_active_at > _time.monotonic() - 5.0
 
 
-# --- broker → user_id routing ------------------------------------------
+# --- broker → dialog_id routing ----------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_broker_register_then_lookup_by_id():
+async def test_broker_register_then_lookup_by_dialog_id():
     """The broker.register / get pair is the surface `tbot serve` calls."""
     broker = SubagentBroker()
     conn = _FakeAgentConnection()
     reg = broker.register(
-        user_id="alice", conn=conn, agent_cwd="/tmp", mcp_servers=[],
+        dialog_id="alice", conn=conn, agent_cwd="/tmp", mcp_servers=[],
     )
     assert isinstance(reg, SubagentRegistry)
     state = broker.get("alice")
