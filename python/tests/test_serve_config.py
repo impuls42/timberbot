@@ -80,28 +80,26 @@ def test_serve_rejects_unknown_backend(monkeypatch, capsys):
 
 
 def test_serve_accepts_known_backends(monkeypatch):
-    _stub_serve(monkeypatch, {})
+    _stub_serve(monkeypatch, {"dialog_id": "12345"})
     assert serve_mod.serve(backend="claude") == 0
     assert serve_mod.serve(backend="opencode") == 0
 
 
 def test_serve_rejects_empty_acp_binary(monkeypatch, capsys):
-    _stub_serve(monkeypatch, {})
+    _stub_serve(monkeypatch, {"dialog_id": "12345"})
     rc = serve_mod.serve(acp_binary="")
     assert rc == 1
     assert "--acp-binary must not be empty" in capsys.readouterr().err
 
 
-# -- allowlist config validation ------------------------------------------
+# -- dialog_id config validation ------------------------------------------
 
 def _stub_serve(monkeypatch, tg_data: dict) -> None:
-    """Minimal stub so `serve_mod.serve(...)` can reach the allowlist branch
-    without spinning up the actual asyncio.run(run_serve(...)) flow."""
+    """Minimal stub so `serve_mod.serve(...)` can reach the dialog_id
+    branch without spinning up the actual asyncio.run(run_serve(...)) flow."""
     monkeypatch.setattr(serve_mod, "serve_config", lambda: {})
     monkeypatch.setattr(serve_mod, "serve_telegram_config", lambda: tg_data)
     monkeypatch.setattr(serve_mod, "resolve_telegram_token", lambda *_: "fake-token")
-    # `serve()` now passes global --host/--port/--auth-token through to the
-    # resolvers; the stubs swallow whatever it forwards.
     monkeypatch.setattr(serve_mod, "resolve_endpoint", lambda *_a, **_kw: ("127.0.0.1", 8085))
     monkeypatch.setattr(serve_mod, "resolve_auth_token", lambda *_a, **_kw: None)
     monkeypatch.setattr(serve_mod, "resolve_ws_port", lambda *_: 8086)
@@ -114,29 +112,57 @@ def _stub_serve(monkeypatch, tg_data: dict) -> None:
     monkeypatch.setattr(serve_mod.asyncio, "run", _fake_run)
 
 
-def test_serve_rejects_allowed_users_not_a_list(monkeypatch, capsys):
-    _stub_serve(monkeypatch, {"allowed_users": 12345})
+def test_serve_rejects_legacy_allowed_users_key(monkeypatch, capsys):
+    """The earlier `allowed_users` allowlist is gone; surface a clear
+    migration error rather than silently ignoring the value."""
+    _stub_serve(monkeypatch, {"allowed_users": [12345]})
     rc = serve_mod.serve()
     assert rc == 1
     err = capsys.readouterr().err
-    assert "must be a list of integers" in err
-    assert "int" in err   # mentions the offending type
+    assert "allowed_users has been removed" in err
+    assert "dialog_id" in err
 
 
-def test_serve_rejects_allowed_users_with_non_integer(monkeypatch, capsys):
-    _stub_serve(monkeypatch, {"allowed_users": [123, "alice"]})
+def test_serve_rejects_legacy_allowed_dialogs_key(monkeypatch, capsys):
+    """`allowed_dialogs` was the intermediate name; equally gone now."""
+    _stub_serve(monkeypatch, {"allowed_dialogs": [12345]})
     rc = serve_mod.serve()
     assert rc == 1
-    assert "must contain integers" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "allowed_dialogs has been removed" in err
+    assert "dialog_id" in err
 
 
-def test_serve_accepts_empty_allowed_users(monkeypatch):
+def test_serve_rejects_missing_dialog_id(monkeypatch, capsys):
     _stub_serve(monkeypatch, {})
+    rc = serve_mod.serve()
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "dialog_id is required" in err
+
+
+def test_serve_rejects_non_numeric_dialog_id(monkeypatch, capsys):
+    _stub_serve(monkeypatch, {"dialog_id": "not-a-chat-id"})
+    rc = serve_mod.serve()
+    assert rc == 1
+    assert "dialog_id must be parseable" in capsys.readouterr().err
+
+
+def test_serve_accepts_string_dialog_id(monkeypatch):
+    _stub_serve(monkeypatch, {"dialog_id": "12345"})
     rc = serve_mod.serve()
     assert rc == 0
 
 
-def test_serve_accepts_valid_allowed_users(monkeypatch):
-    _stub_serve(monkeypatch, {"allowed_users": [123, 456]})
+def test_serve_accepts_integer_dialog_id(monkeypatch):
+    """TOML can encode small chat ids as ints; we normalize to string."""
+    _stub_serve(monkeypatch, {"dialog_id": 12345})
+    rc = serve_mod.serve()
+    assert rc == 0
+
+
+def test_serve_accepts_negative_supergroup_dialog_id(monkeypatch):
+    """Telegram supergroup ids are negative (e.g. -1001234567890)."""
+    _stub_serve(monkeypatch, {"dialog_id": "-1001234567890"})
     rc = serve_mod.serve()
     assert rc == 0

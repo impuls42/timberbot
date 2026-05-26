@@ -5,10 +5,11 @@ A `SubagentRun` is one delegation: a code-defined `AgentSpec`, the ACP
 and a status state machine (idle → running → completed | errored | cancelled
 → closed).
 
-`SubagentRegistry` is per-user — Timberbot's main `_user_message_loop` keeps
-one registry per user_id alongside the user's `AgentConnection`. The
-`delegate(...)` MCP tool reads the calling user via `USER_BY_MCP_SESSION`
-(see `user_api/serve.py`) and operates on that registry.
+`SubagentRegistry` is single-dialog — `tbot serve` binds to one Telegram
+chat at startup and the broker holds exactly one registry. The
+`delegate(...)` MCP tool retrieves it via
+`SubagentBroker.lookup_by_request()` (a plain getter in single-dialog
+mode; see `game_mcp/delegation.py`) and operates on that registry.
 
 Phase 1: open, get, close, list, status state machine, ID collision retry.
 Phase 2 (this file): idle-timeout sweeper task and a status-change observer
@@ -160,6 +161,10 @@ class SubagentRegistry:
             [SubagentRun, str, str, str | None], Awaitable[None] | None,
         ] | None = None
         self._sweeper_task: asyncio.Task[None] | None = None
+        # Pending subagent activity events for this dialog. Pushed when a
+        # turn ends; drained by the game MCP envelope so the main agent
+        # picks them up in `meta.subagent_events` on its next call.
+        self._pending_events: list[dict] = []
 
     def __contains__(self, subagent_id: str) -> bool:
         return subagent_id in self._runs
@@ -223,6 +228,12 @@ class SubagentRegistry:
         except Exception:  # noqa: BLE001 - close is best-effort
             log.exception("error closing subagent %s session", subagent_id)
         run.set_status("closed")
+        # Push a `closed` SubagentEvent so the main agent learns about the
+        # disposal via `meta.subagent_events` instead of having to poll
+        # `subagent_status` / `subagent_list`. The run is already off
+        # `_runs` here, but `push_event` only reads `run.spec` and
+        # `run.transcript`, both of which are still readable.
+        self.push_event(run, kind="closed")
 
     async def cancel(self, subagent_id: str) -> SubagentRun | None:
         """Cancel the in-flight turn; keep the session open.
@@ -253,6 +264,50 @@ class SubagentRegistry:
         """Cancel + close every run. Used on main-handle eviction."""
         for sid in list(self._runs.keys()):
             await self.close(sid)
+
+    # --- subagent events queue (for main-agent meta) ----------------------
+
+    # Reply excerpts are trimmed to keep the envelope small; the agent can
+    # fetch the full text via `subagent_transcript`.
+    _EXCERPT_CHARS: int = 400
+
+    def push_event(
+        self,
+        run: SubagentRun,
+        kind: str,
+        stop_reason: str | None = None,
+    ) -> None:
+        """Record a subagent turn-end event for later inclusion in
+        `meta.subagent_events`.
+
+        Called from the delegation layer's `_drive_turn` when a turn
+        reaches a terminal state. Kept on the registry (not the run)
+        because the consumer is the *dialog* (which reads through any
+        game MCP tool response), not any individual run.
+        """
+        reply = (run.transcript[-1].agent_reply if run.transcript else "") or ""
+        excerpt: str | None = None
+        if reply:
+            excerpt = reply if len(reply) <= self._EXCERPT_CHARS else reply[: self._EXCERPT_CHARS] + "…"
+        self._pending_events.append({
+            "subagent_id": run.subagent_id,
+            "agent": run.spec.slug,
+            "kind": kind,
+            "status": run.status,
+            "stop_reason": stop_reason or (
+                run.transcript[-1].stop_reason if run.transcript else None
+            ),
+            "reply_excerpt": excerpt,
+            "last_error": run.last_error,
+            "timestamp": time.monotonic(),
+        })
+
+    def drain_events(self) -> list[dict]:
+        """Return + clear all pending subagent events. Called per MCP
+        tool response by the game envelope builder."""
+        events = self._pending_events
+        self._pending_events = []
+        return events
 
     # --- idle sweeper ----------------------------------------------------
 

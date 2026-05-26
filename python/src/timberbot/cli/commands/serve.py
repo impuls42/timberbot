@@ -93,27 +93,53 @@ def serve(
     # opencode still exposes `opencode acp`, so its binary matches the backend.
     default_binary = "claude-agent-acp" if backend == "claude" else backend
 
-    if "allowed_users" in tg_data:
-        raw = tg_data["allowed_users"]
-        if not isinstance(raw, list):
+    # Single-dialog binding. The bot is pinned to exactly one Telegram
+    # chat for the lifetime of the serve instance — preemptive
+    # messaging (subagent completions, future game alerts) targets it
+    # directly. The earlier `allowed_users` / `allowed_dialogs` list
+    # keys were a wider design that's been narrowed; reject them with
+    # a clear migration message so an operator upgrading from a
+    # previous tbot doesn't accidentally fall through to the default
+    # empty config and stand up a bot that can't reach them.
+    for legacy in ("allowed_users", "allowed_dialogs"):
+        if legacy in tg_data:
             print(
-                "error: [serve.telegram] allowed_users must be a list of integers "
-                "(Telegram user IDs); got "
-                f"{type(raw).__name__}. Refusing to start with a misconfigured allowlist.",
+                f"error: [serve.telegram] {legacy} has been removed. "
+                "Use `dialog_id = \"<chat-id>\"` instead — a single "
+                "Telegram chat id (as a string) the bot binds to at "
+                "startup. To find your chat id, message the bot once "
+                "and read the chat_id from the logs.",
                 file=sys.stderr,
             )
             return 1
-        try:
-            allowed_users = [int(u) for u in raw]
-        except (TypeError, ValueError):
-            print(
-                "error: [serve.telegram] allowed_users must contain integers "
-                "(Telegram user IDs). Refusing to start with a misconfigured allowlist.",
-                file=sys.stderr,
-            )
-            return 1
-    else:
-        allowed_users = []
+    raw_dialog = tg_data.get("dialog_id")
+    if raw_dialog is None or raw_dialog == "":
+        print(
+            "error: [serve.telegram] dialog_id is required. Set "
+            "`dialog_id = \"<chat-id>\"` in config.toml — a single "
+            "Telegram chat id as a string. The bot binds to this "
+            "chat at startup; it needs to know where to send "
+            "unsolicited messages.",
+            file=sys.stderr,
+        )
+        return 1
+    # Accept int or str in the TOML; normalize to str. (TOML strings
+    # are required for supergroup ids that overflow JSON's int range,
+    # e.g. -1001234567890.)
+    telegram_dialog_id = (
+        str(raw_dialog) if isinstance(raw_dialog, int) else str(raw_dialog).strip()
+    )
+    # Sanity check: parses as int.
+    try:
+        int(telegram_dialog_id)
+    except (TypeError, ValueError):
+        print(
+            f"error: [serve.telegram] dialog_id must be parseable as a "
+            f"Telegram chat id (integer or numeric string); "
+            f"got {telegram_dialog_id!r}.",
+            file=sys.stderr,
+        )
+        return 1
 
     cfg = ServeConfig(
         host=host,
@@ -126,7 +152,7 @@ def serve(
         model=model or cfg_data.get("model", "claude-opus-4-7"),
         acp_binary=acp_binary or cfg_data.get("acp_binary", default_binary),
         telegram_token=token,
-        telegram_allowed_users=allowed_users,
+        telegram_dialog_id=telegram_dialog_id,
         allowed_tools=cfg_data.get("allowed_tools", ["game.*"]),
         wait_for_mod=not no_wait,
     )

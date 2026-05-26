@@ -1,6 +1,6 @@
 """Delegation MCP tool family.
 
-Phase 1 + Phase 2 surface:
+Surface:
 
 - `delegate`, `subagent_reply` — open / continue a subagent run.
 - `subagent_status`, `subagent_list` — non-blocking introspection.
@@ -8,11 +8,11 @@ Phase 1 + Phase 2 surface:
 - `subagent_transcript` — full conversation history for one run.
 - `subagent_cancel`, `subagent_close` — interrupt / release.
 
-The handlers run inside the FastMCP server's request context. They look up
-the calling user via the `X-Timberbot-User-Id` HTTP header on the SSE
-connection (threaded through by `_user_message_loop` when it opens the
-agent's MCP server config) and route to the right per-user
-`AgentConnection` + `SubagentRegistry`.
+`tbot serve` binds the broker to a single dialog at startup, so the
+broker holds exactly one `UserState` and `lookup_by_request()` is a
+plain getter — no per-request HTTP routing, no dialog→state lookup
+table. The tool handlers retrieve that state and operate on the
+dialog's `AgentConnection` + `SubagentRegistry`.
 
 See `design/subagent-delegation.md` §5 for the tool surface and §9 for the
 phase split.
@@ -49,15 +49,10 @@ DEFAULT_IDLE_TIMEOUT_S = 600.0
 
 log = logging.getLogger("timberbot.game_mcp.delegation")
 
-# Header used to pin a FastMCP request to its originating Timberbot user.
-# Set on the SSE MCP server config when the user's ACP session is opened
-# (see `user_api/serve.py:_user_message_loop`).
-USER_ID_HEADER = "X-Timberbot-User-Id"
-
 
 @dataclass
 class UserState:
-    """Per-user serve state the delegation tools need at request time."""
+    """The single-dialog serve state the delegation tools need at request time."""
     conn: AgentConnection
     registry: SubagentRegistry
     # The cwd + mcp_servers list to pass when opening a subagent session.
@@ -85,21 +80,20 @@ class UserState:
 
 
 class SubagentBroker:
-    """Process-global table of per-user state, looked up by HTTP header.
+    """Single-dialog state holder for the delegate-family MCP tools.
 
-    Populated by `_user_message_loop` when a user's `AgentConnection` is
-    opened, and cleared when that handle is evicted. The MCP tool handlers
-    call `lookup_by_request()` to find the calling user — which works
-    because `tbot serve` adds `X-Timberbot-User-Id: <user>` to the
-    SSE MCP server config it hands to the ACP agent.
+    `tbot serve` calls `bind(...)` once at startup, after which
+    `lookup_by_request()` (called by every tool handler) returns the
+    bound `UserState`. `unbind()` runs on teardown to close any live
+    subagent sessions. No per-request HTTP routing — there's only one
+    dialog the bot is bound to, so the lookup is a plain getter.
     """
 
     def __init__(self) -> None:
-        self._users: dict[str, UserState] = {}
+        self._state: UserState | None = None
 
-    def register(
+    def bind(
         self,
-        user_id: str,
         conn: AgentConnection,
         agent_cwd: str,
         mcp_servers: list[dict],
@@ -114,7 +108,10 @@ class SubagentBroker:
         ] | None = None,
     ) -> SubagentRegistry:
         registry = SubagentRegistry(idle_timeout_s=idle_timeout_s)
-        state = UserState(
+        # Hook the registry's status emitter to the user-supplied observer so
+        # every `run.status` transition surfaces via `SubagentStatusChange`.
+        registry.on_status_change = on_status_change  # type: ignore[assignment]
+        self._state = UserState(
             conn=conn,
             registry=registry,
             agent_cwd=agent_cwd,
@@ -123,48 +120,30 @@ class SubagentBroker:
             bind_subagent_callbacks=bind_subagent_callbacks,
             on_status_change=on_status_change,
         )
-        # Hook the registry's status emitter to the user-supplied observer so
-        # every `run.status` transition surfaces via `SubagentStatusChange`.
-        registry.on_status_change = on_status_change  # type: ignore[assignment]
-        self._users[user_id] = state
         registry.start_idle_sweeper()
         return registry
 
-    async def unregister(self, user_id: str) -> None:
-        state = self._users.pop(user_id, None)
+    async def unbind(self) -> None:
+        state = self._state
+        self._state = None
         if state is not None:
             await state.registry.close_all()
             await state.registry.stop_idle_sweeper()
 
-    def get(self, user_id: str) -> UserState | None:
-        return self._users.get(user_id)
+    def state(self) -> UserState | None:
+        return self._state
 
     def lookup_by_request(self) -> UserState | None:
-        """Read `X-Timberbot-User-Id` from the current HTTP request and
-        return that user's state, or None if no header / no match.
+        """Return the bound UserState, or None if `bind()` hasn't been
+        called yet (only happens in tests or before `tbot serve` finishes
+        startup wiring).
 
-        Logs a warning on every miss so a misconfigured caller (no HTTP
-        request context, missing header, unknown user) is visible in the
-        serve log rather than silently falling through to the tool's
-        `"no Timberbot user bound"` error reply.
+        Single-dialog mode collapses what used to be a header-based
+        lookup table into a plain getter. The MCP tool handlers' "no
+        Timberbot dialog bound" error path stays for the corner case
+        where a tool is called before `bind()` completes.
         """
-        from fastmcp.server.dependencies import get_http_request  # noqa: PLC0415
-        try:
-            req = get_http_request()
-        except Exception as exc:  # noqa: BLE001 - no request bound (test stub, etc.)
-            log.warning("delegate-family tool called outside HTTP request context: %s", exc)
-            return None
-        user_id = req.headers.get(USER_ID_HEADER) if req is not None else None
-        if not user_id:
-            log.warning(
-                "delegate-family tool called without %s header — cannot route",
-                USER_ID_HEADER,
-            )
-            return None
-        state = self._users.get(user_id)
-        if state is None:
-            log.warning("delegate-family tool: no registered user %r", user_id)
-        return state
+        return self._state
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +202,7 @@ async def _drive_turn(
     prompt_text: str,
     *,
     timeout_s: float,
+    registry: SubagentRegistry | None = None,
 ) -> str:
     """Run one prompt turn on `run.session` and record it in the transcript.
 
@@ -230,6 +210,10 @@ async def _drive_turn(
     cancelled, the run transitions to `errored` with `last_error="timeout"`,
     and the underlying `session.prompt_awaitable` task is cancelled so the
     session goes back to idle.
+
+    `registry` is the run's owning registry, used to push a subagent event
+    onto its dialog queue when the turn ends. Optional for tests that
+    drive `_drive_turn` directly with a fake.
     """
     run.set_status("running")
     started = time.monotonic()
@@ -248,11 +232,15 @@ async def _drive_turn(
         ))
         run.set_status("completed")
         run.touch()
+        if registry is not None:
+            registry.push_event(run, kind="turn_completed", stop_reason=stop_reason)
         return reply
     except asyncio.TimeoutError:
         run.last_error = f"timeout after {timeout_s:g}s"
         run.set_status("errored", detail=run.last_error)
         run.touch()
+        if registry is not None:
+            registry.push_event(run, kind="turn_errored")
         # The wait_for cancellation already propagated to prompt_awaitable.
         # Tell the agent runtime so it stops the underlying ACP turn too —
         # otherwise the model would keep generating into a session nobody
@@ -263,11 +251,15 @@ async def _drive_turn(
     except asyncio.CancelledError:
         run.set_status("cancelled")
         run.touch()
+        if registry is not None:
+            registry.push_event(run, kind="turn_cancelled")
         raise
     except Exception as exc:  # noqa: BLE001 - surfaced as run.last_error
         run.last_error = str(exc)
         run.set_status("errored", detail=run.last_error)
         run.touch()
+        if registry is not None:
+            registry.push_event(run, kind="turn_errored")
         raise
 
 
@@ -299,7 +291,7 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         """
         state = broker.lookup_by_request()
         if state is None:
-            return {"error": "no Timberbot user bound to this MCP session"}
+            return {"error": "no Timberbot dialog bound to this MCP session"}
         spec = _spec_for_slug(agent)
         if spec is None:
             available = [s.slug for s in SUBAGENTS]
@@ -321,7 +313,8 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         if wait:
             try:
                 reply = await _drive_turn(
-                    run, task, prompt_text, timeout_s=state.call_timeout_s,
+                    run, task, prompt_text,
+                    timeout_s=state.call_timeout_s, registry=state.registry,
                 )
             except asyncio.CancelledError:
                 # A concurrent `subagent_cancel` aborted this turn. `_drive_turn`
@@ -358,7 +351,10 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         # the duplication is intentional so a `subagent_status` racing this
         # return always sees "running", never an interim "idle".
         run.turn_task = asyncio.create_task(
-            _drive_turn(run, task, prompt_text, timeout_s=state.call_timeout_s),
+            _drive_turn(
+                run, task, prompt_text,
+                timeout_s=state.call_timeout_s, registry=state.registry,
+            ),
             name=f"subagent-turn-{run.subagent_id}",
         )
         run.turn_task.add_done_callback(_drain_background_turn)
@@ -375,7 +371,7 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         `message` as the user's next prompt with full prior context."""
         state = broker.lookup_by_request()
         if state is None:
-            return {"error": "no Timberbot user bound to this MCP session"}
+            return {"error": "no Timberbot dialog bound to this MCP session"}
         run = state.registry.get(subagent_id)
         if run is None:
             return {"error": f"unknown subagent_id: {subagent_id!r}"}
@@ -402,7 +398,8 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         if wait:
             try:
                 reply = await _drive_turn(
-                    run, message, message, timeout_s=state.call_timeout_s,
+                    run, message, message,
+                    timeout_s=state.call_timeout_s, registry=state.registry,
                 )
             except asyncio.CancelledError:
                 # Concurrent `subagent_cancel` — see the matching branch in
@@ -426,7 +423,10 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
             }
 
         run.turn_task = asyncio.create_task(
-            _drive_turn(run, message, message, timeout_s=state.call_timeout_s),
+            _drive_turn(
+                run, message, message,
+                timeout_s=state.call_timeout_s, registry=state.registry,
+            ),
             name=f"subagent-turn-{subagent_id}",
         )
         run.turn_task.add_done_callback(_drain_background_turn)
@@ -438,7 +438,7 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         """Cheap non-blocking peek: returns metadata only — no reply text."""
         state = broker.lookup_by_request()
         if state is None:
-            return {"error": "no Timberbot user bound to this MCP session"}
+            return {"error": "no Timberbot dialog bound to this MCP session"}
         run = state.registry.get(subagent_id)
         if run is None:
             return {"error": f"unknown subagent_id: {subagent_id!r}"}
@@ -460,7 +460,7 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         """
         state = broker.lookup_by_request()
         if state is None:
-            return {"error": "no Timberbot user bound to this MCP session"}
+            return {"error": "no Timberbot dialog bound to this MCP session"}
         run = state.registry.get(subagent_id)
         if run is None:
             return {"error": f"unknown subagent_id: {subagent_id!r}"}
@@ -502,7 +502,7 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         """Cancel the in-flight turn. Session stays open for follow-ups."""
         state = broker.lookup_by_request()
         if state is None:
-            return {"error": "no Timberbot user bound to this MCP session"}
+            return {"error": "no Timberbot dialog bound to this MCP session"}
         run = await state.registry.cancel(subagent_id)
         if run is None:
             return {"error": f"unknown subagent_id: {subagent_id!r}"}
@@ -513,7 +513,7 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         """Release the session and drop from the registry. The id is invalid afterwards."""
         state = broker.lookup_by_request()
         if state is None:
-            return {"error": "no Timberbot user bound to this MCP session"}
+            return {"error": "no Timberbot dialog bound to this MCP session"}
         if state.registry.get(subagent_id) is None:
             return {"error": f"unknown subagent_id: {subagent_id!r}"}
         await state.registry.close(subagent_id)
@@ -524,7 +524,7 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         """All subagents currently registered for the calling user."""
         state = broker.lookup_by_request()
         if state is None:
-            return {"error": "no Timberbot user bound to this MCP session"}
+            return {"error": "no Timberbot dialog bound to this MCP session"}
         return {"subagents": [_summary(r) for r in state.registry.list()]}
 
     @mcp.tool
@@ -541,7 +541,7 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         """
         state = broker.lookup_by_request()
         if state is None:
-            return {"error": "no Timberbot user bound to this MCP session"}
+            return {"error": "no Timberbot dialog bound to this MCP session"}
 
         runs = state.registry.list()
         if not runs:
@@ -590,7 +590,7 @@ def register_delegation_tools(mcp: fastmcp.FastMCP, broker: SubagentBroker) -> N
         """
         state = broker.lookup_by_request()
         if state is None:
-            return {"error": "no Timberbot user bound to this MCP session"}
+            return {"error": "no Timberbot dialog bound to this MCP session"}
         run = state.registry.get(subagent_id)
         if run is None:
             return {"error": f"unknown subagent_id: {subagent_id!r}"}

@@ -38,27 +38,31 @@ async def _ack(update: Update) -> None:
 
 def make_handlers(
     queue: asyncio.Queue,  # type: ignore[type-arg]
-    allowed_users: set[int] | None = None,
+    dialog_id: str,
 ) -> dict:  # type: ignore[type-arg]
-    # None and empty-set both mean "open" per the [serve.telegram] allowed_users spec.
-    allowed: set[int] = allowed_users if allowed_users is not None else set()
+    """Build the inbound handler set.
 
-    def _user_allowed(uid: int | None) -> bool:
-        if not allowed:
-            return True
-        return uid is not None and uid in allowed
+    `dialog_id` is the configured chat id (stringified). The
+    TelegramAdapter already gates command + text Updates by
+    `filters.Chat(chat_id=…)`, so handlers don't need to re-check —
+    except for callback queries, which Telegram doesn't filter the same
+    way, so the callback handler verifies `update.effective_chat.id`
+    against the configured chat explicitly.
+    """
+    expected_chat_id = int(dialog_id)
 
     async def _enqueue(update: Update, text: str) -> None:
-        if update.effective_user is None or update.effective_chat is None:
+        chat = update.effective_chat
+        if chat is None:
             return
         await queue.put(UserMessage(
-            user_id=str(update.effective_user.id),
+            dialog_id=str(chat.id),
             text=text,
-            chat_id=update.effective_chat.id,
+            chat_id=chat.id,
         ))
 
     async def prompt_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.effective_user is None or update.message is None or update.effective_chat is None:
+        if update.effective_chat is None or update.message is None:
             return
         text = " ".join(context.args or [])  # type: ignore[arg-type]
         if not text:
@@ -72,30 +76,30 @@ def make_handlers(
         await _enqueue(update, text)
 
     async def cancel_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.effective_user is None or update.message is None or update.effective_chat is None:
+        if update.effective_chat is None or update.message is None:
             return
         # No reaction: the loop replies synchronously with "halting" or
         # "no session" — the reply itself is the ack.
         await _enqueue(update, "/cancel")
 
     async def halt_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.effective_user is None or update.message is None or update.effective_chat is None:
+        if update.effective_chat is None or update.message is None:
             return
         await _enqueue(update, "/halt")
 
     async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.effective_user is None or update.message is None or update.effective_chat is None:
+        if update.effective_chat is None or update.message is None:
             return
         await _enqueue(update, "/status")
 
     async def state_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.effective_user is None or update.message is None or update.effective_chat is None:
+        if update.effective_chat is None or update.message is None:
             return
         await _enqueue(update, "/state")
 
     async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Plain (non-slash) text is forwarded to the agent as a prompt."""
-        if update.effective_user is None or update.message is None or update.effective_chat is None:
+        if update.effective_chat is None or update.message is None:
             return
         text = (update.message.text or "").strip()
         if not text:
@@ -105,10 +109,14 @@ def make_handlers(
 
     async def choice_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
-        if query is None or query.from_user is None or query.data is None or update.effective_chat is None:
+        chat = update.effective_chat
+        if query is None or query.data is None or chat is None:
             return
-        if not _user_allowed(query.from_user.id):
-            log.info("Dropping callback from non-allowed user %s", query.from_user.id)
+        # Callback queries bypass the adapter's `filters.Chat`; recheck
+        # here so a callback from any other chat (e.g. an inline keyboard
+        # forwarded elsewhere) doesn't smuggle commands through.
+        if chat.id != expected_chat_id:
+            log.info("Dropping callback from non-bound dialog %s", chat.id)
             await query.answer()
             return
         await query.answer()
@@ -119,9 +127,9 @@ def make_handlers(
             return
         _, correlation_id, choice = parts
         await queue.put(UserMessage(
-            user_id=str(query.from_user.id),
+            dialog_id=str(chat.id),
             text=f"choice:{correlation_id}:{choice}",
-            chat_id=update.effective_chat.id,
+            chat_id=chat.id,
         ))
 
     return {

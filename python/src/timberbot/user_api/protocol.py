@@ -4,15 +4,25 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Protocol
 
+# `dialog_id` is the deterministic identifier for a chat session — for
+# Telegram it's `str(chat.id)`. Replaces the older `user_id` (Telegram user
+# id) routing key: the bot always knows which chat to reply to even before
+# any ACP session is registered, because the dialog_id IS the chat handle.
+
 
 @dataclass
 class TextChunk:
     session_id: str
     text: str
-    # Optional fallback when session_id can't resolve to a chat yet (e.g. a
-    # message arrives before the first ACP session is registered). Adapters
-    # may use it to route by the originating user instead.
-    user_id: str | None = None
+    # Originating dialog (chat) for this chunk. Adapters resolve the target
+    # chat directly from this when the session_id binding isn't ready yet
+    # (e.g. first agent reply racing `register_chat`).
+    dialog_id: str | None = None
+    # When set, the chunk came from a subagent session. Adapters render it
+    # in a separate buffer so the user sees the subagent's text streaming
+    # under a `[<subagent_id>]` header rather than mixed into the main
+    # agent's reply.
+    subagent_id: str | None = None
 
 
 @dataclass
@@ -21,7 +31,7 @@ class SessionStateChange:
     # active | halting | ended | no session | error | info
     state: str
     detail: str | None = None
-    user_id: str | None = None
+    dialog_id: str | None = None
 
 
 @dataclass
@@ -30,21 +40,19 @@ class GameElicitation:
     question: str
     choices: list[str]
     correlation_id: str  # echo back with user's answer
-    user_id: str | None = None
+    dialog_id: str | None = None
 
 
 @dataclass
 class AgentFeedback:
+    """Agent-emitted bug/missing-feature notification.
+
+    In single-dialog mode the bot is bound to one chat at startup, so
+    feedback always routes there — no dialog_id field needed.
+    """
     category: str
     severity: str
     message: str
-    # Optional originating user — when set, the adapter targets only that
-    # user's chat instead of broadcasting to all bound chats. Carried for
-    # multi-user-ready routing; today the `complain` MCP tool can't yet
-    # discover which user it's serving (see design/subagent-delegation.md §7
-    # for the same routing concern in delegation), so this is wired but
-    # unused by the current `_on_complaint` callback.
-    user_id: str | None = None
 
 
 @dataclass
@@ -62,7 +70,7 @@ class ToolAction:
     summary: str
     # True for status="completed", False for "failed".
     ok: bool = True
-    user_id: str | None = None
+    dialog_id: str | None = None
     # When the action originated from a subagent (Phase 2), the
     # `<slug>-<nonce>` id of that subagent. The adapter renders a
     # `[<subagent_id>] …` prefix so the user can tell the source apart from
@@ -80,7 +88,7 @@ class SubagentStatusChange:
     line per transition so the player can see fan-out progress at a glance.
     """
 
-    user_id: str
+    dialog_id: str
     subagent_id: str
     agent: str  # the spec slug — "scout" / "wirer" / "auditor"
     prev_status: str
@@ -98,9 +106,18 @@ ConnectorMessage = (
 
 @dataclass
 class UserMessage:
-    user_id: str
+    """An inbound message from the player.
+
+    `dialog_id` is the canonical routing key — for Telegram it's the
+    `str(chat_id)`. `chat_id` is kept as a typed convenience so adapters
+    that need the raw int (e.g. `bot.send_message(chat_id=...)`) don't
+    have to parse the string back; downstream code should treat
+    `dialog_id` as the source of truth.
+    """
+
+    dialog_id: str
     text: str
-    chat_id: int | None = None  # opaque adapter-specific delivery handle
+    chat_id: int | None = None
     session_id: str | None = None  # None = let session manager create one
 
 
