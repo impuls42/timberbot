@@ -1706,8 +1706,8 @@ namespace Timberbot
 
             if (t.Relay != null)
             {
-                AddInput("a", t.Relay.InputA);
-                AddInput("b", t.Relay.InputB);
+                AddInput("a", t.Relay.GetInput(0));
+                AddInput("b", t.Relay.GetInput(1));
             }
             else if (t.Memory != null)
             {
@@ -1885,7 +1885,7 @@ namespace Timberbot
             s.Overburdened = t.Carrier != null && t.Carrier.IsMovementSlowed ? 1 : 0;
             if (t.Carrier != null && t.Carrier.IsCarrying)
             {
-                var ga = t.Carrier.CarriedGoods;
+                var ga = t.Carrier.CarriedGood.GoodAmount;
                 s.IsCarrying = 1;
                 s.CarryingGood = ga.GoodId;
                 s.CarryAmount = ga.Amount;
@@ -3521,4 +3521,3 @@ namespace Timberbot
         }
     }
 }
-

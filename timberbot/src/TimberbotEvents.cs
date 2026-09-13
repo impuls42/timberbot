@@ -96,7 +96,7 @@ namespace Timberbot
         [OnEvent] public void OnNightStart(Timberborn.TimeSystem.NighttimeStartEvent e) => PushEvent("night.start", DataInt("day", _dayNightCycle.DayNumber));
 
         // buildings
-        [OnEvent] public void OnBuildingFinished(EnteredFinishedStateEvent e) { try { var go = e.BlockObject?.GetComponent<EntityComponent>()?.GameObject; PushEvent("building.finished", DataEntity(go?.GetInstanceID() ?? 0, go != null ? CanonicalName(go.name) : "")); } catch (Exception _ex) { TimberbotLog.Error("events.building_finished", _ex); } }
+        [OnEvent] public void OnBuildingFinished(EnteredFinishedStateEvent e) { try { var ec = e.BlockObject?.GetComponent<EntityComponent>(); var id = ec != null ? Math.Abs(ec.EntityId.GetHashCode()) : 0; PushEvent("building.finished", DataEntity(id, ec != null ? CanonicalName(ec.GameObject.name) : "")); } catch (Exception _ex) { TimberbotLog.Error("events.building_finished", _ex); } }
         [OnEvent] public void OnDistrictChanged(Timberborn.GameDistricts.DistrictCenterRegistryChangedEvent e) => PushEvent("district.changed");
 
         // population

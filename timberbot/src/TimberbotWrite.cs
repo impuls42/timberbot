@@ -1070,12 +1070,12 @@ namespace Timberbot
             {
                 if (inputLower != "a" && inputLower != "b")
                     return _jw.Error("invalid_param: input must be a or b for Relay", ("got", input));
-                if (inputLower == "b" && !relay.UsesInputB)
+                if (inputLower == "b" && !relay.SupportsMultipleInputs)
                     return _jw.Error("invalid_param: Relay mode " + relay.Mode + " does not use input B. Change mode first with configure_automation property:mode", ("mode", relay.Mode.ToString()), ("availableModes", "And, Or, Xor"));
                 if (inputLower == "a")
-                    relay.SetInputA(sourceAutomator);
+                    relay.SetInput(sourceAutomator, 0);
                 else
-                    relay.SetInputB(sourceAutomator);
+                    relay.SetInput(sourceAutomator, 1);
                 PostLog($"Linked {sourceId} to input {input} of relay {targetId}");
                 return _jw.BeginObj()
                     .Prop("id", targetId)
@@ -1156,14 +1156,14 @@ namespace Timberbot
             {
                 if (inputLower != "a" && inputLower != "b")
                     return _jw.Error("invalid_param: input must be a or b for Relay", ("got", input));
-                if (inputLower == "b" && !relay.UsesInputB)
+                if (inputLower == "b" && !relay.SupportsMultipleInputs)
                     return _jw.Error("invalid_param: Relay mode " + relay.Mode + " does not use input B. Change mode first with configure_automation property:mode", ("mode", relay.Mode.ToString()), ("availableModes", "And, Or, Xor"));
                 
-                CaptureOldSource(inputLower == "a" ? relay.InputA : relay.InputB);
+                CaptureOldSource(relay.GetInput(inputLower == "a" ? 0 : 1));
                 if (inputLower == "a")
-                    relay.SetInputA(null);
+                    relay.SetInput(null, 0);
                 else
-                    relay.SetInputB(null);
+                    relay.SetInput(null, 1);
                 PostLog($"Disconnected input {input} of relay {targetId}");
                 return _jw.BeginObj()
                     .Prop("id", targetId)
@@ -1556,4 +1556,3 @@ namespace Timberbot
         // PLACEMENT VALIDATION
     }
 }
-
