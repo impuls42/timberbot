@@ -2243,15 +2243,15 @@ namespace Timberbot
             var placement = new Placement(new Vector3Int(gx, gy, z - baseZ), orient, FlipMode.Unflipped);
 
             var placer = _blockObjectPlacerService.GetMatchingPlacer(blockObjectSpec);
-            int placedId = 0;
-            string placedName = "";
-            placer.Place(blockObjectSpec, placement, (entity) =>
-            {
-                var ec = entity.GetComponent<EntityComponent>();
-                if (ec != null)
-                    placedId = _cache.GetLegacyId(ec);
-                placedName = TimberbotEntityRegistry.CanonicalName(entity.GameObject.name);
-            });
+            // Timberborn 1.1 changed IBlockObjectPlacer.Place to accept an
+            // EntitySetup.Builder and return no callback. Assign the GUID so
+            // the created entity can still be resolved deterministically.
+            var entityId = System.Guid.NewGuid();
+            var setup = new EntitySetup.Builder(buildingSpec.Blueprint).SetId(entityId);
+            placer.Place(setup, placement);
+            var placedEntity = _cache.FindEntity(entityId);
+            int placedId = placedEntity != null ? _cache.GetLegacyId(placedEntity) : 0;
+            string placedName = placedEntity != null ? TimberbotEntityRegistry.CanonicalName(placedEntity.GameObject.name) : "";
 
             if (placedId == 0)
                 return new PlaceBuildingResult { Error = "operation_failed: placer returned no entity, the game rejected the placement for an unknown reason", X = x, Y = y, Z = z, Prefab = prefabName };
@@ -2437,5 +2437,4 @@ namespace Timberbot
         }
     }
 }
-
 
