@@ -1691,7 +1691,7 @@ Wire a sensor, relay, or other transmitter output to an automation input on a bu
 |-------|------|----------|---------|-------------|
 | sourceId | int | yes | | Transmitter entity ID |
 | targetId | int | yes | | Target building entity ID |
-| input | string | no | "a" | Which input: "a", "b", or "reset" (for Relay/Memory only) |
+| input | string | no | "a" | Which input: "a" to "h" for Relay, "a", "b" or "reset" for Memory |
 
 ```json
 {"sourceId": 42, "targetId": 44, "input": "a"}
@@ -1705,13 +1705,15 @@ Wire a sensor, relay, or other transmitter output to an automation input on a bu
 
 For Automatable targets (single-input buildings), the `input` field always returns `"a"` regardless of what was passed, since these buildings have only one input.
 
+Relays in And/Or/Xor mode take up to 8 inputs, labelled A to H like the in-game relay panel. Linking a letter past the relay's last input adds it (any letters skipped in between stay empty).
+
 #### Errors
 
 | Error | Condition |
 |-------|-----------|
-| `invalid_param: input must be a or b for Relay` | Input is not "a" or "b" for a Relay target |
+| `invalid_param: input must be a-h for Relay` | Input is not a letter from "a" to "h" for a Relay target |
 | `invalid_param: input must be a, b, or reset for Memory` | Input is not valid for a Memory target |
-| `invalid_param: Relay mode X does not use input B` | Linking input B to a Relay in Not or Passthrough mode. Change mode first with `configure_automation property:mode` |
+| `invalid_param: Relay mode X does not use input B` | Linking input B (or C to H) to a Relay in Not or Passthrough mode. Change mode first with `configure_automation property:mode` |
 | `invalid_param: Memory mode X does not use input B` | Linking input B to a Memory in SetReset or Toggle mode. Change mode first with `configure_automation property:mode` |
 | `invalid_type: source is not a transmitter` | Source entity has no Automator or it's not a transmitter |
 | `invalid_type: target cannot accept automation input` | Target has no Automatable, Relay, or Memory component |
@@ -1729,7 +1731,7 @@ Disconnect an automation input on a building.
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | id | int | yes | | Target building entity ID |
-| input | string | no | "a" | Which input: "a", "b", or "reset" (for Relay/Memory only) |
+| input | string | no | "a" | Which input: "a" to "h" for Relay, "a", "b" or "reset" for Memory |
 
 ```json
 {"id": 44, "input": "a"}
@@ -1747,9 +1749,9 @@ For Automatable targets (single-input buildings), the `input` field always retur
 
 | Error | Condition |
 |-------|-----------|
-| `invalid_param: input must be a or b for Relay` | Input is not "a" or "b" for a Relay target |
+| `invalid_param: input must be a-h for Relay` | Input is not a letter from "a" to "h" for a Relay target |
 | `invalid_param: input must be a, b, or reset for Memory` | Input is not valid for a Memory target |
-| `invalid_param: Relay mode X does not use input B` | Unlinking input B from a Relay in Not or Passthrough mode |
+| `invalid_param: Relay mode X does not use input B` | Unlinking input B (or C to H) from a Relay in Not or Passthrough mode |
 | `invalid_param: Memory mode X does not use input B` | Unlinking input B from a Memory in SetReset or Toggle mode |
 | `invalid_type: target has no automation input` | Target has no Automatable, Relay, or Memory component |
 

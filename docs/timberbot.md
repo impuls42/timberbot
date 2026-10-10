@@ -190,7 +190,7 @@ Timberborn 1.0 introduced a full automation system: sensors detect conditions, r
 | Resource Counter | Triggers when a good's stock or fill rate meets a threshold |
 | Population Counter | Triggers when beaver/bot population meets a threshold |
 | Power Meter | Triggers when power production or consumption meets a threshold |
-| Relay | Combines two inputs with logic (Not/And/Or/Xor/Passthrough) |
+| Relay | Combines inputs with logic (Not/And/Or/Xor/Passthrough); And/Or/Xor take up to 8 inputs (A to H) |
 | Memory | Stores input state; reset via a third input |
 | Timer | Fires on a schedule |
 | Chronometer | Fires between start and end times |
@@ -202,7 +202,7 @@ Timberborn 1.0 introduced a full automation system: sensors detect conditions, r
 1. A **sensor/relay** has an `Automator` component (it is a transmitter).
 2. A **building** (pump, factory, gate, etc.) has an `Automatable` component (it accepts a wire).
 3. The API `link` call connects the transmitter's output to the building's pause input.
-4. For **relays and memory**, there are two inputs (A and B) and optionally a reset.
+4. **Memory** has two inputs (A and B) plus a reset. **Relays** have input A, and in And/Or/Xor mode up to 7 more (B to H).
 
 ### Configuring sensors
 
@@ -216,8 +216,8 @@ Each sensor has a threshold, a comparison mode (Equal, Greater, Less, etc.), and
 
 See `docs/api-reference.md` for the full endpoint reference. The key commands are:
 
-- `tbot link --source-id=<id> --target-id=<id> [--input=a|b]` — wire a sensor/relay to a building or relay input
-- `tbot unlink --id=<id> [--input=a|b|reset]` — remove a wire
+- `tbot link --source-id=<id> --target-id=<id> [--input=a..h|reset]` — wire a sensor/relay to a building or relay input
+- `tbot unlink --id=<id> [--input=a..h|reset]` — remove a wire
 - `tbot configure_automation --id=<id> --property=<prop> --value=<val>` — set threshold, mode, goodId, etc.
 
 ### Reading automation state

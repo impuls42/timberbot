@@ -2243,9 +2243,9 @@ namespace Timberbot
             var placement = new Placement(new Vector3Int(gx, gy, z - baseZ), orient, FlipMode.Unflipped);
 
             var placer = _blockObjectPlacerService.GetMatchingPlacer(blockObjectSpec);
-            // Timberborn 1.1 changed IBlockObjectPlacer.Place to accept an
-            // EntitySetup.Builder and return no callback. Assign the GUID so
-            // the created entity can still be resolved deterministically.
+            // Timberborn 1.1 changed IBlockObjectPlacer.Place to take an
+            // EntitySetup.Builder and dropped the callback. Pick the GUID up
+            // front so the created entity can be looked up right after.
             var entityId = System.Guid.NewGuid();
             var setup = new EntitySetup.Builder(buildingSpec.Blueprint).SetId(entityId);
             placer.Place(setup, placement);

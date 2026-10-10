@@ -38,7 +38,7 @@ The signal means "permission to run". `On` enables the building; `Off` pauses it
 - Lever pinned active   → output `On`
 - Lever pinned inactive → output `Off`
 - Relay mode `Not`         → output = NOT(inputA); only inputA is used
-- Relay mode `And/Or/Xor`  → output combines inputA and inputB
+- Relay mode `And/Or/Xor`  → output combines every connected input (a to h)
 - Relay mode `Passthrough` → output = inputA
 - Memory mode `SetReset`   → inputA sets, inputB resets
 - Memory mode `Toggle`     → inputA toggles on rising edge

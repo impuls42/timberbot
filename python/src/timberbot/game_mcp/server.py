@@ -719,7 +719,7 @@ def create_mcp_server(
         target_id: int = 0,
         input: str = "a",
     ) -> dict[str, Any]:
-        """Wire a sensor/relay output to a building automation input. input: a, b, or reset."""
+        """Wire a sensor/relay output to a building automation input. input: a-h (Relay), a, b or reset (Memory)."""
         loop = loop_getter()
         result = await loop.run_in_executor(
             None, lambda: client.link(source_id=source_id, target_id=target_id, input=input)
@@ -728,7 +728,7 @@ def create_mcp_server(
 
     @mcp.tool
     async def unlink(cursor: int = 0, id: int = 0, input: str = "a") -> dict[str, Any]:
-        """Disconnect an automation input. input: a, b, or reset."""
+        """Disconnect an automation input. input: a-h (Relay), a, b or reset (Memory)."""
         loop = loop_getter()
         result = await loop.run_in_executor(
             None, lambda: client.unlink(id=id, input=input)

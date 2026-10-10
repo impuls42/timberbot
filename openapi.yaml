@@ -2021,9 +2021,9 @@ paths:
                 targetId: { type: integer }
                 input:
                   type: string
-                  enum: [a, b, reset]
+                  enum: [a, b, c, d, e, f, g, h, reset]
                   default: a
-                  description: 'Input port (Memory components support "reset").'
+                  description: 'Input port. Relays take a to h (b to h only in And/Or/Xor mode); Memory takes a, b or reset.'
               additionalProperties: false
       responses:
         '200':
@@ -2047,7 +2047,7 @@ paths:
                 id: { type: integer }
                 input:
                   type: string
-                  enum: [a, b, reset]
+                  enum: [a, b, c, d, e, f, g, h, reset]
                   default: a
               additionalProperties: false
       responses:
