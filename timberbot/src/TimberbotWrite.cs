@@ -1049,7 +1049,7 @@ namespace Timberbot
             if (sourceAutomator == null || !sourceAutomator.IsTransmitter)
                 return _jw.Error("invalid_type: source is not a transmitter", ("id", sourceId), ("name", N(source)));
 
-            var inputLower = input?.ToLowerInvariant();
+            var inputLower = input?.Trim().ToLowerInvariant();
             var automatable = target.GetComponent<Automatable>();
             if (automatable != null)
             {
@@ -1076,11 +1076,11 @@ namespace Timberbot
                 // Linking past the last input grows the relay, same as the
                 // game's "add input" button (any skipped letters stay empty).
                 relay.SetInput(sourceAutomator, idx);
-                PostLog($"Linked {sourceId} to input {input} of relay {targetId}");
+                PostLog($"Linked {sourceId} to input {TimberbotPure.RelayInputKey(idx)} of relay {targetId}");
                 return _jw.BeginObj()
                     .Prop("id", targetId)
                     .Prop("name", N(target))
-                    .Prop("input", input)
+                    .Prop("input", TimberbotPure.RelayInputKey(idx))
                     .Prop("sourceId", sourceId)
                     .Prop("sourceName", N(source))
                     .Prop("connected", true)
@@ -1100,11 +1100,11 @@ namespace Timberbot
                     memory.SetInputB(sourceAutomator);
                 else
                     memory.SetResetInput(sourceAutomator);
-                PostLog($"Linked {sourceId} to input {input} of memory {targetId}");
+                PostLog($"Linked {sourceId} to input {inputLower} of memory {targetId}");
                 return _jw.BeginObj()
                     .Prop("id", targetId)
                     .Prop("name", N(target))
-                    .Prop("input", input)
+                    .Prop("input", inputLower)
                     .Prop("sourceId", sourceId)
                     .Prop("sourceName", N(source))
                     .Prop("connected", true)
@@ -1121,7 +1121,7 @@ namespace Timberbot
             if (target == null)
                 return _jw.Error("not_found: no entity with this id.", ("id", targetId));
 
-            var inputLower = input?.ToLowerInvariant();
+            var inputLower = input?.Trim().ToLowerInvariant();
 
             int oldSrcId = 0;
             string oldSrcName = "";
@@ -1165,11 +1165,11 @@ namespace Timberbot
                 CaptureOldSource(relay.GetInput(idx));
                 if (idx < relay.Inputs.Count)
                     relay.SetInput(null, idx);
-                PostLog($"Disconnected input {input} of relay {targetId}");
+                PostLog($"Disconnected input {TimberbotPure.RelayInputKey(idx)} of relay {targetId}");
                 return _jw.BeginObj()
                     .Prop("id", targetId)
                     .Prop("name", N(target))
-                    .Prop("input", input)
+                    .Prop("input", TimberbotPure.RelayInputKey(idx))
                     .Prop("connected", false)
                     .Prop("sourceId", oldSrcId)
                     .Prop("sourceName", oldSrcName)
@@ -1191,11 +1191,11 @@ namespace Timberbot
                     memory.SetInputB(null);
                 else
                     memory.SetResetInput(null);
-                PostLog($"Disconnected input {input} of memory {targetId}");
+                PostLog($"Disconnected input {inputLower} of memory {targetId}");
                 return _jw.BeginObj()
                     .Prop("id", targetId)
                     .Prop("name", N(target))
-                    .Prop("input", input)
+                    .Prop("input", inputLower)
                     .Prop("connected", false)
                     .Prop("sourceId", oldSrcId)
                     .Prop("sourceName", oldSrcName)

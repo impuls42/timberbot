@@ -204,8 +204,12 @@ namespace Timberbot.Tests
         [Fact]
         public void EmptyGuid_IsZero() => Assert.Equal(0, TimberbotPure.PublicId(Guid.Empty));
 
+        // Pins the derivation, not just stability: ids have always been
+        // |Guid.GetHashCode()|, and agents cache them in brain.toon across
+        // reloads (agent_prompts/timberbot.md). Swapping the hash would
+        // renumber every entity, and only this test would notice.
         [Fact]
-        public void UsesGuidHashCode()
+        public void DerivesFromGuidHashCode()
         {
             var g = new Guid("3f2504e0-4f89-11d3-9a0c-0305e82c3301");
             Assert.Equal(TimberbotPure.PublicIdFromHash(g.GetHashCode()), TimberbotPure.PublicId(g));
