@@ -1,3 +1,4 @@
+using System;
 using Xunit;
 using Timberbot;
 using Newtonsoft.Json.Linq;
@@ -159,6 +160,80 @@ namespace Timberbot.Tests
 
         [Fact]
         public void Empty_ReturnsSouth() => Assert.Equal(0, TimberbotPure.ParseOrientation(""));
+    }
+
+    public class RelayInputTests
+    {
+        [Theory]
+        [InlineData("a", 0)]
+        [InlineData("b", 1)]
+        [InlineData("c", 2)]
+        [InlineData("h", 7)]
+        [InlineData("B", 1)]
+        [InlineData(" c ", 2)]
+        [InlineData("i", -1)]
+        [InlineData("reset", -1)]
+        [InlineData("ab", -1)]
+        [InlineData("", -1)]
+        [InlineData("1", -1)]
+        public void ParsesInput(string input, int expected) =>
+            Assert.Equal(expected, TimberbotPure.RelayInputIndex(input));
+
+        [Fact]
+        public void Null_IsInvalid() => Assert.Equal(-1, TimberbotPure.RelayInputIndex(null));
+
+        [Theory]
+        [InlineData(0, "a")]
+        [InlineData(1, "b")]
+        [InlineData(7, "h")]
+        [InlineData(8, null)]
+        [InlineData(-1, null)]
+        public void KeyForIndex(int index, string expected) =>
+            Assert.Equal(expected, TimberbotPure.RelayInputKey(index));
+
+        [Fact]
+        public void KeyAndIndex_RoundTrip()
+        {
+            for (int i = 0; i < TimberbotPure.MaxRelayInputs; i++)
+                Assert.Equal(i, TimberbotPure.RelayInputIndex(TimberbotPure.RelayInputKey(i)));
+        }
+    }
+
+    public class PublicIdTests
+    {
+        [Fact]
+        public void EmptyGuid_IsZero() => Assert.Equal(0, TimberbotPure.PublicId(Guid.Empty));
+
+        [Fact]
+        public void UsesGuidHashCode()
+        {
+            var g = new Guid("3f2504e0-4f89-11d3-9a0c-0305e82c3301");
+            Assert.Equal(TimberbotPure.PublicIdFromHash(g.GetHashCode()), TimberbotPure.PublicId(g));
+        }
+
+        [Fact]
+        public void IsStableForEqualGuids()
+        {
+            var g = Guid.NewGuid();
+            Assert.Equal(TimberbotPure.PublicId(g), TimberbotPure.PublicId(new Guid(g.ToByteArray())));
+        }
+
+        [Fact]
+        public void IsAlwaysPositive_ForNonEmptyGuid()
+        {
+            for (int i = 0; i < 1000; i++)
+                Assert.True(TimberbotPure.PublicId(Guid.NewGuid()) > 0);
+        }
+
+        [Theory]
+        [InlineData(42, 42)]
+        [InlineData(-42, 42)]
+        [InlineData(int.MaxValue, int.MaxValue)]
+        [InlineData(-int.MaxValue, int.MaxValue)]
+        [InlineData(int.MinValue, int.MaxValue)]
+        [InlineData(0, 1)]
+        public void FromHash(int hash, int expected) =>
+            Assert.Equal(expected, TimberbotPure.PublicIdFromHash(hash));
     }
 
     public class CanonicalNameTests

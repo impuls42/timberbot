@@ -653,13 +653,13 @@ class TimberbotClient:
     # ------------------------------------------------------------------
 
     def link(self, source_id: int, target_id: int, input: str = "a") -> dict[str, Any]:
-        """Wire a sensor/relay output to a building automation input. input: a, b, or reset (for Memory)."""
+        """Wire a sensor/relay output to a building automation input. input: a-h (Relay), a, b or reset (Memory)."""
         return self._post("/api/automation/link", {
             "sourceId": source_id, "targetId": target_id, "input": input,
         })
 
     def unlink(self, id: int, input: str = "a") -> dict[str, Any]:
-        """Disconnect an automation input. input: a, b, or reset (for Memory)."""
+        """Disconnect an automation input. input: a-h (Relay), a, b or reset (Memory)."""
         return self._post("/api/automation/unlink", {"id": id, "input": input})
 
     def configure_automation(self, id: int, property: str, value: str) -> dict[str, Any]:

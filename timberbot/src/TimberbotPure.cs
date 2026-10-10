@@ -435,7 +435,40 @@ namespace Timberbot
             }
         }
 
+        // --- from TimberbotWrite / TimberbotReadV2 (Relay inputs) ---
+
+        // Timberborn 1.1 relays take a variable number of inputs. The game's
+        // relay panel labels them A-H ("ABCDEFGH" in AutomationBuildingsUI),
+        // so the API exposes the same letters. a and b keep their 1.0 meaning.
+        public const int MaxRelayInputs = 8;
+
+        public static int RelayInputIndex(string input)
+        {
+            if (input == null) return -1;
+            var s = input.Trim().ToLowerInvariant();
+            if (s.Length != 1) return -1;
+            int idx = s[0] - 'a';
+            return idx >= 0 && idx < MaxRelayInputs ? idx : -1;
+        }
+
+        public static string RelayInputKey(int index) =>
+            index >= 0 && index < MaxRelayInputs ? ((char)('a' + index)).ToString() : null;
+
         // --- from TimberbotEntityRegistry ---
+
+        // Public integer id for an entity GUID. Every endpoint and event must
+        // use this so ids line up across the API. Guid.Empty has no public id.
+        public static int PublicId(Guid entityId) =>
+            entityId == Guid.Empty ? 0 : PublicIdFromHash(entityId.GetHashCode());
+
+        // Split out so tests don't depend on the runtime's Guid.GetHashCode
+        // (Mono in game, CoreCLR in tests: the two compute it differently).
+        public static int PublicIdFromHash(int hash)
+        {
+            // Math.Abs(int.MinValue) throws OverflowException
+            int h = hash == int.MinValue ? int.MaxValue : Math.Abs(hash);
+            return h == 0 ? 1 : h;
+        }
 
         public static string CanonicalName(string name)
         {

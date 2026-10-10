@@ -1706,8 +1706,9 @@ namespace Timberbot
 
             if (t.Relay != null)
             {
-                AddInput("a", t.Relay.GetInput(0));
-                AddInput("b", t.Relay.GetInput(1));
+                int n = Math.Min(t.Relay.Inputs.Count, TimberbotPure.MaxRelayInputs);
+                for (int i = 0; i < n; i++)
+                    AddInput(TimberbotPure.RelayInputKey(i), t.Relay.GetInput(i));
             }
             else if (t.Memory != null)
             {

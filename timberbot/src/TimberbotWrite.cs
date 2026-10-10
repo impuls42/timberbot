@@ -1068,14 +1068,14 @@ namespace Timberbot
             var relay = target.GetComponent<Relay>();
             if (relay != null)
             {
-                if (inputLower != "a" && inputLower != "b")
-                    return _jw.Error("invalid_param: input must be a or b for Relay", ("got", input));
-                if (inputLower == "b" && !relay.SupportsMultipleInputs)
-                    return _jw.Error("invalid_param: Relay mode " + relay.Mode + " does not use input B. Change mode first with configure_automation property:mode", ("mode", relay.Mode.ToString()), ("availableModes", "And, Or, Xor"));
-                if (inputLower == "a")
-                    relay.SetInput(sourceAutomator, 0);
-                else
-                    relay.SetInput(sourceAutomator, 1);
+                int idx = TimberbotPure.RelayInputIndex(inputLower);
+                if (idx < 0)
+                    return _jw.Error("invalid_param: input must be a-h for Relay", ("got", input));
+                if (idx > 0 && !relay.SupportsMultipleInputs)
+                    return _jw.Error("invalid_param: Relay mode " + relay.Mode + " does not use input " + TimberbotPure.RelayInputKey(idx).ToUpperInvariant() + ". Change mode first with configure_automation property:mode", ("mode", relay.Mode.ToString()), ("availableModes", "And, Or, Xor"));
+                // Linking past the last input grows the relay, same as the
+                // game's "add input" button (any skipped letters stay empty).
+                relay.SetInput(sourceAutomator, idx);
                 PostLog($"Linked {sourceId} to input {input} of relay {targetId}");
                 return _jw.BeginObj()
                     .Prop("id", targetId)
@@ -1154,16 +1154,17 @@ namespace Timberbot
             var relay = target.GetComponent<Relay>();
             if (relay != null)
             {
-                if (inputLower != "a" && inputLower != "b")
-                    return _jw.Error("invalid_param: input must be a or b for Relay", ("got", input));
-                if (inputLower == "b" && !relay.SupportsMultipleInputs)
-                    return _jw.Error("invalid_param: Relay mode " + relay.Mode + " does not use input B. Change mode first with configure_automation property:mode", ("mode", relay.Mode.ToString()), ("availableModes", "And, Or, Xor"));
-                
-                CaptureOldSource(relay.GetInput(inputLower == "a" ? 0 : 1));
-                if (inputLower == "a")
-                    relay.SetInput(null, 0);
-                else
-                    relay.SetInput(null, 1);
+                int idx = TimberbotPure.RelayInputIndex(inputLower);
+                if (idx < 0)
+                    return _jw.Error("invalid_param: input must be a-h for Relay", ("got", input));
+                if (idx > 0 && !relay.SupportsMultipleInputs)
+                    return _jw.Error("invalid_param: Relay mode " + relay.Mode + " does not use input " + TimberbotPure.RelayInputKey(idx).ToUpperInvariant() + ". Change mode first with configure_automation property:mode", ("mode", relay.Mode.ToString()), ("availableModes", "And, Or, Xor"));
+
+                // Disconnect in place so later letters don't shift. Skip
+                // inputs the relay doesn't have: SetInput would create them.
+                CaptureOldSource(relay.GetInput(idx));
+                if (idx < relay.Inputs.Count)
+                    relay.SetInput(null, idx);
                 PostLog($"Disconnected input {input} of relay {targetId}");
                 return _jw.BeginObj()
                     .Prop("id", targetId)
