@@ -1705,7 +1705,7 @@ Wire a sensor, relay, or other transmitter output to an automation input on a bu
 
 For Automatable targets (single-input buildings), the `input` field always returns `"a"` regardless of what was passed, since these buildings have only one input.
 
-Relays in And/Or/Xor mode take up to 8 inputs, labelled A to H like the in-game relay panel. Linking a letter past the relay's last input adds it (any letters skipped in between stay empty).
+Relays in And/Or/Xor mode take up to 8 inputs, labelled A to H like the in-game relay panel. Linking a letter past the relay's last input adds it (any letters skipped in between stay empty). Letters are positions: removing an input with the relay panel's close button shifts the later inputs down a letter, so re-read the building before relying on a letter you stored earlier.
 
 #### Errors
 
@@ -1744,6 +1744,8 @@ Disconnect an automation input on a building.
 ```
 
 For Automatable targets (single-input buildings), the `input` field always returns `"a"`.
+
+Unlinking a relay input that is already empty, or a letter the relay doesn't have yet, changes nothing and returns `"connected": false` with `"sourceId": 0`. Unlink disconnects in place and never removes the input, so the other letters keep their positions.
 
 #### Errors
 
